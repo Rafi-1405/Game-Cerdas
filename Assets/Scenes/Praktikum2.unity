@@ -1103,6 +1103,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::NPCBrain
   sensor: {fileID: 1461263616}
   agent: {fileID: 1461263614}
+  npcRenderer: {fileID: 1461263611}
   patrolPoints:
   - {fileID: 1406699824}
   - {fileID: 468177791}
@@ -1110,8 +1111,14 @@ MonoBehaviour:
   - {fileID: 188422668}
   waypointTolerance: 0.7
   patrolSpeed: 2
+  baseTurnSpeed: 10
   chaseSpeed: 4
   searchDuration: 4
+  searchTurnSpeed: 60
+  patrolColor: {r: 0, g: 1, b: 0, a: 1}
+  suspiciousColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  chaseColor: {r: 1, g: 0, b: 0, a: 1}
+  searchColor: {r: 0, g: 0, b: 1, a: 1}
   currentState: 0
 --- !u!114 &1461263616
 MonoBehaviour:
@@ -1132,6 +1139,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 8
   eyeHeight: 1.2
+  walkHearRadius: 5
+  runHearRadius: 10
 --- !u!1 &1786850791
 GameObject:
   m_ObjectHideFlags: 0
@@ -1164,7 +1173,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 740ce4fe380c57e4daaf2c9b4c26b8ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
-  moveSpeed: 5
+  sneakSpeed: 2
+  walkSpeed: 5
+  runSpeed: 8
   rotationSpeed: 10
 --- !u!136 &1786850793
 CapsuleCollider:
