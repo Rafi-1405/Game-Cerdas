@@ -1,12 +1,15 @@
 using UnityEngine;
 using UnityEngine.AI;
 
+[ExecuteAlways]
 [DisallowMultipleComponent]
 public class CharacterModelVisual : MonoBehaviour
 {
-    private const string VisualChildName = "Walking_Visual";
+    private const string VisualChildName = "YBot_Visual";
+    private const string PreviousVisualChildName = "Walking_Visual";
 
     [SerializeField] private string modelResourcePath = "Walking";
+    [SerializeField] private string animationResourcePath = "Walking";
     [SerializeField] private Vector3 localPosition = new Vector3(0f, -1f, 0f);
     [SerializeField] private Vector3 localEulerAngles = Vector3.zero;
     [SerializeField] private Vector3 localScale = Vector3.one;
@@ -29,6 +32,12 @@ public class CharacterModelVisual : MonoBehaviour
         playerController = GetComponent<PlayerController>();
         navMeshAgent = GetComponent<NavMeshAgent>();
 
+        if (Application.isPlaying)
+        {
+            DestroyVisual(VisualChildName);
+            DestroyVisual(PreviousVisualChildName);
+        }
+
         Transform visual = CreateVisual();
         if (visual == null)
         {
@@ -47,6 +56,27 @@ public class CharacterModelVisual : MonoBehaviour
             walkState.speed = GetAnimationSpeed();
         }
 
+        CopyCurrentColor();
+    }
+
+    private void Start()
+    {
+        if (!Application.isPlaying)
+        {
+            return;
+        }
+
+        DestroyVisual(VisualChildName);
+        DestroyVisual(PreviousVisualChildName);
+
+        Transform visual = CreateVisual();
+        if (visual == null)
+        {
+            return;
+        }
+
+        modelRenderers = visual.GetComponentsInChildren<Renderer>();
+        PrepareWalkAnimation(visual);
         CopyCurrentColor();
     }
 
@@ -81,7 +111,21 @@ public class CharacterModelVisual : MonoBehaviour
 
     private Transform CreateVisual()
     {
+        if (sourceRenderer != null)
+        {
+            sourceRenderer.enabled = false;
+        }
+
         Transform existingVisual = transform.Find(VisualChildName);
+        if (existingVisual == null)
+        {
+            existingVisual = transform.Find(PreviousVisualChildName);
+            if (existingVisual != null)
+            {
+                existingVisual.name = VisualChildName;
+            }
+        }
+
         if (existingVisual != null)
         {
             return existingVisual;
@@ -100,12 +144,16 @@ public class CharacterModelVisual : MonoBehaviour
         visual.transform.localRotation = Quaternion.Euler(localEulerAngles);
         visual.transform.localScale = localScale;
 
-        if (sourceRenderer != null)
-        {
-            sourceRenderer.enabled = false;
-        }
-
         return visual.transform;
+    }
+
+    private void DestroyVisual(string visualName)
+    {
+        Transform visual = transform.Find(visualName);
+        if (visual != null)
+        {
+            DestroyImmediate(visual.gameObject);
+        }
     }
 
     private void PrepareWalkAnimation(Transform visual)
@@ -116,7 +164,7 @@ public class CharacterModelVisual : MonoBehaviour
             animationComponent = visual.gameObject.AddComponent<Animation>();
         }
 
-        foreach (AnimationClip clip in Resources.LoadAll<AnimationClip>(modelResourcePath))
+        foreach (AnimationClip clip in Resources.LoadAll<AnimationClip>(animationResourcePath))
         {
             if (clip == null || clip.length <= 0f)
             {
@@ -132,7 +180,7 @@ public class CharacterModelVisual : MonoBehaviour
 
         if (walkState == null)
         {
-            Debug.LogError("Walking.fbx tidak memiliki clip animasi.", this);
+            Debug.LogError($"{animationResourcePath}.fbx tidak memiliki clip animasi.", this);
         }
     }
 
