@@ -1205,6 +1205,7 @@ GameObject:
   - component: {fileID: 1461263614}
   - component: {fileID: 1461263616}
   - component: {fileID: 1461263615}
+  - component: {fileID: 1461263617}
   m_Layer: 0
   m_Name: NPC_Guard
   m_TagString: Enemy
@@ -1402,6 +1403,27 @@ MonoBehaviour:
   eyeHeight: 1.2
   walkHearRadius: 5
   runHearRadius: 10
+--- !u!114 &1461263617
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1461263608}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a7f8c0f40d343bf9a60b584a291e445, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterModelVisual
+  modelResourcePath: Walking
+  localPosition: {x: 0, y: -1, z: 0}
+  localEulerAngles: {x: 0, y: 0, z: 0}
+  localScale: {x: 1, y: 1, z: 1}
+  sneakAnimationSpeed: 0.75
+  playerWalkAnimationSpeed: 1.25
+  playerRunAnimationSpeed: 1.75
+  npcPatrolAnimationSpeed: 1.2
+  npcChaseAnimationSpeed: 1.75
 --- !u!1 &1742764624
 GameObject:
   m_ObjectHideFlags: 0
@@ -1528,6 +1550,7 @@ GameObject:
   - component: {fileID: 1786850793}
   - component: {fileID: 1786850792}
   - component: {fileID: 1786850797}
+  - component: {fileID: 1786850798}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -1673,6 +1696,27 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 80
   m_CollisionDetection: 0
+--- !u!114 &1786850798
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1786850791}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a7f8c0f40d343bf9a60b584a291e445, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterModelVisual
+  modelResourcePath: Walking
+  localPosition: {x: 0, y: -1, z: 0}
+  localEulerAngles: {x: 0, y: 0, z: 0}
+  localScale: {x: 1, y: 1, z: 1}
+  sneakAnimationSpeed: 0.75
+  playerWalkAnimationSpeed: 1.25
+  playerRunAnimationSpeed: 1.75
+  npcPatrolAnimationSpeed: 1.2
+  npcChaseAnimationSpeed: 1.75
 --- !u!1 &1871409011
 GameObject:
   m_ObjectHideFlags: 0
