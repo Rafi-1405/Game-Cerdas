@@ -9,6 +9,7 @@ public enum PlayerMovementState
     Run
 }
 
+[RequireComponent(typeof(Rigidbody))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Movement Speeds")]
@@ -19,8 +20,16 @@ public class PlayerController : MonoBehaviour
     [Header("Rotation")]
     [SerializeField] private float rotationSpeed = 10f;
 
-    // Properti publik agar status pemain bisa dibaca oleh sensor NPC
     public PlayerMovementState CurrentState { get; private set; }
+
+    private Rigidbody rb;
+    private Vector3 movementInput;
+    private float currentSpeed;
+
+    private void Awake()
+    {
+        rb = GetComponent<Rigidbody>();
+    }
 
     private void Update()
     {
@@ -35,12 +44,11 @@ public class PlayerController : MonoBehaviour
         if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) vertical += 1f;
         if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) vertical -= 1f;
 
-        Vector3 movement = new Vector3(horizontal, 0f, vertical).normalized;
+        // Store direction to class variable movementInput so FixedUpdate can use it
+        movementInput = new Vector3(horizontal, 0f, vertical).normalized;
 
-        // Menentukan status (State) dan kecepatan berdasarkan input tambahan
-        float currentSpeed = walkSpeed;
-
-        if (movement == Vector3.zero)
+        // Determine state and calculate speed into class-level variable currentSpeed
+        if (movementInput == Vector3.zero)
         {
             CurrentState = PlayerMovementState.Idle;
             currentSpeed = 0f;
@@ -61,14 +69,18 @@ public class PlayerController : MonoBehaviour
             currentSpeed = walkSpeed;
         }
 
-        // Terapkan pergerakan
-        transform.position += movement * currentSpeed * Time.deltaTime;
-
-        // Terapkan rotasi jika sedang bergerak
-        if (movement != Vector3.zero)
+        // Apply visual rotation using movementInput
+        if (movementInput != Vector3.zero)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(movement);
+            Quaternion targetRotation = Quaternion.LookRotation(movementInput);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
         }
+    }
+
+    private void FixedUpdate()
+    {
+        // Move using Rigidbody position update in physics loop
+        Vector3 targetPosition = rb.position + movementInput * currentSpeed * Time.fixedDeltaTime;
+        rb.MovePosition(targetPosition);
     }
 }
