@@ -12,7 +12,15 @@ public class NPCBrain : MonoBehaviour
     [SerializeField] private float patrolSpeed = 2f;
     [SerializeField] private float chaseSpeed = 4f;
     [SerializeField] private float searchDuration = 4f;
+    [SerializeField] private float searchTurnSpeed = 60f;
 
+    [Header("Colors Indicator")]
+    [SerializeField] private Color patrolColor = Color.darkBlue;
+    [SerializeField] private Color suspiciousColor = Color.yellow;
+    [SerializeField] private Color chaseColor = Color.red;
+    [SerializeField] private Color searchColor = Color.blue;
+
+    [Header("Current State (Debug)")]
     [SerializeField] private NPCState currentState;
 
     private Vector3 lastKnownPosition;
