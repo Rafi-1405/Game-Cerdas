@@ -34,7 +34,13 @@ public class PlayerController : MonoBehaviour
     private void Update()
     {
         Keyboard keyboard = Keyboard.current;
-        if (keyboard == null) return;
+        if (keyboard == null)
+        {
+            movementInput = Vector3.zero;
+            CurrentState = PlayerMovementState.Idle;
+            currentSpeed = 0f;
+            return;
+        }
 
         float horizontal = 0f;
         if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) horizontal += 1f;
@@ -44,11 +50,17 @@ public class PlayerController : MonoBehaviour
         if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed) vertical += 1f;
         if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed) vertical -= 1f;
 
-        // Store direction to class variable movementInput so FixedUpdate can use it
-        movementInput = new Vector3(horizontal, 0f, vertical).normalized;
+        Vector3 direction = new Vector3(horizontal, 0f, vertical);
+        if (direction.sqrMagnitude > 1f)
+        {
+            direction.Normalize();
+        }
+
+        // Store direction so FixedUpdate can move the Rigidbody in the physics loop.
+        movementInput = direction;
 
         // Determine state and calculate speed into class-level variable currentSpeed
-        if (movementInput == Vector3.zero)
+        if (direction.sqrMagnitude < 0.001f)
         {
             CurrentState = PlayerMovementState.Idle;
             currentSpeed = 0f;
@@ -70,9 +82,9 @@ public class PlayerController : MonoBehaviour
         }
 
         // Apply visual rotation using movementInput
-        if (movementInput != Vector3.zero)
+        if (direction.sqrMagnitude > 0.001f)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(movementInput);
+            Quaternion targetRotation = Quaternion.LookRotation(direction);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
         }
     }
