@@ -76,7 +76,8 @@ public class NPCBrain : MonoBehaviour
     {
         if (sensor.CanSeePlayer)
         {
-            if (currentState != NPCState.Chase) AlertNearbyGuards();
+            // Berteriak (memancarkan radar) terus-menerus selama mengejar
+            AlertNearbyGuards();
             currentState = NPCState.Chase;
             return;
         }
