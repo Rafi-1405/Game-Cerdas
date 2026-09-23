@@ -226,12 +226,21 @@ public class NPCBrain : MonoBehaviour
     // Fungsi komunikasi antar penjaga (Shared Alert)
     public void ReceiveAlert(Vector3 targetPos)
     {
-        if (currentState == NPCState.Patrol || currentState == NPCState.Suspicious)
+        // Abaikan teriakan jika guard ini SUDAH melihat player (Chase)
+        if (currentState != NPCState.Chase)
         {
             lastKnownPosition = targetPos;
             hasLastKnownPosition = true;
-            searchTimer = searchDuration;
-            currentState = NPCState.Search; // Guard yang dipanggil akan ikut mencari ke lokasi
+            
+            // Selalu reset waktu tempuh karena ada update kordinat baru
+            searchTravelTimer = 5f;
+
+            // Jangan reset timer menoleh jika Guard ini sudah berada di mode Search
+            if (currentState != NPCState.Search)
+            {
+                searchTimer = searchDuration;
+                currentState = NPCState.Search; // Guard ikut mencari ke lokasi
+            }
         }
     }
 
