@@ -28,6 +28,8 @@ public class SteeringAgent : MonoBehaviour
 
     [SerializeField]
     private float stopRadius = 1.5f;
+    
+    public float StopRadius { get => stopRadius; set => stopRadius = value; }
 
     [Header("Wander")]
 
@@ -48,6 +50,17 @@ public class SteeringAgent : MonoBehaviour
     [SerializeField]
     private float avoidanceWeight = 2.5f;
 
+    [Header("Separation (Multiple Guards)")]
+    
+    [SerializeField]
+    private LayerMask agentMask; // Layer NPC/Guard
+    
+    [SerializeField]
+    private float separationRadius = 1.5f;
+    
+    [SerializeField]
+    private float separationWeight = 1.5f;
+
     private Vector3 velocity;
 
     private Vector3 wanderDirection;
@@ -55,6 +68,23 @@ public class SteeringAgent : MonoBehaviour
     private float wanderTimer;
 
     public Vector3 Velocity => velocity;
+
+    // --- FITUR INTEGRASI DENGAN NPCBRAIN ---
+    public bool IsStopped { get; set; } = false;
+
+    public void SetTarget(Transform newTarget, float speed)
+    {
+        target = newTarget;
+        useTarget = true;
+        maxSpeed = speed;
+    }
+
+    public void ClearTarget()
+    {
+        target = null;
+        useTarget = false;
+    }
+    // ---------------------------------------
 
     private void Start()
     {
@@ -64,6 +94,13 @@ public class SteeringAgent : MonoBehaviour
 
     private void Update()
     {
+        if (IsStopped)
+        {
+            velocity = Vector3.MoveTowards(velocity, Vector3.zero, maxAcceleration * Time.deltaTime);
+            ApplyMovement();
+            return;
+        }
+
         Vector3 desiredVelocity;
 
         if (useTarget && target != null)
@@ -75,8 +112,19 @@ public class SteeringAgent : MonoBehaviour
             desiredVelocity = CalculateWander();
         }
 
-        desiredVelocity =
-            ApplyObstacleAvoidance(desiredVelocity);
+        desiredVelocity = ApplyObstacleAvoidance(desiredVelocity);
+        
+        // --- TAMBAHAN SEPARATION UNTUK MULTIPLE GUARDS ---
+        Vector3 separationForce = CalculateSeparation();
+        if (separationForce.sqrMagnitude > 0.001f)
+        {
+            desiredVelocity += separationForce * separationWeight;
+            if (desiredVelocity.sqrMagnitude > 0.001f)
+            {
+                desiredVelocity = Vector3.ClampMagnitude(desiredVelocity, Mathf.Max(desiredVelocity.magnitude, maxSpeed));
+            }
+        }
+        // -------------------------------------------------
 
         velocity =
             Vector3.MoveTowards(
@@ -205,8 +253,18 @@ public class SteeringAgent : MonoBehaviour
 
     private void ApplyMovement()
     {
-        transform.position +=
-            velocity * Time.deltaTime;
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null && !rb.isKinematic)
+        {
+            // Menginjeksi kecepatan langsung ke mesin fisika (bebas bug pelambatan frame)
+            // Sumbu Y dibiarkan menggunakan rb.velocity.y asli agar gravitasi tetap bekerja
+            rb.linearVelocity = new Vector3(velocity.x, rb.linearVelocity.y, velocity.z);
+        }
+        else
+        {
+            // Fallback manual (bisa tembus jika sensor gagal di sudut siku-siku)
+            transform.position += velocity * Time.deltaTime;
+        }
     }
 
     private void UpdateRotation()
@@ -214,22 +272,56 @@ public class SteeringAgent : MonoBehaviour
         Vector3 horizontalVelocity = velocity;
         horizontalVelocity.y = 0f;
 
-        if (horizontalVelocity.sqrMagnitude < 0.001f)
+        // Naikkan batas toleransi agar getaran kecil tidak memicu rotasi
+        if (horizontalVelocity.sqrMagnitude < 0.05f)
         {
             return;
         }
 
-        Quaternion targetRotation =
-            Quaternion.LookRotation(
-                horizontalVelocity.normalized
-            );
+        // KUNCI ANTI-SPIN BADAN: Menggunakan RotateTowards agar kecepatan putar terkunci
+        // dan mustahil berputar 360 derajat secara tak terkendali.
+        Vector3 currentForward = transform.forward;
+        currentForward.y = 0f;
+        
+        Vector3 newForward = Vector3.RotateTowards(
+            currentForward, 
+            horizontalVelocity.normalized, 
+            turnSpeed * Time.deltaTime, 
+            0f
+        );
 
-        transform.rotation =
-            Quaternion.Slerp(
-                transform.rotation,
-                targetRotation,
-                turnSpeed * Time.deltaTime
-            );
+        if (newForward.sqrMagnitude > 0.001f)
+        {
+            transform.rotation = Quaternion.LookRotation(newForward);
+        }
+    }
+
+    private Vector3 CalculateSeparation()
+    {
+        Collider[] neighbors = Physics.OverlapSphere(transform.position, separationRadius, agentMask);
+        Vector3 separation = Vector3.zero;
+        int count = 0;
+
+        foreach (Collider neighbor in neighbors)
+        {
+            if (neighbor.transform == transform) continue;
+            
+            // PENGAMAN MUTLAK: Pastikan yang ditabrak benar-benar Guard lain, bukan Tembok/Lantai!
+            if (neighbor.GetComponent<SteeringAgent>() == null) continue;
+
+            Vector3 away = transform.position - neighbor.transform.position;
+            away.y = 0f;
+            float sqrDistance = away.sqrMagnitude;
+
+            if (sqrDistance > 0.001f)
+            {
+                separation += away.normalized / Mathf.Max(sqrDistance, 0.01f);
+                count++;
+            }
+        }
+
+        if (count > 0) separation /= count;
+        return separation;
     }
 
     private void OnDrawGizmosSelected()

@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.AI;
 
 public class NPCBrain : MonoBehaviour
 {
@@ -7,29 +6,34 @@ public class NPCBrain : MonoBehaviour
 
     [Header("Components")]
     [SerializeField] private NPCSensor sensor;
-    [SerializeField] private NavMeshAgent agent;
+    [SerializeField] private SteeringAgent steeringAgent;
     [SerializeField] private Renderer npcRenderer;
 
-    [Header("Patrol Settings")]
+    [Header("Waypoints (Tanpa NavMesh)")]
     [SerializeField] private Transform[] patrolPoints;
-    [SerializeField] private float waypointTolerance = 0.7f;
-    [SerializeField] private float patrolSpeed = 2f;
+    [SerializeField] private float patrolPauseTime = 2f;
+    private float patrolWaitTimer;
+    private int patrolIndex = 0;
 
-    [Header("Suspicious Settings")]
-    [SerializeField] private float baseTurnSpeed = 10f;
-
-    [Header("Chase Settings")]
+    [Header("Settings")]
+    [SerializeField] private float patrolSpeed = 2.5f;
     [SerializeField] private float chaseSpeed = 5f;
-
-    [Header("Search Settings")]
+    [SerializeField] private float baseTurnSpeed = 10f;
     [SerializeField] private float searchDuration = 4f;
     [SerializeField] private float searchTurnSpeed = 60f;
+    [SerializeField] private float arrivalTolerance = 1.5f;
 
-    [Header("Colors Indicator")]
+    [Header("UI Indicators & Visuals")]
+    [SerializeField] private GameObject exclamationMark;
+    [SerializeField] private GameObject questionMark;
     [SerializeField] private Color patrolColor = Color.green;
     [SerializeField] private Color suspiciousColor = Color.yellow;
     [SerializeField] private Color chaseColor = Color.red;
     [SerializeField] private Color searchColor = Color.blue;
+
+    [Header("Shared Alert (Komunikasi Guard)")]
+    [SerializeField] private float shoutRadius = 15f;
+    [SerializeField] private LayerMask guardLayerMask;
 
     [Header("Current State (Debug)")]
     [SerializeField] private NPCState currentState;
@@ -37,12 +41,18 @@ public class NPCBrain : MonoBehaviour
     private Vector3 lastKnownPosition;
     private bool hasLastKnownPosition;
     private float searchTimer;
-    private int patrolIndex = 0;
+    private float searchTravelTimer;
+    private GameObject searchMarker;
+
+    private void Awake()
+    {
+        searchMarker = new GameObject("SearchMarker_" + gameObject.name);
+    }
 
     private void Start()
     {
         currentState = NPCState.Patrol;
-        GoToCurrentPatrolPoint();
+        patrolWaitTimer = patrolPauseTime;
     }
 
     private void Update()
@@ -50,7 +60,7 @@ public class NPCBrain : MonoBehaviour
         UpdateMemory();
         MakeDecision();
         ExecuteCurrentState();
-        UpdateColor();
+        UpdateVisuals();
     }
 
     private void UpdateMemory()
@@ -64,46 +74,54 @@ public class NPCBrain : MonoBehaviour
 
     private void MakeDecision()
     {
-        // 1. Prioritas Utama: Melihat Player (Mengejar)
         if (sensor.CanSeePlayer)
         {
+            if (currentState != NPCState.Chase) AlertNearbyGuards();
             currentState = NPCState.Chase;
             return;
         }
 
-        // 2. Kehilangan jejak setelah mengejar -> Mencari (Search)
         if (currentState == NPCState.Chase)
         {
             searchTimer = searchDuration;
+            searchTravelTimer = 5f; // Batas waktu maksimal mencoba jalan ke titik (5 detik)
             currentState = NPCState.Search;
             return;
         }
 
-        // 3. Prioritas Kedua: Mendengar Suara (Suspicious)
-        // DIBLOKIR saat sedang Search. Suspicious hanya aktif jika NPC sedang Patroli.
         if (sensor.CanHearPlayer && currentState == NPCState.Patrol)
         {
             currentState = NPCState.Suspicious;
             return;
         }
 
-        // 4. Jika suara hilang saat Suspicious, kembali berpatroli
         if (currentState == NPCState.Suspicious && !sensor.CanHearPlayer)
         {
             currentState = NPCState.Patrol;
-            GoToCurrentPatrolPoint();
             return;
         }
 
-        // 5. Logika Durasi Pencarian (Search)
         if (currentState == NPCState.Search)
         {
-            searchTimer -= Time.deltaTime;
-            if (searchTimer <= 0f)
+            Vector3 flatPos = new Vector3(transform.position.x, 0, transform.position.z);
+            Vector3 flatTarget = new Vector3(lastKnownPosition.x, 0, lastKnownPosition.z);
+            
+            bool arrived = Vector3.Distance(flatPos, flatTarget) <= 0.6f;
+            
+            // Kurangi waktu batas jalan
+            if (!arrived) searchTravelTimer -= Time.deltaTime;
+            
+            bool gaveUp = searchTravelTimer <= 0f;
+
+            // Jika sudah sampai ATAU sudah nyerah karena nyangkut tembok
+            if (arrived || gaveUp)
             {
-                hasLastKnownPosition = false;
-                currentState = NPCState.Patrol;
-                GoToCurrentPatrolPoint(); // PENTING: Mengembalikan target ke titik patroli terakhir
+                searchTimer -= Time.deltaTime;
+                if (searchTimer <= 0f)
+                {
+                    hasLastKnownPosition = false;
+                    currentState = NPCState.Patrol;
+                }
             }
         }
     }
@@ -113,94 +131,155 @@ public class NPCBrain : MonoBehaviour
         switch (currentState)
         {
             case NPCState.Patrol:
-                agent.isStopped = false;
-                agent.speed = patrolSpeed;
-                if (!agent.pathPending && agent.remainingDistance <= waypointTolerance)
+                if (patrolPoints != null && patrolPoints.Length > 0)
                 {
-                    patrolIndex = (patrolIndex + 1) % patrolPoints.Length;
-                    GoToCurrentPatrolPoint();
+                    Vector3 flatPos = new Vector3(transform.position.x, 0, transform.position.z);
+                    Vector3 flatWaypoint = new Vector3(patrolPoints[patrolIndex].position.x, 0, patrolPoints[patrolIndex].position.z);
+                    float dist = Vector3.Distance(flatPos, flatWaypoint);
+
+                    // Saat ke waypoint, kita ingin dia mendarat persis (StopRadius kecil)
+                    steeringAgent.StopRadius = 0.5f;
+
+                    if (dist <= arrivalTolerance && steeringAgent.Velocity.sqrMagnitude < 0.2f)
+                    {
+                        steeringAgent.IsStopped = true;
+                        
+                        // Menoleh ke kiri dan ke kanan selama waktu stop
+                        float sweepAngle = Mathf.Sin(Time.time * 3f) * searchTurnSpeed * Time.deltaTime;
+                        transform.Rotate(0f, sweepAngle, 0f);
+
+                        patrolWaitTimer -= Time.deltaTime;
+                        if (patrolWaitTimer <= 0f)
+                        {
+                            patrolIndex = (patrolIndex + 1) % patrolPoints.Length;
+                            patrolWaitTimer = patrolPauseTime;
+                        }
+                    }
+                    else
+                    {
+                        steeringAgent.IsStopped = false;
+                        steeringAgent.SetTarget(patrolPoints[patrolIndex], patrolSpeed);
+                    }
+                }
+                else
+                {
+                    steeringAgent.StopRadius = 0.5f;
+                    steeringAgent.IsStopped = false;
+                    steeringAgent.ClearTarget();
                 }
                 break;
 
             case NPCState.Suspicious:
-                agent.isStopped = true; // Berhenti berjalan
-                
-                // Menoleh ke arah sumber suara
+                steeringAgent.IsStopped = true; 
                 Vector3 dirToSound = (sensor.LastHeardPosition - transform.position).normalized;
                 dirToSound.y = 0; 
                 if (dirToSound != Vector3.zero)
                 {
                     float dist = Vector3.Distance(transform.position, sensor.LastHeardPosition);
-                    float turnSpeed = baseTurnSpeed / Mathf.Max(dist, 1f); // Semakin dekat, makin cepat menoleh
-                    
+                    float turnSpeed = baseTurnSpeed / Mathf.Max(dist, 1f);
                     Quaternion targetRot = Quaternion.LookRotation(dirToSound);
                     transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
                 }
                 break;
 
             case NPCState.Chase:
-                agent.isStopped = false;
-                agent.speed = chaseSpeed;
-                if (sensor.Player != null) 
-                {
-                    agent.SetDestination(sensor.Player.position);
-                }
+                steeringAgent.IsStopped = false;
+                // Saat mengejar Player, hentikan NPC sebelum menabrak badan Player
+                steeringAgent.StopRadius = 1.5f; 
+                steeringAgent.SetTarget(sensor.Player, chaseSpeed);
                 break;
 
             case NPCState.Search:
-                agent.speed = patrolSpeed;
-                
                 if (hasLastKnownPosition)
                 {
-                    agent.SetDestination(lastKnownPosition);
+                    searchMarker.transform.position = lastKnownPosition;
                     
-                    // Jika sudah sampai di Last Known Position, maka "Melihat Sekitar"
-                    if (!agent.pathPending && agent.remainingDistance <= waypointTolerance)
+                    // Kita ingin dia mendarat TEPAT di titik terakhir Player terlihat
+                    steeringAgent.StopRadius = 0.5f;
+
+                    float dist = Vector3.Distance(transform.position, lastKnownPosition);
+                    
+                    Vector3 flatPos = new Vector3(transform.position.x, 0, transform.position.z);
+                    Vector3 flatTarget = new Vector3(lastKnownPosition.x, 0, lastKnownPosition.z);
+                    
+                    bool arrived = Vector3.Distance(flatPos, flatTarget) <= 0.6f;
+                    bool gaveUp = searchTravelTimer <= 0f;
+
+                    // Baru menoleh JIKA sudah berdiri tepat di atas titik tersebut ATAU menyerah karena nyangkut
+                    if (arrived || gaveUp)
                     {
-                        agent.isStopped = true;
-                        // Rotasi bolak-balik menyapu pandangan
+                        steeringAgent.IsStopped = true; 
                         float sweepAngle = Mathf.Sin(Time.time * 3f) * searchTurnSpeed * Time.deltaTime;
                         transform.Rotate(0f, sweepAngle, 0f);
                     }
                     else
                     {
-                        agent.isStopped = false;
+                        steeringAgent.IsStopped = false;
+                        steeringAgent.SetTarget(searchMarker.transform, patrolSpeed);
                     }
                 }
                 break;
         }
     }
 
-    private void GoToCurrentPatrolPoint()
+    // Fungsi komunikasi antar penjaga (Shared Alert)
+    public void ReceiveAlert(Vector3 targetPos)
     {
-        if (patrolPoints != null && patrolPoints.Length > 0) 
+        if (currentState == NPCState.Patrol || currentState == NPCState.Suspicious)
         {
-            agent.isStopped = false;
-            agent.SetDestination(patrolPoints[patrolIndex].position);
+            lastKnownPosition = targetPos;
+            hasLastKnownPosition = true;
+            searchTimer = searchDuration;
+            currentState = NPCState.Search; // Guard yang dipanggil akan ikut mencari ke lokasi
         }
     }
 
-    private void UpdateColor()
+    private void AlertNearbyGuards()
     {
-        if (npcRenderer == null) return;
-        
-        switch (currentState)
+        Collider[] allies = Physics.OverlapSphere(transform.position, shoutRadius, guardLayerMask);
+        foreach (Collider ally in allies)
         {
-            case NPCState.Patrol: npcRenderer.material.color = patrolColor; break;
-            case NPCState.Suspicious: npcRenderer.material.color = suspiciousColor; break;
-            case NPCState.Chase: npcRenderer.material.color = chaseColor; break;
-            case NPCState.Search: npcRenderer.material.color = searchColor; break;
+            NPCBrain allyBrain = ally.GetComponent<NPCBrain>();
+            if (allyBrain != null && allyBrain != this)
+            {
+                allyBrain.ReceiveAlert(sensor.Player.position);
+            }
         }
+    }
+
+    private void UpdateVisuals()
+    {
+        // 1. Update Warna
+        if (npcRenderer != null)
+        {
+            switch (currentState)
+            {
+                case NPCState.Patrol: npcRenderer.material.color = patrolColor; break;
+                case NPCState.Suspicious: npcRenderer.material.color = suspiciousColor; break;
+                case NPCState.Chase: npcRenderer.material.color = chaseColor; break;
+                case NPCState.Search: npcRenderer.material.color = searchColor; break;
+            }
+        }
+
+        // 2. Update Indikator UI (! dan ?)
+        if (exclamationMark != null) 
+            exclamationMark.SetActive(currentState == NPCState.Chase);
+        
+        if (questionMark != null) 
+            questionMark.SetActive(currentState == NPCState.Suspicious || currentState == NPCState.Search);
     }
 
     private void OnDrawGizmos()
     {
         if (hasLastKnownPosition)
         {
-            // Menandai posisi terakhir pemain diingat
             Gizmos.color = Color.magenta;
             Gizmos.DrawSphere(lastKnownPosition, 0.3f);
             Gizmos.DrawLine(transform.position, lastKnownPosition);
         }
+
+        // Gambar radius teriakan peringatan
+        Gizmos.color = new Color(1f, 0.5f, 0f, 0.2f); // Orange transparan
+        Gizmos.DrawWireSphere(transform.position, shoutRadius);
     }
 }

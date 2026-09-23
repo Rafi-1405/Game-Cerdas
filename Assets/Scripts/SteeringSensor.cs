@@ -23,26 +23,26 @@ public class SteeringSensor : MonoBehaviour
 
     private bool obstacleDetected;
     private RaycastHit lastHit;
+    private Vector3 smoothedAvoidance; // Memori penghalus belokan
 
     public bool ObstacleDetected => obstacleDetected;
 
     public RaycastHit LastHit => lastHit;
 
-    public Vector3 GetAvoidanceDirection(
-        Vector3 movementDirection)
+    public Vector3 GetAvoidanceDirection(Vector3 movementDirection)
     {
         obstacleDetected = false;
 
         if (movementDirection.sqrMagnitude < 0.001f)
         {
-            return Vector3.zero;
+            smoothedAvoidance = Vector3.Lerp(smoothedAvoidance, Vector3.zero, 10f * Time.deltaTime);
+            return smoothedAvoidance;
         }
 
         movementDirection.Normalize();
 
-        Vector3 origin =
-            transform.position +
-            Vector3.up * sensorHeight;
+        Vector3 origin = transform.position + Vector3.up * sensorHeight;
+        Vector3 targetAvoidance = Vector3.zero;
 
         if (Physics.SphereCast(
             origin,
@@ -55,12 +55,7 @@ public class SteeringSensor : MonoBehaviour
         {
             obstacleDetected = true;
 
-            Vector3 avoidDirection =
-                Vector3.ProjectOnPlane(
-                    lastHit.normal,
-                    Vector3.up
-                );
-
+            Vector3 avoidDirection = Vector3.ProjectOnPlane(lastHit.normal, Vector3.up);
             avoidDirection.y = 0f;
 
             if (avoidDirection.sqrMagnitude > 0.001f)
@@ -68,13 +63,17 @@ public class SteeringSensor : MonoBehaviour
                 avoidDirection.Normalize();
             }
 
-            avoidDirection +=
-                movementDirection * forwardBias;
-
-            return avoidDirection.normalized;
+            // Kembalikan ke rumus murni modul (tidak boleh lebih dari 1.0 agar tidak menembus tembok)
+            avoidDirection += movementDirection * forwardBias;
+            
+            targetAvoidance = avoidDirection.normalized;
         }
 
-        return Vector3.zero;
+        // FITUR ANTI-GETAR / ANTI-SPIN
+        // Transisi halus vektor agar NPC berbelok melengkung dengan mulus
+        smoothedAvoidance = Vector3.Lerp(smoothedAvoidance, targetAvoidance, 12f * Time.deltaTime);
+        
+        return smoothedAvoidance;
     }
 
     private void OnDrawGizmosSelected()

@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "GameCerdas.slnx"
+    "dotnet.defaultSolution": "Game-Cerdas.slnx"
 }
