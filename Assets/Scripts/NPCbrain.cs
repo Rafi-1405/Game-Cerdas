@@ -32,7 +32,7 @@ public class NPCBrain : MonoBehaviour
     [SerializeField] private Color searchColor = Color.blue;
 
     [Header("Shared Alert (Komunikasi Guard)")]
-    [SerializeField] private float shoutRadius = 15f;
+    [SerializeField] private float shoutRadius = 5f;
     [SerializeField] private LayerMask guardLayerMask;
 
     [Header("Current State (Debug)")]
