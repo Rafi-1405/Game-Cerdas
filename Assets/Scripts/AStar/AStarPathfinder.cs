@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [DefaultExecutionOrder(0)]
 public sealed class AStarPathfinder : MonoBehaviour
@@ -7,11 +8,45 @@ public sealed class AStarPathfinder : MonoBehaviour
     public GridManager gridManager;
     public Transform startMarker;
     public Transform goalMarker;
+    public Transform agent;
+    [Header("Input")]
+    public Camera inputCamera;
+    public bool allowShiftClickGoal = true;
     [Header("Debug")]
     public bool showOpenClosed = true;
+    [System.NonSerialized]
     public List<GridNode> currentPath = new List<GridNode>();
 
     private void Start() => FindPath();
+
+    private void Update()
+    {
+        Keyboard keyboard = Keyboard.current;
+        Mouse mouse = Mouse.current;
+        if (keyboard == null || mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
+
+        bool moveGoal = allowShiftClickGoal && keyboard.leftShiftKey.isPressed;
+        bool moveStart = keyboard.leftCtrlKey.isPressed;
+        if (!moveGoal && !moveStart) return;
+        if (gridManager == null || gridManager.grid == null) return;
+
+        Camera clickCamera = inputCamera != null ? inputCamera : Camera.main;
+        if (clickCamera == null) return;
+
+        Ray ray = clickCamera.ScreenPointToRay(mouse.position.ReadValue());
+        Plane gridPlane = new Plane(Vector3.up, gridManager.transform.position);
+        if (!gridPlane.Raycast(ray, out float distance)) return;
+
+        Vector3 clickedPosition = ray.GetPoint(distance);
+        if (!gridManager.TryGetNodeFromWorldPosition(clickedPosition, out GridNode node) || !node.walkable) return;
+
+        Transform marker = moveGoal ? goalMarker : startMarker;
+        if (marker == null) return;
+
+        float markerHeight = marker.position.y - gridManager.transform.position.y;
+        marker.position = node.worldPosition + Vector3.up * markerHeight;
+        FindPath();
+    }
 
     [ContextMenu("Find Path")]
     public void FindPath()
@@ -22,6 +57,7 @@ public sealed class AStarPathfinder : MonoBehaviour
             Debug.LogWarning("AStarPathfinder: GridManager, StartMarker, GoalMarker, atau grid belum siap.", this);
             return;
         }
+        ResetAgentToStart();
         gridManager.ResetSearchData();
         GridNode startNode = gridManager.NodeFromWorldPosition(startMarker.position);
         GridNode goalNode = gridManager.NodeFromWorldPosition(goalMarker.position);
@@ -68,6 +104,23 @@ public sealed class AStarPathfinder : MonoBehaviour
             }
         }
         Debug.LogWarning("A*: path tidak ditemukan; periksa obstacle dan konektivitas grid.", this);
+    }
+
+    private void ResetAgentToStart()
+    {
+        Transform controlledAgent = agent;
+        if (controlledAgent == null && startMarker.TryGetComponent(out AgentPathFollower startFollower))
+            controlledAgent = startFollower.transform;
+        if (controlledAgent == null) return;
+
+        Vector3 resetPosition = startMarker.position;
+        if (gridManager.TryGetNodeFromWorldPosition(startMarker.position, out GridNode startNode))
+            resetPosition = startNode.worldPosition;
+        resetPosition.y = controlledAgent.position.y;
+        controlledAgent.position = resetPosition;
+
+        AgentPathFollower follower = controlledAgent.GetComponent<AgentPathFollower>();
+        if (follower != null) follower.ResetPathProgress();
     }
 
     private GridNode GetLowestFCostNode(List<GridNode> openSet)

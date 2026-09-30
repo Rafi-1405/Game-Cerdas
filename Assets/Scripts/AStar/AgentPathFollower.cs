@@ -29,6 +29,8 @@ public sealed class AgentPathFollower : MonoBehaviour
     public void SetPath(AStarPathfinder newPathfinder)
     {
         pathfinder = newPathfinder;
-        currentWaypointIndex = 0;
+        ResetPathProgress();
     }
+
+    public void ResetPathProgress() => currentWaypointIndex = 0;
 }
