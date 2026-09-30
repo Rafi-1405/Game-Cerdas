@@ -1385,6 +1385,7 @@ GameObject:
   - component: {fileID: 303}
   - component: {fileID: 304}
   - component: {fileID: 305}
+  - component: {fileID: 306}
   m_Layer: 0
   m_Name: PlayerTarget
   m_TagString: Untagged
@@ -1499,10 +1500,36 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b4010000000000000000000000000002, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Praktikum4.NavMeshNavigation::Praktikum4.NavMeshNavigation.PlayerTargetMovement
-  moveSpeed: 6
+  sneakSpeed: 2.5
+  walkSpeed: 5
+  runSpeed: 8
   rotationSpeed: 12
   lockYPosition: 1
   fixedY: 1
+  currentState: 0
+  currentSpeed: 0
+--- !u!114 &306
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4010000000000000000000000000005, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Praktikum4.NavMeshNavigation::Praktikum4.NavMeshNavigation.NavMeshCharacterVisual
+  modelResourcePath: Walking
+  animationResourcePath: Walking
+  localPosition: {x: 0, y: -0.92, z: 0}
+  localEulerAngles: {x: 0, y: 0, z: 0}
+  localScale: {x: 1, y: 1, z: 1}
+  sneakAnimationSpeed: 0.75
+  walkAnimationSpeed: 1.25
+  runAnimationSpeed: 1.8
+  syncSourceColor: 0
+  defaultModelColor: {r: 0.15, g: 0.65, b: 1, a: 1}
 --- !u!1 &400
 GameObject:
   m_ObjectHideFlags: 0
@@ -1519,6 +1546,7 @@ GameObject:
   - component: {fileID: 406}
   - component: {fileID: 407}
   - component: {fileID: 408}
+  - component: {fileID: 409}
   m_Layer: 0
   m_Name: NPC_Chaser
   m_TagString: Untagged
@@ -1655,13 +1683,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b4010000000000000000000000000001, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Praktikum4.NavMeshNavigation::Praktikum4.NavMeshNavigation.NavMeshChaser
+  navigationMode: 0
   target: {fileID: 301}
   stoppingDistance: 1.5
   moveSpeed: 4.5
   angularSpeed: 360
   acceleration: 12
+  patrolWaypoints: []
+  waypointWaitTime: 2
+  detectionRange: 10
+  exclamationMark: {fileID: 0}
+  questionMark: {fileID: 0}
   repathInterval: 0.25
   repathDistanceThreshold: 0.5
+  isChasingTarget: 0
   arrivedAtTarget: 0
   remainingDistance: 0
   hasPath: 0
@@ -1806,6 +1841,28 @@ MonoBehaviour:
   cornerCount: 0
   totalPathLength: 0
   pathStatus: 0
+--- !u!114 &409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b4010000000000000000000000000005, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Praktikum4.NavMeshNavigation::Praktikum4.NavMeshNavigation.NavMeshCharacterVisual
+  modelResourcePath: Walking
+  animationResourcePath: Walking
+  localPosition: {x: 0, y: -0.92, z: 0}
+  localEulerAngles: {x: 0, y: 0, z: 0}
+  localScale: {x: 1, y: 1, z: 1}
+  sneakAnimationSpeed: 0.75
+  walkAnimationSpeed: 1.25
+  runAnimationSpeed: 1.8
+  syncSourceColor: 0
+  defaultModelColor: {r: 1, g: 0.2, b: 0.2, a: 1}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
