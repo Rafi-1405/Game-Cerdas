@@ -7,6 +7,7 @@ namespace Praktikum5.FSM
     {
         [Header("Position Offset")]
         [SerializeField] private Vector3 offset = new Vector3(0f, 2.3f, 0f);
+        [SerializeField] private bool enableWorldTextMesh = false;
 
         private EnemyFSM fsm;
         private EnemyHealth health;
@@ -17,7 +18,7 @@ namespace Praktikum5.FSM
         {
             fsm = GetComponent<EnemyFSM>();
             health = GetComponent<EnemyHealth>();
-            SetupTextMesh();
+            if (enableWorldTextMesh) SetupTextMesh();
         }
 
         private void OnEnable()

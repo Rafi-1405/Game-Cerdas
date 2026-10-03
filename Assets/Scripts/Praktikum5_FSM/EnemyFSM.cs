@@ -212,8 +212,8 @@ namespace Praktikum5.FSM
 
         private void UpdatePatrol()
         {
-            // Jika Player terdeteksi, langsung beralih ke Chase
-            if (perception != null && perception.CanSeePlayer)
+            // Jika Player terdeteksi dan Player masih hidup, langsung beralih ke Chase
+            if (perception != null && perception.CanSeePlayer && (playerHealth == null || !playerHealth.IsDead))
             {
                 ChangeState(EnemyState.Chase);
                 return;
@@ -245,6 +245,14 @@ namespace Praktikum5.FSM
 
         private void UpdateChase()
         {
+            // Jika Player sudah mati, hentikan pengejaran dan kembali ke Patrol
+            if (playerHealth != null && playerHealth.IsDead)
+            {
+                Debug.Log($"[{gameObject.name}] Player tereliminasi (HP 0). Menghentikan pengejaran, kembali ke Patrol.", this);
+                ChangeState(EnemyState.Patrol);
+                return;
+            }
+
             float distance = perception != null ? perception.DistanceToPlayer : float.MaxValue;
 
             if (perception != null && perception.CanSeePlayer)
@@ -276,6 +284,14 @@ namespace Praktikum5.FSM
 
         private void UpdateAttack()
         {
+            // Jika Player sudah mati, hentikan serangan dan kembali ke Patrol
+            if (playerHealth != null && playerHealth.IsDead)
+            {
+                Debug.Log($"[{gameObject.name}] Player tereliminasi (HP 0). Menghentikan serangan, kembali ke Patrol.", this);
+                ChangeState(EnemyState.Patrol);
+                return;
+            }
+
             float distance = perception != null ? perception.DistanceToPlayer : float.MaxValue;
 
             FacePlayer();
@@ -327,10 +343,27 @@ namespace Praktikum5.FSM
             float playerDistance = perception != null ? perception.DistanceToPlayer : float.MaxValue;
             float safePointDistance = Vector3.Distance(transform.position, safePoint.position);
 
-            // Kondisi kembali aman: Player sudah jauh (>= safeDistance) ATAU tiba di SafePoint (<= 1.2m)
-            if (playerDistance >= safeDistance || safePointDistance <= 1.2f)
+            // Kondisi 1: Tiba di SafePoint (<= 1.5m) -> Sembuhkan HP penuh, reset flee, kembali patroli
+            if (safePointDistance <= 1.5f)
             {
-                Debug.Log($"[{gameObject.name}] Berhasil kabur ke tempat aman! Kembali ke Patrol.", this);
+                Debug.Log($"[{gameObject.name}] Tiba di SafePoint! Memulihkan HP penuh dan kembali ke Patrol.", this);
+                if (health != null)
+                {
+                    health.Heal(health.MaxHealth);
+                }
+                fleeTriggered = false;
+                ChangeState(EnemyState.Patrol);
+                return;
+            }
+            // Kondisi 2: Player berada di jarak aman (>= safeDistance)
+            else if (playerDistance >= safeDistance)
+            {
+                Debug.Log($"[{gameObject.name}] Berhasil menjauh dari Player (>= {safeDistance}m). Memulihkan HP dan kembali ke Patrol.", this);
+                if (health != null)
+                {
+                    health.Heal(health.MaxHealth);
+                }
+                fleeTriggered = false;
                 ChangeState(EnemyState.Patrol);
                 return;
             }

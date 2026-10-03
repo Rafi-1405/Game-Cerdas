@@ -16,7 +16,7 @@ namespace Praktikum5.FSM
         {
             if (enemy == null)
             {
-                enemy = FindFirstObjectByType<EnemyHealth>();
+                enemy = FindAnyObjectByType<EnemyHealth>();
             }
         }
 
@@ -42,7 +42,7 @@ namespace Praktikum5.FSM
         {
             if (enemy == null)
             {
-                enemy = FindFirstObjectByType<EnemyHealth>();
+                enemy = FindAnyObjectByType<EnemyHealth>();
                 if (enemy == null) return;
             }
 

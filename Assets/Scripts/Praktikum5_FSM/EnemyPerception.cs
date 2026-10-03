@@ -18,6 +18,9 @@ namespace Praktikum5.FSM
 
         public bool CanSeePlayer { get; private set; }
         public Transform PlayerTarget => player;
+        public float VisionRange => visionRange;
+        public float VisionAngle => visionAngle;
+        public LayerMask ObstacleMask => obstacleMask;
 
         public float DistanceToPlayer
         {
@@ -34,6 +37,11 @@ namespace Praktikum5.FSM
             {
                 GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
                 if (playerObj != null) player = playerObj.transform;
+            }
+
+            if (GetComponent<RobberyBobVisionCone>() == null)
+            {
+                gameObject.AddComponent<RobberyBobVisionCone>();
             }
 
             // Jika obstacleMask belum disetel di inspector, sertakan Layer Obstacle dan Wall
@@ -84,24 +92,37 @@ namespace Praktikum5.FSM
             return true;
         }
 
-        private void OnDrawGizmosSelected()
+        private void OnDrawGizmos()
         {
+            Vector3 eyePos = transform.position + Vector3.up * eyeHeight;
+
             // Lingkaran jangkauan pandang
-            Gizmos.color = CanSeePlayer ? Color.green : Color.yellow;
+            Gizmos.color = CanSeePlayer ? new Color(1f, 0.2f, 0.2f, 0.4f) : new Color(1f, 0.92f, 0.016f, 0.2f);
             Gizmos.DrawWireSphere(transform.position, visionRange);
 
             // Garis batas sudut pandang kiri & kanan
             Vector3 leftDirection = Quaternion.Euler(0f, -visionAngle * 0.5f, 0f) * transform.forward;
             Vector3 rightDirection = Quaternion.Euler(0f, visionAngle * 0.5f, 0f) * transform.forward;
 
-            Gizmos.DrawRay(transform.position + Vector3.up * eyeHeight, leftDirection * visionRange);
-            Gizmos.DrawRay(transform.position + Vector3.up * eyeHeight, rightDirection * visionRange);
+            Gizmos.color = CanSeePlayer ? Color.red : Color.yellow;
+            Gizmos.DrawRay(eyePos, leftDirection * visionRange);
+            Gizmos.DrawRay(eyePos, rightDirection * visionRange);
+
+#if UNITY_EDITOR
+            // Gambar area kipas di Scene view
+            UnityEditor.Handles.color = CanSeePlayer 
+                ? new Color(1f, 0.1f, 0.1f, 0.25f) 
+                : new Color(1f, 0.92f, 0.016f, 0.12f);
+            UnityEditor.Handles.DrawSolidArc(eyePos, Vector3.up, leftDirection, visionAngle, visionRange);
+            UnityEditor.Handles.color = CanSeePlayer ? Color.red : Color.yellow;
+            UnityEditor.Handles.DrawWireArc(eyePos, Vector3.up, leftDirection, visionAngle, visionRange);
+#endif
 
             // Garis ray ke Player
             if (player != null)
             {
-                Gizmos.color = CanSeePlayer ? Color.green : Color.red;
-                Gizmos.DrawLine(transform.position + Vector3.up * eyeHeight, player.position + Vector3.up * 0.8f);
+                Gizmos.color = CanSeePlayer ? Color.red : new Color(0.5f, 0.5f, 0.5f, 0.3f);
+                Gizmos.DrawLine(eyePos, player.position + Vector3.up * 0.8f);
             }
         }
     }

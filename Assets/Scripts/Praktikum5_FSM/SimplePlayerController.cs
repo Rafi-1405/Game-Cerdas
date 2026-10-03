@@ -19,17 +19,30 @@ namespace Praktikum5.FSM
         [SerializeField] private float currentSpeed;
         [SerializeField] private bool isMoving;
 
+        [Header("Stamina Settings")]
+        [SerializeField] private float maxStamina = 100f;
+        [SerializeField] private float staminaDrainRate = 25f;
+        [SerializeField] private float staminaRegenRate = 20f;
+        private float currentStamina = 100f;
+        private bool isExhausted = false;
+
         public float CurrentSpeed => currentSpeed;
         public bool IsMoving => isMoving;
+        public float CurrentStamina => currentStamina;
+        public float MaxStamina => maxStamina;
+        public float StaminaRatio => maxStamina > 0f ? currentStamina / maxStamina : 0f;
 
         private CharacterController controller;
         private float verticalVelocity;
         private Vector3 initialPosition;
         private Quaternion initialRotation;
+        private PlayerHealth playerHealth;
 
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
+            playerHealth = GetComponent<PlayerHealth>();
+            currentStamina = maxStamina;
         }
 
         private void Start()
@@ -43,17 +56,52 @@ namespace Praktikum5.FSM
             Vector3 inputDirection = ReadMovementInput();
             isMoving = inputDirection.sqrMagnitude > 0.001f;
 
-            // Reset posisi dengan tombol R
-            if (IsResetPressed())
+            // Tentukan kecepatan gerak & konsumsi Stamina
+            bool runPressed = IsRunPressed();
+
+            // Jika Shift dilepas, reset status kelelahan sehingga stamina bisa meregenerasi
+            if (!runPressed)
             {
-                ResetPosition();
-                return;
+                isExhausted = false;
             }
 
-            // Tentukan kecepatan gerak (Sneak Ctrl, Run Shift, Default Walk)
             float speed = walkSpeed;
-            if (IsSneakPressed()) speed = sneakSpeed;
-            else if (IsRunPressed()) speed = runSpeed;
+
+            if (IsSneakPressed())
+            {
+                speed = sneakSpeed;
+            }
+            else if (runPressed && isMoving && !isExhausted)
+            {
+                if (currentStamina > 0f)
+                {
+                    speed = runSpeed;
+                    currentStamina -= staminaDrainRate * Time.deltaTime;
+
+                    if (currentStamina <= 0f)
+                    {
+                        currentStamina = 0f;
+                        isExhausted = true; // Kunci kelelahan: otomatis melambat ke jalan santai
+                        speed = walkSpeed;
+                    }
+                }
+                else
+                {
+                    currentStamina = 0f;
+                    isExhausted = true;
+                    speed = walkSpeed;
+                }
+            }
+            else
+            {
+                speed = walkSpeed;
+            }
+
+            // Regenerasi stamina HANYA jika Shift TIDAK sedang ditekan dan stamina belum penuh
+            if (!runPressed && currentStamina < maxStamina)
+            {
+                currentStamina = Mathf.Min(maxStamina, currentStamina + staminaRegenRate * Time.deltaTime);
+            }
 
             currentSpeed = isMoving ? speed : 0f;
 
@@ -97,7 +145,19 @@ namespace Praktikum5.FSM
             vertical = Input.GetAxisRaw("Vertical");
 #endif
 
-            Vector3 direction = new Vector3(horizontal, 0f, vertical);
+            Transform camTransform = Camera.main != null ? Camera.main.transform : null;
+            Vector3 direction;
+            if (camTransform != null)
+            {
+                Vector3 camForward = Vector3.Scale(camTransform.forward, new Vector3(1f, 0f, 1f)).normalized;
+                Vector3 camRight = Vector3.Scale(camTransform.right, new Vector3(1f, 0f, 1f)).normalized;
+                direction = camForward * vertical + camRight * horizontal;
+            }
+            else
+            {
+                direction = new Vector3(horizontal, 0f, vertical);
+            }
+
             if (direction.sqrMagnitude > 1f) direction.Normalize();
             return direction;
         }
@@ -139,8 +199,14 @@ namespace Praktikum5.FSM
             transform.position = initialPosition;
             transform.rotation = initialRotation;
             verticalVelocity = 0f;
+            currentStamina = maxStamina;
+            isExhausted = false;
+            if (playerHealth != null)
+            {
+                playerHealth.ResetHealth();
+            }
             controller.enabled = true;
-            Debug.Log("[SimplePlayerController] Posisi Player di-reset.", this);
+            Debug.Log("[SimplePlayerController] Posisi & HP Player di-reset.", this);
         }
     }
 }
