@@ -1,3 +1,4 @@
+using Praktikum5.FSM;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -8,6 +9,7 @@ public class NPCSensor : MonoBehaviour
     [Header("Target")]
     [SerializeField] private Transform player;
     private PlayerController playerController;
+    private SimplePlayerController simplePlayerController;
 
     [Header("Visual Sensor (Mata)")]
     [SerializeField] private float viewRadius = 8f;
@@ -16,6 +18,7 @@ public class NPCSensor : MonoBehaviour
     [SerializeField] private float eyeHeight = 1.2f;
 
     [Header("Audio Sensor (Telinga)")]
+    [SerializeField] private float idleHearRadius = 2f;
     [SerializeField] private float walkHearRadius = 5f;
     [SerializeField] private float runHearRadius = 10f;
 
@@ -27,9 +30,16 @@ public class NPCSensor : MonoBehaviour
 
     private void Start()
     {
+        if (player == null)
+        {
+            GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
+            if (playerObject != null) player = playerObject.transform;
+        }
+
         if (player != null)
         {
             playerController = player.GetComponent<PlayerController>();
+            simplePlayerController = player.GetComponent<SimplePlayerController>();
         }
     }
 
@@ -61,14 +71,35 @@ public class NPCSensor : MonoBehaviour
     private void DetectAudio()
     {
         CanHearPlayer = false;
-        if (player == null || playerController == null) return;
+        if (player == null) return;
 
-        PlayerMovementState state = playerController.CurrentState;
+        PlayerMovementState state;
+        if (playerController != null)
+        {
+            state = playerController.CurrentState;
+        }
+        else if (simplePlayerController != null)
+        {
+            state = simplePlayerController.CurrentMovementState;
+        }
+        else
+        {
+            return;
+        }
         
-        // Jika pemain diam atau mengendap-endap, tidak ada suara yang terdeteksi
-        if (state == PlayerMovementState.Idle || state == PlayerMovementState.Sneak) return;
-
         float distance = Vector3.Distance(transform.position, player.position);
+
+        if (state == PlayerMovementState.Idle)
+        {
+            if (distance <= idleHearRadius)
+            {
+                CanHearPlayer = true;
+                LastHeardPosition = player.position;
+            }
+            return;
+        }
+
+        if (state == PlayerMovementState.Sneak) return;
 
         // Deteksi berdasarkan state pergerakan
         if (state == PlayerMovementState.Walk && distance <= walkHearRadius)

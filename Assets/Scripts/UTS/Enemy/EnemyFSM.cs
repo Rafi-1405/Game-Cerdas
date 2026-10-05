@@ -10,7 +10,8 @@ namespace Praktikum5.FSM
         Chase,
         Attack,
         Flee,
-        Dead
+        Dead,
+        Investigate
     }
 
     [RequireComponent(typeof(NavMeshAgent))]
@@ -23,11 +24,13 @@ namespace Praktikum5.FSM
         [SerializeField] private NavMeshAgent agent;
         [SerializeField] private EnemyPerception perception;
         [SerializeField] private EnemyHealth health;
+        [SerializeField] private global::NPCSensor hearingSensor;
 
         [Header("Patrol Settings")]
         [SerializeField] private Transform[] patrolPoints;
         [SerializeField] private float patrolSpeed = 2f;
         [SerializeField] private float waypointTolerance = 0.5f;
+        [SerializeField] private float investigationWaitTime = 3f;
 
         [Header("Chase Settings")]
         [SerializeField] private float chaseSpeed = 4f;
@@ -51,6 +54,7 @@ namespace Praktikum5.FSM
         private int currentPatrolIndex = 0;
         private float lostPlayerTimer = 0f;
         private float nextAttackTime = 0f;
+        private float investigationTimer;
         private bool fleeTriggered = false;
         private PlayerHealth playerHealth;
 
@@ -67,6 +71,7 @@ namespace Praktikum5.FSM
             if (agent == null) agent = GetComponent<NavMeshAgent>();
             if (perception == null) perception = GetComponent<EnemyPerception>();
             if (health == null) health = GetComponent<EnemyHealth>();
+            if (hearingSensor == null) hearingSensor = GetComponent<global::NPCSensor>();
 
             if (player == null)
             {
@@ -132,6 +137,9 @@ namespace Praktikum5.FSM
                 case EnemyState.Dead:
                     UpdateDead();
                     break;
+                case EnemyState.Investigate:
+                    UpdateInvestigate();
+                    break;
             }
         }
 
@@ -191,6 +199,16 @@ namespace Praktikum5.FSM
                     agent.isStopped = true;
                     agent.ResetPath();
                     break;
+
+                case EnemyState.Investigate:
+                    agent.isStopped = false;
+                    agent.speed = patrolSpeed;
+                    investigationTimer = investigationWaitTime;
+                    if (hearingSensor != null && agent.isOnNavMesh)
+                    {
+                        agent.SetDestination(hearingSensor.LastHeardPosition);
+                    }
+                    break;
             }
         }
 
@@ -216,6 +234,12 @@ namespace Praktikum5.FSM
             if (perception != null && perception.CanSeePlayer && (playerHealth == null || !playerHealth.IsDead))
             {
                 ChangeState(EnemyState.Chase);
+                return;
+            }
+
+            if (hearingSensor != null && hearingSensor.CanHearPlayer)
+            {
+                ChangeState(EnemyState.Investigate);
                 return;
             }
 
@@ -272,6 +296,12 @@ namespace Praktikum5.FSM
             }
             else
             {
+                if (hearingSensor != null && hearingSensor.CanHearPlayer)
+                {
+                    ChangeState(EnemyState.Investigate);
+                    return;
+                }
+
                 // Player terhalang / keluar dari pandangan
                 lostPlayerTimer += Time.deltaTime;
                 if (lostPlayerTimer >= lostPlayerDelay)
@@ -376,6 +406,34 @@ namespace Praktikum5.FSM
         private void UpdateDead()
         {
             // Tidak melakukan aksi apa pun (agen mati)
+        }
+
+        private void UpdateInvestigate()
+        {
+            if (perception != null && perception.CanSeePlayer)
+            {
+                ChangeState(EnemyState.Chase);
+                return;
+            }
+
+            if (hearingSensor != null && hearingSensor.CanHearPlayer)
+            {
+                investigationTimer = investigationWaitTime;
+                if (agent.isOnNavMesh)
+                {
+                    agent.SetDestination(hearingSensor.LastHeardPosition);
+                }
+                return;
+            }
+
+            if (agent.isOnNavMesh && !agent.pathPending && agent.remainingDistance <= waypointTolerance)
+            {
+                investigationTimer -= Time.deltaTime;
+                if (investigationTimer <= 0f)
+                {
+                    ChangeState(EnemyState.Patrol);
+                }
+            }
         }
 
         // ==========================================

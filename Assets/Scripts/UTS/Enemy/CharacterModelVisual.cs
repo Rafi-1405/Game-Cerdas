@@ -23,6 +23,7 @@ public class CharacterModelVisual : MonoBehaviour
     private Renderer sourceRenderer;
     private PlayerController playerController;
     private SteeringAgent steeringAgent;
+    private NavMeshAgent navMeshAgent;
     private Renderer[] modelRenderers;
     private AnimationState walkState;
 
@@ -31,6 +32,7 @@ public class CharacterModelVisual : MonoBehaviour
         sourceRenderer = GetComponent<Renderer>();
         playerController = GetComponent<PlayerController>();
         steeringAgent = GetComponent<SteeringAgent>();
+        navMeshAgent = GetComponent<NavMeshAgent>();
 
         if (Application.isPlaying)
         {
@@ -95,6 +97,20 @@ public class CharacterModelVisual : MonoBehaviour
                 default:
                     return 0f;
             }
+        }
+
+        if (navMeshAgent != null)
+        {
+            if (navMeshAgent.velocity.sqrMagnitude < 0.0025f)
+            {
+                return 0f;
+            }
+
+            return Mathf.Lerp(
+                npcPatrolAnimationSpeed,
+                npcChaseAnimationSpeed,
+                Mathf.InverseLerp(2f, 4f, navMeshAgent.velocity.magnitude)
+            );
         }
 
         if (steeringAgent == null || steeringAgent.Velocity.sqrMagnitude < 0.0025f)

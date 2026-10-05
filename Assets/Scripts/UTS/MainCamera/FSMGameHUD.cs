@@ -33,6 +33,7 @@ namespace Praktikum5.FSM
         private Texture2D texEnemyDeadFill;
 
         private Texture2D texBadgePatrol;
+        private Texture2D texBadgeInvestigate;
         private Texture2D texBadgeChase;
         private Texture2D texBadgeAttack;
         private Texture2D texBadgeFlee;
@@ -89,6 +90,7 @@ namespace Praktikum5.FSM
             texEnemyDeadFill = CreateSolidTexture(new Color(0.35f, 0.35f, 0.35f, 0.85f));
 
             texBadgePatrol = CreateSolidTexture(new Color(0.14f, 0.65f, 0.22f, 0.95f));
+            texBadgeInvestigate = CreateSolidTexture(new Color(0.05f, 0.68f, 0.72f, 0.95f));
             texBadgeChase = CreateSolidTexture(new Color(0.95f, 0.48f, 0.05f, 0.95f));
             texBadgeAttack = CreateSolidTexture(new Color(0.90f, 0.12f, 0.12f, 0.95f));
             texBadgeFlee = CreateSolidTexture(new Color(0.92f, 0.78f, 0.05f, 0.95f));
@@ -241,6 +243,9 @@ namespace Praktikum5.FSM
             {
                 case EnemyState.Patrol:
                     badgeTex = texBadgePatrol;
+                    break;
+                case EnemyState.Investigate:
+                    badgeTex = texBadgeInvestigate;
                     break;
                 case EnemyState.Chase:
                     badgeTex = texBadgeChase;

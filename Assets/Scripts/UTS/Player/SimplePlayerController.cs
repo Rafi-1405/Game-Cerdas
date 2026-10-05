@@ -31,6 +31,7 @@ namespace Praktikum5.FSM
         public float CurrentStamina => currentStamina;
         public float MaxStamina => maxStamina;
         public float StaminaRatio => maxStamina > 0f ? currentStamina / maxStamina : 0f;
+        public global::PlayerMovementState CurrentMovementState { get; private set; }
 
         private CharacterController controller;
         private float verticalVelocity;
@@ -104,6 +105,22 @@ namespace Praktikum5.FSM
             }
 
             currentSpeed = isMoving ? speed : 0f;
+            if (!isMoving)
+            {
+                CurrentMovementState = global::PlayerMovementState.Idle;
+            }
+            else if (IsSneakPressed())
+            {
+                CurrentMovementState = global::PlayerMovementState.Sneak;
+            }
+            else if (runPressed && speed == runSpeed)
+            {
+                CurrentMovementState = global::PlayerMovementState.Run;
+            }
+            else
+            {
+                CurrentMovementState = global::PlayerMovementState.Walk;
+            }
 
             // Gerakan horizontal
             Vector3 move = inputDirection * currentSpeed;

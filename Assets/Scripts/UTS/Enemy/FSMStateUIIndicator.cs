@@ -84,6 +84,9 @@ namespace Praktikum5.FSM
                 case EnemyState.Patrol:
                     textMesh.color = Color.green;
                     break;
+                case EnemyState.Investigate:
+                    textMesh.color = new Color(0.05f, 0.85f, 0.9f);
+                    break;
                 case EnemyState.Chase:
                     textMesh.color = new Color(1f, 0.55f, 0f); // Orange
                     break;
