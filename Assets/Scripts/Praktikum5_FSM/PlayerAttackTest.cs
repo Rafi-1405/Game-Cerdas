@@ -12,8 +12,12 @@ namespace Praktikum5.FSM
         [SerializeField] private float attackDistance = 3f;
         [SerializeField] private float damage = 20f;
 
+        private CharacterVisualFSM characterVisual;
+
         private void Awake()
         {
+            characterVisual = GetComponent<CharacterVisualFSM>();
+
             if (enemy == null)
             {
                 enemy = FindAnyObjectByType<EnemyHealth>();
@@ -24,6 +28,12 @@ namespace Praktikum5.FSM
         {
             if (IsAttackTriggered())
             {
+                if (characterVisual == null) characterVisual = GetComponent<CharacterVisualFSM>();
+                if (characterVisual != null)
+                {
+                    characterVisual.PlayPunch();
+                }
+
                 TryAttackEnemy();
             }
         }

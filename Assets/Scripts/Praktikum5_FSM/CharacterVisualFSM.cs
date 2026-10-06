@@ -8,10 +8,13 @@ namespace Praktikum5.FSM
     public class CharacterVisualFSM : MonoBehaviour
     {
         private const string VisualChildName = "FSM_YBot_Visual";
+        private const string WalkStateName = "FSM_Walk";
+        private const string PunchStateName = "FSM_Punch";
 
         [Header("Model & Animation Resource Paths")]
         [SerializeField] private string modelResourcePath = "Walking";
         [SerializeField] private string animationResourcePath = "Walking";
+        [SerializeField] private string punchAnimationResourcePath = "Punching";
 
         [Header("Transform Offsets")]
         [SerializeField] private Vector3 localPosition = new Vector3(0f, -0.92f, 0f);
@@ -32,14 +35,14 @@ namespace Praktikum5.FSM
         private EnemyFSM enemyFSM;
         private NavMeshAgent navMeshAgent;
         private Renderer[] modelRenderers;
+        private Animation modelAnimation;
         private AnimationState walkState;
+        private AnimationState punchState;
+        private bool isPunching;
 
         private void Awake()
         {
-            sourceRenderer = GetComponent<Renderer>();
-            playerController = GetComponent<SimplePlayerController>();
-            enemyFSM = GetComponent<EnemyFSM>();
-            navMeshAgent = GetComponent<NavMeshAgent>();
+            CacheComponents();
 
             // Atur warna default otomatis
             if (defaultModelColor == Color.white)
@@ -55,16 +58,57 @@ namespace Praktikum5.FSM
             }
         }
 
+        private void OnEnable()
+        {
+            if (!Application.isPlaying) return;
+            CacheComponents();
+            SubscribeEnemyAttack();
+        }
+
+        private void OnDisable()
+        {
+            if (enemyFSM != null)
+            {
+                enemyFSM.OnAttack -= PlayPunch;
+            }
+        }
+
         private void Start()
         {
-            if (Application.isPlaying && transform.Find(VisualChildName) == null)
+            if (!Application.isPlaying) return;
+
+            CacheComponents();
+            SubscribeEnemyAttack();
+            if (transform.Find(VisualChildName) == null || modelAnimation == null || walkState == null)
             {
+                DestroyVisual();
                 InitVisual();
             }
         }
 
+        private void CacheComponents()
+        {
+            sourceRenderer = GetComponent<Renderer>();
+            playerController = GetComponent<SimplePlayerController>();
+            enemyFSM = GetComponent<EnemyFSM>();
+            navMeshAgent = GetComponent<NavMeshAgent>();
+        }
+
+        private void SubscribeEnemyAttack()
+        {
+            if (enemyFSM == null) return;
+            enemyFSM.OnAttack -= PlayPunch;
+            enemyFSM.OnAttack += PlayPunch;
+        }
+
         private void Update()
         {
+            if (isPunching && modelAnimation != null && !modelAnimation.IsPlaying(PunchStateName))
+            {
+                isPunching = false;
+                if (walkState != null) modelAnimation.Play(WalkStateName);
+            }
+
             if (walkState != null)
             {
                 walkState.speed = CalculateAnimationSpeed();
@@ -116,22 +160,77 @@ namespace Praktikum5.FSM
         private void SetupAnimation(Transform visual)
         {
             Animation anim = visual.GetComponent<Animation>();
+            if (anim == null) anim = visual.GetComponentInChildren<Animation>();
             if (anim == null)
             {
                 anim = visual.gameObject.AddComponent<Animation>();
             }
+            modelAnimation = anim;
+            walkState = null;
+            punchState = null;
+            isPunching = false;
 
-            AnimationClip[] clips = Resources.LoadAll<AnimationClip>(animationResourcePath);
-            foreach (AnimationClip clip in clips)
+            // The imported Walking model can keep its clip on the Animation component
+            // even when Resources.LoadAll<AnimationClip>("Walking") returns no clips.
+            AnimationClip walkClip = anim.clip;
+            if (walkClip == null || walkClip.length <= 0f)
+            {
+                foreach (AnimationState state in anim)
+                {
+                    if (state.clip == null || state.clip.length <= 0f || state.name == PunchStateName) continue;
+                    walkClip = state.clip;
+                    break;
+                }
+            }
+            if (walkClip == null || walkClip.length <= 0f)
+            {
+                foreach (AnimationClip clip in Resources.LoadAll<AnimationClip>(animationResourcePath))
+                {
+                    if (clip == null || clip.length <= 0f) continue;
+                    walkClip = clip;
+                    break;
+                }
+            }
+            if (walkClip != null && walkClip.length > 0f)
+            {
+                anim.AddClip(walkClip, WalkStateName);
+                walkState = anim[WalkStateName];
+                walkState.wrapMode = WrapMode.Loop;
+                anim.Play(WalkStateName);
+            }
+
+            string punchPath = string.IsNullOrWhiteSpace(punchAnimationResourcePath) ? "Punching" : punchAnimationResourcePath;
+            AnimationClip[] punchClips = Resources.LoadAll<AnimationClip>(punchPath);
+            foreach (AnimationClip clip in punchClips)
             {
                 if (clip == null || clip.length <= 0f) continue;
 
-                clip.wrapMode = WrapMode.Loop;
-                anim.AddClip(clip, clip.name);
-                anim.Play(clip.name);
-                walkState = anim[clip.name];
+                anim.AddClip(clip, PunchStateName);
+                punchState = anim[PunchStateName];
+                punchState.wrapMode = WrapMode.Once;
                 break;
             }
+
+            if (walkState == null)
+            {
+                Debug.LogWarning($"[CharacterVisualFSM] Clip berjalan tidak ditemukan pada model atau Resources/{animationResourcePath}.", this);
+            }
+
+            if (punchState == null)
+            {
+                Debug.LogWarning($"[CharacterVisualFSM] Animasi pukul tidak ditemukan di Resources/{punchPath}.", this);
+            }
+        }
+
+        public void PlayPunch()
+        {
+            if (!Application.isPlaying || modelAnimation == null || punchState == null) return;
+
+            modelAnimation.Stop(PunchStateName);
+            punchState.time = 0f;
+            punchState.speed = 1f;
+            isPunching = modelAnimation.Play(PunchStateName, PlayMode.StopAll);
+            if (!isPunching && walkState != null) modelAnimation.Play(WalkStateName);
         }
 
         private float CalculateAnimationSpeed()
