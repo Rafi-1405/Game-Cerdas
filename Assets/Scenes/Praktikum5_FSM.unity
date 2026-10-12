@@ -301,10 +301,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5010000000000000000000000000011, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Praktikum5.FSM::Praktikum5.FSM.FSMGameHUD
-  playerHealth: {fileID: 306}
   playerController: {fileID: 305}
   enemyFSM: {fileID: 408}
-  enemyHealth: {fileID: 406}
   playerHudOffset: {x: 25, y: 25}
   playerBarWidth: 240
   playerBarHeight: 24
@@ -1191,8 +1189,6 @@ GameObject:
   - component: {fileID: 303}
   - component: {fileID: 304}
   - component: {fileID: 305}
-  - component: {fileID: 306}
-  - component: {fileID: 307}
   - component: {fileID: 308}
   m_Layer: 0
   m_Name: Player
@@ -1317,34 +1313,10 @@ MonoBehaviour:
   gravity: -9.81
   currentSpeed: 0
   isMoving: 0
---- !u!114 &306
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 300}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b5010000000000000000000000000002, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Praktikum5.FSM::Praktikum5.FSM.PlayerHealth
   maxHealth: 100
---- !u!114 &307
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 300}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b5010000000000000000000000000005, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Praktikum5.FSM::Praktikum5.FSM.PlayerAttackTest
-  enemy: {fileID: 406}
+  enemy: {fileID: 408}
   attackDistance: 3
-  damage: 20
+  attackDamage: 20
 --- !u!114 &308
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1380,10 +1352,8 @@ GameObject:
   - component: {fileID: 403}
   - component: {fileID: 404}
   - component: {fileID: 405}
-  - component: {fileID: 406}
   - component: {fileID: 407}
   - component: {fileID: 408}
-  - component: {fileID: 409}
   - component: {fileID: 410}
   - component: {fileID: 411}
   m_Layer: 6
@@ -1510,19 +1480,6 @@ NavMeshAgent:
   m_BaseOffset: 1
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
---- !u!114 &406
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 400}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b5010000000000000000000000000001, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Praktikum5.FSM::Praktikum5.FSM.EnemyHealth
-  maxHealth: 100
 --- !u!114 &407
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1557,7 +1514,7 @@ MonoBehaviour:
   player: {fileID: 301}
   agent: {fileID: 405}
   perception: {fileID: 407}
-  health: {fileID: 406}
+  maxHealth: 100
   patrolPoints:
   - {fileID: 211}
   - {fileID: 221}
@@ -1576,19 +1533,8 @@ MonoBehaviour:
   lowHealthThreshold: 30
   safeDistance: 12
   currentState: 0
---- !u!114 &409
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 400}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b5010000000000000000000000000007, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Praktikum5.FSM::Praktikum5.FSM.FSMStateUIIndicator
   offset: {x: 0, y: 2.3, z: 0}
+  enableWorldTextMesh: 0
 --- !u!114 &410
 MonoBehaviour:
   m_ObjectHideFlags: 0

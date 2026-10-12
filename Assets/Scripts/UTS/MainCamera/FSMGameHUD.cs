@@ -7,10 +7,8 @@ namespace Praktikum5.FSM
     public class FSMGameHUD : MonoBehaviour
     {
         [Header("References (Auto-Found if Empty)")]
-        [SerializeField] private PlayerHealth playerHealth;
         [SerializeField] private SimplePlayerController playerController;
         [SerializeField] private EnemyFSM enemyFSM;
-        [SerializeField] private EnemyHealth enemyHealth;
 
         [Header("Player HUD Settings (Bottom-Left)")]
         [SerializeField] private Vector2 playerHudOffset = new Vector2(25f, 25f);
@@ -57,11 +55,6 @@ namespace Praktikum5.FSM
 
         private void FindReferences()
         {
-            if (playerHealth == null)
-            {
-                playerHealth = FindAnyObjectByType<PlayerHealth>();
-            }
-
             if (playerController == null)
             {
                 playerController = FindAnyObjectByType<SimplePlayerController>();
@@ -72,10 +65,6 @@ namespace Praktikum5.FSM
                 enemyFSM = FindAnyObjectByType<EnemyFSM>();
             }
 
-            if (enemyHealth == null)
-            {
-                enemyHealth = FindAnyObjectByType<EnemyHealth>();
-            }
         }
 
         private void InitTextures()
@@ -144,7 +133,7 @@ namespace Praktikum5.FSM
             InitTextures();
             InitStyles();
 
-            if (playerHealth == null || playerController == null || enemyFSM == null)
+            if (playerController == null || enemyFSM == null)
             {
                 FindReferences();
             }
@@ -170,10 +159,10 @@ namespace Praktikum5.FSM
             float hpRatio = 1f;
             float curHp = 100f;
             float maxHp = 100f;
-            if (playerHealth != null)
+            if (playerController != null)
             {
-                curHp = playerHealth.CurrentHealth;
-                maxHp = playerHealth.MaxHealth;
+                curHp = playerController.CurrentHealth;
+                maxHp = playerController.MaxHealth;
                 hpRatio = maxHp > 0f ? curHp / maxHp : 0f;
             }
 
@@ -228,11 +217,8 @@ namespace Praktikum5.FSM
             EnemyState state = enemyFSM.CurrentState;
             float curHp = 100f;
             float maxHp = 100f;
-            if (enemyHealth != null)
-            {
-                curHp = enemyHealth.CurrentHealth;
-                maxHp = enemyHealth.MaxHealth;
-            }
+            curHp = enemyFSM.CurrentHealth;
+            maxHp = enemyFSM.MaxHealth;
             float hpRatio = maxHp > 0f ? curHp / maxHp : 0f;
 
             // Tentukan tekstur badge dan warna fill

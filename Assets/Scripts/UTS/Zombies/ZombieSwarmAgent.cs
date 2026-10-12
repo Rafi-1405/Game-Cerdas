@@ -7,494 +7,456 @@ namespace UTS.Zombies
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(NavMeshAgent))]
-    public sealed class ZombieSwarmAgent : MonoBehaviour
+    public sealed class ZombieSwarmAgent : MonoBehaviour, IVisionSource
     {
+        private enum BehaviorState { Patrol, Chase, Investigate, Pause, Search, Attack, Dead }
         private static readonly HashSet<ZombieSwarmAgent> activeAgents = new HashSet<ZombieSwarmAgent>();
+        private static int nextPatrolAreaGroupId = 1;
+        private static bool warnedMissingObstacleLayers;
 
         [Header("Senses")]
         [SerializeField] private float visionRange = 24f;
         [SerializeField, Range(0f, 360f)] private float visionAngle = 144f;
         [SerializeField] private float eyeHeight = 1.3f;
         [SerializeField] private float targetEyeHeight = 0.8f;
-        [SerializeField] private LayerMask obstacleMask = ~0;
+        [SerializeField] private LayerMask obstacleMask;
+        [SerializeField] private float closeSenseRadius = 5f;
+        [SerializeField] private float chaseMemoryTime = 1f;
+        [SerializeField] private float hearChaseRadius = 6f;
         [SerializeField] private float alertDuration = 4f;
         [SerializeField] private float neighborAlertRadius = 9f;
-        [SerializeField] private float alertBroadcastInterval = 0.5f;
+        [SerializeField] private float alertBroadcastInterval = 1.5f;
+        [SerializeField] private float hearingUpdateInterval = 1.5f;
 
         [Header("Movement")]
         [SerializeField] private float wanderSpeed = 1.2f;
         [SerializeField] private float chaseSpeed = 3.5f;
         [SerializeField] private float acceleration = 12f;
-        [SerializeField] private float predictionTime = 0.5f;
-        [SerializeField] private float maxFlankOffset = 4f;
-        [SerializeField] private float wanderChangeInterval = 1.2f;
+        [SerializeField] private float angularSpeed = 360f;
+        [SerializeField] private float destinationRefreshInterval = 0.2f;
+        [SerializeField] private float destinationMoveThreshold = 0.5f;
+        [SerializeField] private float patrolTargetChangeInterval = 4f;
 
         [Header("Horde Steering")]
-        [SerializeField] private float neighborRadius = 9f;
         [SerializeField] private float separationRadius = 3.4f;
         [SerializeField] private float separationWeight = 2.2f;
-        [SerializeField] private float alignmentWeight = 0.6f;
-        [SerializeField] private float cohesionWeight = 0.25f;
-        [SerializeField] private float wallCheckDistance = 2.5f;
-        [SerializeField] private float wallCheckRadius = 0.35f;
-        [SerializeField] private float wallAvoidanceWeight = 3f;
 
         [Header("Contact")]
         [SerializeField] private float contactRadius = 1.1f;
         [SerializeField] private float contactDamagePerSecond = 35f;
 
+        [Header("Patrol Area")]
+        [SerializeField, Min(0f)] private float spawnPatrolRadius = 5f;
+        [SerializeField, Min(0f)] private float radiusPerSharedZombie = 0.75f;
+        [SerializeField, Min(0.1f)] private float patrolArrivalDistance = 1.2f;
+        [SerializeField, Min(1)] private int patrolPointAttempts = 16;
+        [SerializeField, Min(0f)] private float searchPauseTime = 2f;
+        [SerializeField, Min(0f)] private float searchDuration = 8f;
+        [Header("Debug")]
+        [SerializeField] private bool debugLogging;
+
         private NavMeshAgent agent;
         private EnemyFSM enemyFsm;
-        private EnemyHealth enemyHealth;
-        private PlayerHealth playerHealth;
         private SimplePlayerController playerController;
         private global::NPCSensor hearingSensor;
         private Transform player;
         private ZombieHordeManager hordeManager;
-        private Vector3 lastKnownPlayerPosition;
-        private Vector3 estimatedPlayerVelocity;
-        private Vector3 previousPlayerPosition;
-        private Vector3 wanderDirection;
-        private float alertTimer;
-        private float nextAlertBroadcastTime;
-        private float nextWanderChangeTime;
-        private float flankSide;
-        private bool hasPlayerPositionSample;
-        private bool deathHandled;
+        private BehaviorState behaviorState;
+        private Vector3 patrolAreaCenter, patrolTarget, lastKnownPlayerPosition, lastSeenVelocity, searchDirection, pausePosition, heardPositionSnapshot, lastRequestedDestination;
+        private Vector3 previousPlayerPosition, currentPlayerVelocity;
+        private float alertTimer, chaseMemoryTimer, huntTimer, nextAlertBroadcastTime, nextHearingUpdateTime;
+        private float pauseTimer, searchTimer, nextWanderChangeTime, nextDestinationUpdateTime, nextDebugLogTime;
+        private int ownPatrolAreaGroupId, patrolAreaGroupId;
+        private bool hasRequestedDestination, hasReachedInvestigationPoint, wasSeeingPlayer, wasHearingPlayer, deathHandled;
 
         public static IEnumerable<ZombieSwarmAgent> ActiveAgents => activeAgents;
-        public bool IsAlerted => alertTimer > 0f;
+        public bool IsAlerted => behaviorState != BehaviorState.Patrol && behaviorState != BehaviorState.Dead;
+        public static int CreateSharedAreaGroupId() => nextPatrolAreaGroupId++;
+        public float VisionRange => visionRange;
+        public float VisionAngle => visionAngle;
+        public LayerMask ObstacleMask => obstacleMask;
+        public bool IsSeeingPlayer { get; private set; }
 
         private void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
             enemyFsm = GetComponent<EnemyFSM>();
-            enemyHealth = GetComponent<EnemyHealth>();
             hearingSensor = GetComponent<global::NPCSensor>();
-
-            if (enemyFsm != null)
-            {
-                enemyFsm.enabled = false;
-            }
-
+            EnemyPerception perception = GetComponent<EnemyPerception>();
+            RobberyBobVisionCone visionCone = GetComponent<RobberyBobVisionCone>();
+            if (enemyFsm != null) enemyFsm.enabled = false;
+            if (perception != null) perception.enabled = false;
+            if (visionCone == null) visionCone = gameObject.AddComponent<RobberyBobVisionCone>();
+            visionCone.enabled = true;
+            patrolAreaCenter = patrolTarget = transform.position;
+            ownPatrolAreaGroupId = CreateSharedAreaGroupId();
+            patrolAreaGroupId = ownPatrolAreaGroupId;
             agent.updateRotation = false;
             agent.autoBraking = false;
+            agent.acceleration = acceleration;
+            agent.angularSpeed = angularSpeed;
+            agent.stoppingDistance = contactRadius * 0.8f;
             agent.obstacleAvoidanceType = ObstacleAvoidanceType.HighQualityObstacleAvoidance;
-
-            if (obstacleMask.value == 0)
-            {
-                obstacleMask = LayerMask.GetMask("Obstacle", "Wall");
-                if (obstacleMask.value == 0)
-                {
-                    obstacleMask = ~0;
-                }
-            }
-
-            flankSide = Random.value < 0.5f ? -1f : 1f;
-            wanderDirection = transform.forward;
-            nextWanderChangeTime = Time.time + Random.Range(0.2f, wanderChangeInterval);
+            agent.avoidancePriority = Random.Range(50, 100);
+            ConfigureObstacleMask();
             FindPlayerIfNeeded();
         }
 
-        private void OnEnable()
-        {
-            activeAgents.Add(this);
-        }
-
-        private void OnDisable()
-        {
-            activeAgents.Remove(this);
-        }
-
+        private void OnEnable() => activeAgents.Add(this);
+        private void OnDisable() => activeAgents.Remove(this);
         private void Start()
         {
             FindPlayerIfNeeded();
-            if (hordeManager == null)
-            {
-                hordeManager = FindAnyObjectByType<ZombieHordeManager>();
-            }
+            if (hordeManager == null) hordeManager = FindAnyObjectByType<ZombieHordeManager>();
+            if (debugLogging)
+                Debug.Log($"[ZombieSwarmAgent] {name}: visionRange={visionRange}, visionAngle={visionAngle}, closeSenseRadius={closeSenseRadius}, chaseMemoryTime={chaseMemoryTime}", this);
         }
 
         private void Update()
         {
-            if (agent == null || !agent.isOnNavMesh)
-            {
-                return;
-            }
-
+            if (agent == null || !agent.isOnNavMesh) return;
             FindPlayerIfNeeded();
-            if (player == null)
+            if (player == null || (hordeManager != null && hordeManager.IsGameOver) || (playerController != null && playerController.IsDead)) { StopAgent(); return; }
+            if (enemyFsm != null && enemyFsm.IsDead)
             {
-                StopAgent();
-                return;
+                if (!deathHandled) { deathHandled = true; SetBehaviorState(BehaviorState.Dead, "Dead"); }
+                StopAgent(); return;
             }
 
-            if (hordeManager != null && hordeManager.IsGameOver)
-            {
-                StopAgent();
-                return;
-            }
-
-            if (enemyHealth != null && enemyHealth.IsDead)
-            {
-                if (!deathHandled)
-                {
-                    deathHandled = true;
-                    SetDisplayedState(EnemyState.Dead);
-                }
-                StopAgent();
-                return;
-            }
-
-            if (playerHealth != null && playerHealth.IsDead)
-            {
-                StopAgent();
-                return;
-            }
-
-            UpdatePlayerVelocity();
+            currentPlayerVelocity = Flatten((player.position - previousPlayerPosition) / Mathf.Max(Time.deltaTime, 0.001f));
+            previousPlayerPosition = player.position;
             bool canSeePlayer = CanSeePlayer();
-            bool canHearPlayer = hearingSensor != null && hearingSensor.CanHearPlayer;
-
-            if (canSeePlayer)
+            IsSeeingPlayer = canSeePlayer;
+            bool heardNearby = UpdateHearingSnapshot();
+            UpdateAwareness(canSeePlayer, heardNearby);
+            if (behaviorState == BehaviorState.Pause)
             {
-                lastKnownPlayerPosition = player.position;
-                alertTimer = alertDuration;
-            }
-            else if (canHearPlayer)
-            {
-                lastKnownPlayerPosition = hearingSensor.LastHeardPosition;
-                alertTimer = alertDuration;
-            }
-            else
-            {
-                alertTimer = Mathf.Max(0f, alertTimer - Time.deltaTime);
-            }
-
-            if (alertTimer > 0f && Time.time >= nextAlertBroadcastTime)
-            {
-                BroadcastAlert();
-                nextAlertBroadcastTime = Time.time + alertBroadcastInterval;
-            }
-
-            float playerDistance = PlanarDistance(transform.position, player.position);
-            if (playerDistance <= contactRadius)
-            {
-                SetDisplayedState(EnemyState.Attack);
                 agent.isStopped = true;
-                agent.velocity = Vector3.zero;
-                if (playerHealth != null)
-                {
-                    playerHealth.TakeDamage(contactDamagePerSecond * Time.deltaTime);
-                }
                 return;
             }
-
-            bool isChasing = canSeePlayer;
-            bool isInvestigating = !canSeePlayer && alertTimer > 0f;
-            if (isChasing)
+            if ((canSeePlayer || huntTimer > 0f) && PlanarDistance(transform.position, player.position) <= contactRadius)
             {
-                SetDisplayedState(EnemyState.Chase);
-            }
-            else if (isInvestigating)
-            {
-                SetDisplayedState(EnemyState.Investigate);
-            }
-            else
-            {
-                SetDisplayedState(EnemyState.Patrol);
+                SetBehaviorState(BehaviorState.Attack, "Contact");
+                agent.isStopped = true;
+                if (playerController != null) playerController.TakeDamage(contactDamagePerSecond * Time.deltaTime);
+                return;
             }
 
             agent.isStopped = false;
-            float maxSpeed = isChasing || isInvestigating ? chaseSpeed : wanderSpeed;
-            agent.speed = maxSpeed;
+            float speed = behaviorState == BehaviorState.Patrol ? wanderSpeed : chaseSpeed;
+            agent.speed = speed;
+            Vector3 target = GetCurrentTarget(canSeePlayer);
+            RequestDestination(target);
+            Vector3 nudge = CalculateSeparationNudge(speed);
+            if (nudge.sqrMagnitude > 0.0001f) agent.Move(nudge * Time.deltaTime);
+            Vector3 facingVelocity = Flatten(agent.desiredVelocity);
+            if (facingVelocity.sqrMagnitude < 0.01f) facingVelocity = Flatten(agent.velocity);
+            if (facingVelocity.sqrMagnitude > 0.01f)
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(facingVelocity.normalized, Vector3.up), 10f * Time.deltaTime);
+        }
 
-            Vector3 targetPosition = isChasing
-                ? GetPredictedFlankTarget()
-                : isInvestigating
-                    ? lastKnownPlayerPosition
-                    : GetWanderTarget();
+        public void Initialize(Transform playerTarget, ZombieHordeManager manager) { hordeManager = manager; BindPlayer(playerTarget); }
+        public void ReceiveHuntOrder(float duration) { huntTimer = Mathf.Max(huntTimer, duration); alertTimer = Mathf.Max(alertTimer, duration); SetBehaviorState(BehaviorState.Chase, "Hunt"); }
+        public void ReceiveAlert(Vector3 targetPosition, float duration) => ReceiveAlert(targetPosition, duration, ownPatrolAreaGroupId);
+        public void ReceiveAlert(Vector3 targetPosition, float duration, int groupId)
+        {
+            if (behaviorState == BehaviorState.Attack || chaseMemoryTimer > 0f || behaviorState == BehaviorState.Chase) return;
+            SetSharedPatrolArea(targetPosition, groupId, duration, "Alert");
+        }
 
-            Vector3 desiredDirection = Flatten(targetPosition - transform.position).normalized;
-            Vector3 steering = CalculateSwarmSteering(desiredDirection, maxSpeed);
-            steering = ApplyWallAvoidance(steering, maxSpeed);
-            steering = Vector3.ClampMagnitude(steering, acceleration);
-
-            Vector3 nextVelocity = Vector3.ClampMagnitude(
-                Flatten(agent.velocity) + steering * Time.deltaTime,
-                maxSpeed
-            );
-            agent.velocity = nextVelocity;
-
-            if (nextVelocity.sqrMagnitude > 0.01f)
+        private void UpdateAwareness(bool canSeePlayer, bool heardNearby)
+        {
+            if (huntTimer > 0f) huntTimer = Mathf.Max(0f, huntTimer - Time.deltaTime);
+            if (canSeePlayer)
             {
-                Quaternion facing = Quaternion.LookRotation(nextVelocity.normalized, Vector3.up);
-                transform.rotation = Quaternion.Slerp(transform.rotation, facing, 10f * Time.deltaTime);
+                lastKnownPlayerPosition = player.position;
+                lastSeenVelocity = currentPlayerVelocity;
+                chaseMemoryTimer = chaseMemoryTime;
+                alertTimer = alertDuration;
+                hasReachedInvestigationPoint = false;
+                SetBehaviorState(BehaviorState.Chase, "Saw");
+                if (!wasSeeingPlayer || Time.time >= nextAlertBroadcastTime)
+                    BroadcastAlertIfDue(lastKnownPlayerPosition, patrolAreaGroupId, alertDuration);
+                wasSeeingPlayer = true;
+                return;
             }
-        }
-
-        public void Initialize(Transform playerTarget, ZombieHordeManager manager)
-        {
-            hordeManager = manager;
-            BindPlayer(playerTarget);
-        }
-
-        public void ReceiveAlert(Vector3 targetPosition, float duration)
-        {
-            lastKnownPlayerPosition = targetPosition;
-            alertTimer = Mathf.Max(alertTimer, duration);
-        }
-
-        private void FindPlayerIfNeeded()
-        {
-            if (player == null)
+            if (wasSeeingPlayer)
             {
-                GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
-                if (playerObject != null)
+                searchDirection = lastSeenVelocity.sqrMagnitude > 0.01f
+                    ? lastSeenVelocity.normalized
+                    : Flatten(lastKnownPlayerPosition - transform.position).normalized;
+                wasSeeingPlayer = false;
+            }
+            if (huntTimer > 0f) { SetBehaviorState(BehaviorState.Chase, "Hunt"); return; }
+            if (behaviorState == BehaviorState.Pause)
+            {
+                pauseTimer -= Time.deltaTime;
+                if (pauseTimer <= 0f) BeginSearch();
+                return;
+            }
+            if (behaviorState == BehaviorState.Search)
+            {
+                searchTimer -= Time.deltaTime;
+                if (searchTimer <= 0f) BeginDriftingPatrol();
+                return;
+            }
+            if (chaseMemoryTimer > 0f)
+            {
+                chaseMemoryTimer = Mathf.Max(0f, chaseMemoryTimer - Time.deltaTime);
+                if (PlanarDistance(transform.position, lastKnownPlayerPosition) <= patrolArrivalDistance || chaseMemoryTimer <= 0f)
                 {
-                    BindPlayer(playerObject.transform);
+                    BeginInvestigation("Memory expired");
+                    return;
                 }
+                SetBehaviorState(BehaviorState.Chase, "Memory"); return;
             }
-        }
-
-        private void BindPlayer(Transform target)
-        {
-            player = target;
-            if (player == null)
+            if (heardNearby)
             {
+                SetSharedPatrolArea(heardPositionSnapshot, ownPatrolAreaGroupId, alertDuration, "Heard");
                 return;
             }
-
-            playerHealth = player.GetComponent<PlayerHealth>();
-            playerController = player.GetComponent<SimplePlayerController>();
-            previousPlayerPosition = player.position;
-            hasPlayerPositionSample = true;
-        }
-
-        private void UpdatePlayerVelocity()
-        {
-            if (!hasPlayerPositionSample)
+            if (behaviorState == BehaviorState.Chase) { BeginInvestigation("Lost sight"); return; }
+            if (behaviorState == BehaviorState.Investigate)
             {
-                previousPlayerPosition = player.position;
-                hasPlayerPositionSample = true;
+                if (PlanarDistance(transform.position, lastKnownPlayerPosition) <= patrolArrivalDistance) BeginPause();
                 return;
             }
+            if (alertTimer > 0f)
+            {
+                alertTimer = Mathf.Max(0f, alertTimer - Time.deltaTime);
+                if (alertTimer > 0f) { SetBehaviorState(BehaviorState.Investigate, "Alert"); return; }
+            }
+            if (behaviorState != BehaviorState.Patrol) BeginDriftingPatrol();
+        }
 
-            float deltaTime = Mathf.Max(Time.deltaTime, 0.001f);
-            estimatedPlayerVelocity = Flatten((player.position - previousPlayerPosition) / deltaTime);
-            previousPlayerPosition = player.position;
+        private bool UpdateHearingSnapshot()
+        {
+            if (hearingSensor == null || !hearingSensor.CanHearPlayer)
+            {
+                wasHearingPlayer = false;
+                return false;
+            }
+
+            bool refreshSnapshot = hearingSensor.HeardPlayerThisFrame || !wasHearingPlayer || Time.time >= nextHearingUpdateTime;
+            wasHearingPlayer = true;
+            if (!refreshSnapshot) return false;
+
+            heardPositionSnapshot = hearingSensor.LastHeardPosition;
+            nextHearingUpdateTime = Time.time + hearingUpdateInterval;
+            return PlanarDistance(transform.position, heardPositionSnapshot) <= hearChaseRadius;
+        }
+
+        private void SetSharedPatrolArea(Vector3 center, int groupId, float duration, string reason)
+        {
+            bool areaChanged = PlanarDistance(patrolAreaCenter, center) > 2f || patrolAreaGroupId != groupId;
+            lastKnownPlayerPosition = patrolAreaCenter = center;
+            searchDirection = Flatten(center - transform.position).normalized;
+            patrolAreaGroupId = groupId;
+            alertTimer = Mathf.Max(alertTimer, duration);
+            hasReachedInvestigationPoint = false;
+            if (areaChanged) nextWanderChangeTime = 0f;
+            SetBehaviorState(BehaviorState.Investigate, reason);
+        }
+
+        private void BeginInvestigation(string reason)
+        {
+            chaseMemoryTimer = 0f;
+            if (searchDirection.sqrMagnitude <= 0.01f)
+                searchDirection = Flatten(lastKnownPlayerPosition - transform.position).normalized;
+            hasReachedInvestigationPoint = false;
+            SetBehaviorState(BehaviorState.Investigate, reason);
+        }
+
+        private void BeginPause()
+        {
+            pausePosition = transform.position;
+            pauseTimer = searchPauseTime;
+            agent.isStopped = true;
+            if (searchDirection.sqrMagnitude > 0.01f)
+                transform.rotation = Quaternion.LookRotation(searchDirection, Vector3.up);
+            SetBehaviorState(BehaviorState.Pause, "Pause");
+        }
+
+        private void BeginSearch()
+        {
+            searchTimer = searchDuration;
+            nextWanderChangeTime = 0f;
+            SetBehaviorState(BehaviorState.Search, "Search");
+        }
+
+        private void BeginDriftingPatrol()
+        {
+            patrolAreaCenter = transform.position;
+            patrolAreaGroupId = ownPatrolAreaGroupId;
+            nextWanderChangeTime = 0f;
+            SetBehaviorState(BehaviorState.Patrol, "Patrol");
+        }
+
+        private Vector3 GetCurrentTarget(bool canSeePlayer)
+        {
+            if (behaviorState == BehaviorState.Chase) return canSeePlayer || huntTimer > 0f ? player.position : lastKnownPlayerPosition;
+            if (behaviorState == BehaviorState.Investigate) return GetInvestigateTarget();
+            if (behaviorState == BehaviorState.Search) return GetSearchTarget();
+            return GetPatrolTarget();
+        }
+
+        private Vector3 GetInvestigateTarget()
+        {
+            if (!hasReachedInvestigationPoint)
+            {
+                if (PlanarDistance(transform.position, lastKnownPlayerPosition) > patrolArrivalDistance) return lastKnownPlayerPosition;
+                hasReachedInvestigationPoint = true;
+                BeginPause();
+                return transform.position;
+            }
+            return lastKnownPlayerPosition;
+        }
+
+        private Vector3 GetSearchTarget()
+        {
+            if (Time.time >= nextWanderChangeTime || PlanarDistance(transform.position, patrolTarget) <= patrolArrivalDistance)
+                ChooseDirectionalSearchTarget();
+            return patrolTarget;
+        }
+
+        private Vector3 GetPatrolTarget()
+        {
+            if (Time.time >= nextWanderChangeTime || PlanarDistance(transform.position, patrolTarget) <= patrolArrivalDistance)
+            {
+                patrolAreaCenter = transform.position;
+                ChooseWanderTarget(patrolAreaCenter, GetPatrolRadius());
+            }
+            return patrolTarget;
+        }
+
+        private void ChooseDirectionalSearchTarget()
+        {
+            Vector3 forward = searchDirection.sqrMagnitude > 0.01f ? searchDirection : transform.forward;
+            float sampleDistance = Mathf.Max(2f, agent.radius * 2f);
+            for (int attempt = 0; attempt < patrolPointAttempts; attempt++)
+            {
+                Vector3 direction = Quaternion.Euler(0f, Random.Range(-50f, 50f), 0f) * forward;
+                Vector3 candidate = pausePosition + direction * Random.Range(4f, 10f);
+                if (NavMesh.SamplePosition(candidate, out NavMeshHit hit, sampleDistance, agent.areaMask))
+                { patrolTarget = hit.position; nextWanderChangeTime = Time.time + patrolTargetChangeInterval; return; }
+            }
+            patrolTarget = pausePosition;
+            nextWanderChangeTime = Time.time + patrolTargetChangeInterval;
+        }
+
+        private void ChooseWanderTarget(Vector3 center, float radius)
+        {
+            float sampleDistance = Mathf.Max(2f, agent.radius * 2f);
+            for (int attempt = 0; attempt < patrolPointAttempts; attempt++)
+            {
+                Vector2 offset = Random.insideUnitCircle * radius;
+                Vector3 candidate = center + new Vector3(offset.x, 0f, offset.y);
+                if (NavMesh.SamplePosition(candidate, out NavMeshHit hit, sampleDistance, agent.areaMask) && PlanarDistance(hit.position, center) <= radius + sampleDistance)
+                { patrolTarget = hit.position; nextWanderChangeTime = Time.time + patrolTargetChangeInterval; return; }
+            }
+            patrolTarget = center;
+            nextWanderChangeTime = Time.time + patrolTargetChangeInterval;
+        }
+
+        private float GetPatrolRadius()
+        {
+            int count = 0;
+            foreach (ZombieSwarmAgent other in activeAgents) if (other != null && other.patrolAreaGroupId == patrolAreaGroupId && other.behaviorState != BehaviorState.Dead) count++;
+            return spawnPatrolRadius + radiusPerSharedZombie * Mathf.Sqrt(Mathf.Max(0, count - 1));
+        }
+
+        private void RequestDestination(Vector3 target)
+        {
+            if (!hasRequestedDestination || Time.time >= nextDestinationUpdateTime || PlanarDistance(lastRequestedDestination, target) > destinationMoveThreshold)
+            { agent.SetDestination(target); lastRequestedDestination = target; hasRequestedDestination = true; nextDestinationUpdateTime = Time.time + destinationRefreshInterval; }
+        }
+
+        private Vector3 CalculateSeparationNudge(float currentSpeed)
+        {
+            Vector3 separation = Vector3.zero;
+            foreach (ZombieSwarmAgent other in activeAgents)
+            {
+                if (other == null || other == this) continue;
+                Vector3 offset = Flatten(transform.position - other.transform.position);
+                float distance = offset.magnitude;
+                if (distance > 0.001f && distance < separationRadius) separation += offset / distance * ((separationRadius - distance) / separationRadius);
+            }
+            return Vector3.ClampMagnitude(separation * separationWeight, currentSpeed * 0.5f);
         }
 
         private bool CanSeePlayer()
         {
-            Vector3 toPlayer = player.position + Vector3.up * targetEyeHeight -
-                               (transform.position + Vector3.up * eyeHeight);
+            if (player == null) return false;
+            Vector3 origin = transform.position + Vector3.up * eyeHeight;
+            Vector3 toPlayer = player.position + Vector3.up * targetEyeHeight - origin;
             Vector3 planarDirection = Flatten(toPlayer);
             float distance = planarDirection.magnitude;
-            if (distance > visionRange || distance < 0.001f)
-            {
-                return false;
-            }
-
-            Vector3 heading = Flatten(agent.velocity);
-            if (heading.sqrMagnitude < 0.01f)
-            {
-                heading = Flatten(transform.forward);
-            }
-
-            if (Vector3.Angle(heading, planarDirection) > visionAngle * 0.5f)
-            {
-                return false;
-            }
-
-            float rayDistance = Mathf.Max(0f, toPlayer.magnitude - 0.5f);
-            return !Physics.Raycast(
-                transform.position + Vector3.up * eyeHeight,
-                toPlayer.normalized,
-                rayDistance,
-                obstacleMask,
-                QueryTriggerInteraction.Ignore
-            );
+            if (distance > visionRange || distance < 0.001f) return false;
+            if (distance > closeSenseRadius && Vector3.Angle(Flatten(transform.forward), planarDirection) > visionAngle * 0.5f) return false;
+            return !Physics.Raycast(origin, toPlayer.normalized, Mathf.Max(0f, toPlayer.magnitude - 0.05f), obstacleMask, QueryTriggerInteraction.Ignore);
         }
 
-        private Vector3 GetPredictedFlankTarget()
+        private void ConfigureObstacleMask()
         {
-            Vector3 predictedPosition = player.position + estimatedPlayerVelocity * predictionTime;
-            Vector3 toTarget = Flatten(predictedPosition - transform.position);
-            if (toTarget.sqrMagnitude < 0.001f)
+            int obstacleLayers = LayerMask.GetMask("Obstacle", "Wall");
+            if (obstacleMask.value == 0 || obstacleMask.value == -1) obstacleMask = obstacleLayers;
+            if (obstacleMask.value == 0)
             {
-                return predictedPosition;
+                obstacleMask = LayerMask.GetMask("Default");
+                if (!warnedMissingObstacleLayers) { warnedMissingObstacleLayers = true; Debug.LogWarning("[ZombieSwarmAgent] Obstacle and Wall layers are missing; vision uses Default only."); }
             }
-
-            Vector3 side = Vector3.Cross(Vector3.up, toTarget.normalized) *
-                           flankSide * Mathf.Min(toTarget.magnitude, maxFlankOffset);
-            return predictedPosition + side;
+            obstacleMask.value &= ~(1 << gameObject.layer);
+            if (player != null) obstacleMask.value &= ~(1 << player.gameObject.layer);
+            obstacleMask.value &= ~LayerMask.GetMask("Player", "Zombie", "Zombies");
         }
 
-        private Vector3 GetWanderTarget()
+        private void FindPlayerIfNeeded()
         {
-            if (Time.time >= nextWanderChangeTime)
-            {
-                Vector3 heading = Flatten(agent.velocity);
-                if (heading.sqrMagnitude < 0.01f)
-                {
-                    heading = Flatten(transform.forward);
-                }
-
-                Vector3 jitter = Random.insideUnitSphere;
-                jitter.y = 0f;
-                wanderDirection = (heading.normalized * 2f + jitter).normalized;
-                nextWanderChangeTime = Time.time + wanderChangeInterval;
-            }
-
-            Vector3 currentHeading = Flatten(agent.velocity);
-            if (currentHeading.sqrMagnitude < 0.01f)
-            {
-                currentHeading = Flatten(transform.forward);
-            }
-
-            return transform.position + currentHeading.normalized * 4f + wanderDirection * 2.5f;
+            if (player == null) { GameObject playerObject = GameObject.FindGameObjectWithTag("Player"); if (playerObject != null) BindPlayer(playerObject.transform); }
         }
-
-        private Vector3 CalculateSwarmSteering(Vector3 desiredDirection, float maxSpeed)
+        private void BindPlayer(Transform target) { player = target; if (player == null) return; playerController = player.GetComponent<SimplePlayerController>(); previousPlayerPosition = player.position; ConfigureObstacleMask(); }
+        private void BroadcastAlertIfDue(Vector3 target, int groupId, float duration)
         {
-            Vector3 currentVelocity = Flatten(agent.velocity);
-            Vector3 steering = desiredDirection * maxSpeed - currentVelocity;
-            Vector3 separation = Vector3.zero;
-            Vector3 velocitySum = Vector3.zero;
-            Vector3 positionSum = Vector3.zero;
-            int neighborCount = 0;
-
-            foreach (ZombieSwarmAgent other in activeAgents)
-            {
-                if (other == null || other == this || other.agent == null)
-                {
-                    continue;
-                }
-
-                Vector3 offset = Flatten(transform.position - other.transform.position);
-                float distance = offset.magnitude;
-                if (distance < 0.001f)
-                {
-                    continue;
-                }
-
-                if (distance < separationRadius)
-                {
-                    separation += offset / distance * ((separationRadius - distance) / separationRadius);
-                }
-
-                if (distance < neighborRadius)
-                {
-                    neighborCount++;
-                    velocitySum += Flatten(other.agent.velocity);
-                    positionSum += other.transform.position;
-                }
-            }
-
-            steering += separation * maxSpeed * separationWeight;
-            if (neighborCount > 0)
-            {
-                Vector3 averageVelocity = velocitySum / neighborCount;
-                Vector3 averagePosition = positionSum / neighborCount;
-                steering += (averageVelocity - currentVelocity) * alignmentWeight;
-
-                Vector3 cohesionDirection = Flatten(averagePosition - transform.position).normalized;
-                steering += (cohesionDirection * maxSpeed - currentVelocity) * cohesionWeight;
-            }
-
-            return steering;
+            if (Time.time < nextAlertBroadcastTime) return;
+            foreach (ZombieSwarmAgent other in activeAgents) if (other != null && other != this && PlanarDistance(transform.position, other.transform.position) <= neighborAlertRadius) other.ReceiveAlert(target, duration, groupId);
+            nextAlertBroadcastTime = Time.time + alertBroadcastInterval;
         }
 
-        private Vector3 ApplyWallAvoidance(Vector3 steering, float maxSpeed)
+        private void SetBehaviorState(BehaviorState state, string reason)
         {
-            Vector3 heading = Flatten(agent.velocity + steering);
-            if (heading.sqrMagnitude < 0.01f)
-            {
-                heading = Flatten(transform.forward);
-            }
-
-            if (Physics.SphereCast(
-                    transform.position + Vector3.up * eyeHeight * 0.5f,
-                    wallCheckRadius,
-                    heading.normalized,
-                    out RaycastHit hit,
-                    wallCheckDistance,
-                    obstacleMask,
-                    QueryTriggerInteraction.Ignore))
-            {
-                Vector3 tangent = Vector3.Cross(Vector3.up, hit.normal).normalized;
-                if (Vector3.Dot(tangent, heading) < 0f)
-                {
-                    tangent = -tangent;
-                }
-
-                float strength = 1f - hit.distance / wallCheckDistance;
-                steering += (hit.normal + tangent * 1.5f) * (strength * maxSpeed * wallAvoidanceWeight);
-            }
-
-            return steering;
+            if (behaviorState == state) return;
+            behaviorState = state;
+            EnemyState displayState = state == BehaviorState.Patrol ? EnemyState.Patrol :
+                                      state == BehaviorState.Chase ? EnemyState.Chase :
+                                      state == BehaviorState.Attack ? EnemyState.Attack :
+                                      state == BehaviorState.Dead ? EnemyState.Dead : EnemyState.Investigate;
+            SetDisplayedState(displayState);
+            if (debugLogging && Time.time >= nextDebugLogTime) { Debug.Log($"[ZombieSwarmAgent] {name}: {state} ({reason})", this); nextDebugLogTime = Time.time + 0.15f; }
         }
-
-        private void BroadcastAlert()
-        {
-            foreach (ZombieSwarmAgent other in activeAgents)
-            {
-                if (other == null || other == this)
-                {
-                    continue;
-                }
-
-                if (PlanarDistance(transform.position, other.transform.position) <= neighborAlertRadius)
-                {
-                    other.ReceiveAlert(lastKnownPlayerPosition, alertDuration * 0.75f);
-                }
-            }
-        }
-
-        private void SetDisplayedState(EnemyState state)
-        {
-            if (enemyFsm != null && enemyFsm.CurrentState != state)
-            {
-                enemyFsm.ChangeState(state);
-            }
-        }
-
-        private void StopAgent()
-        {
-            if (agent == null || !agent.isOnNavMesh)
-            {
-                return;
-            }
-
-            agent.isStopped = true;
-            agent.velocity = Vector3.zero;
-        }
-
-        private static Vector3 Flatten(Vector3 value)
-        {
-            value.y = 0f;
-            return value;
-        }
-
-        private static float PlanarDistance(Vector3 first, Vector3 second)
-        {
-            return Flatten(first - second).magnitude;
-        }
+        private void SetDisplayedState(EnemyState state) { if (enemyFsm != null) enemyFsm.SetDisplayStateOnly(state); }
+        private void StopAgent() { if (agent != null && agent.isOnNavMesh) agent.isStopped = true; }
+        private static Vector3 Flatten(Vector3 value) { value.y = 0f; return value; }
+        private static float PlanarDistance(Vector3 first, Vector3 second) => Flatten(first - second).magnitude;
 
         private void OnDrawGizmosSelected()
         {
             Gizmos.color = IsAlerted ? Color.red : Color.yellow;
             Gizmos.DrawWireSphere(transform.position, visionRange);
-            Vector3 forward = Application.isPlaying && agent != null && agent.velocity.sqrMagnitude > 0.01f
-                ? agent.velocity.normalized
-                : transform.forward;
-            Vector3 left = Quaternion.Euler(0f, -visionAngle * 0.5f, 0f) * forward;
-            Vector3 right = Quaternion.Euler(0f, visionAngle * 0.5f, 0f) * forward;
+            Vector3 left = Quaternion.Euler(0f, -visionAngle * 0.5f, 0f) * transform.forward;
+            Vector3 right = Quaternion.Euler(0f, visionAngle * 0.5f, 0f) * transform.forward;
             Gizmos.DrawRay(transform.position + Vector3.up * eyeHeight, left * visionRange);
             Gizmos.DrawRay(transform.position + Vector3.up * eyeHeight, right * visionRange);
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawWireSphere(transform.position, neighborRadius);
+            Gizmos.color = Color.magenta; Gizmos.DrawWireSphere(transform.position, closeSenseRadius);
+            if (Application.isPlaying)
+            {
+                Gizmos.color = Color.cyan; Gizmos.DrawSphere(lastKnownPlayerPosition, 0.2f);
+                Vector3 target = behaviorState == BehaviorState.Chase
+                    ? (huntTimer > 0f && player != null ? player.position : lastKnownPlayerPosition)
+                    : behaviorState == BehaviorState.Investigate
+                        ? (hasReachedInvestigationPoint ? patrolTarget : lastKnownPlayerPosition)
+                        : patrolTarget;
+                Gizmos.color = Color.green; Gizmos.DrawLine(transform.position, target); Gizmos.DrawSphere(target, 0.16f);
+            }
         }
     }
 }

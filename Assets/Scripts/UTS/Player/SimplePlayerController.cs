@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -23,7 +24,17 @@ namespace Praktikum5.FSM
         [SerializeField] private float maxStamina = 100f;
         [SerializeField] private float staminaDrainRate = 25f;
         [SerializeField] private float staminaRegenRate = 20f;
+
+        [Header("Health Settings")]
+        [SerializeField] private float maxHealth = 100f;
+
+        [Header("Attack Settings")]
+        [SerializeField] private EnemyFSM enemy;
+        [SerializeField] private float attackDistance = 3f;
+        [SerializeField] private float attackDamage = 20f;
+
         private float currentStamina = 100f;
+        private float currentHealth;
         private bool isExhausted = false;
 
         public float CurrentSpeed => currentSpeed;
@@ -31,19 +42,22 @@ namespace Praktikum5.FSM
         public float CurrentStamina => currentStamina;
         public float MaxStamina => maxStamina;
         public float StaminaRatio => maxStamina > 0f ? currentStamina / maxStamina : 0f;
+        public float CurrentHealth => currentHealth;
+        public float MaxHealth => maxHealth;
+        public bool IsDead => currentHealth <= 0f;
         public global::PlayerMovementState CurrentMovementState { get; private set; }
 
         private CharacterController controller;
         private float verticalVelocity;
         private Vector3 initialPosition;
         private Quaternion initialRotation;
-        private PlayerHealth playerHealth;
+        public event Action<float, float> OnHealthChanged;
 
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
-            playerHealth = GetComponent<PlayerHealth>();
             currentStamina = maxStamina;
+            currentHealth = maxHealth;
         }
 
         private void Start()
@@ -141,6 +155,11 @@ namespace Praktikum5.FSM
                 Quaternion targetRotation = Quaternion.LookRotation(inputDirection, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
             }
+
+            if (IsAttackTriggered())
+            {
+                TryAttackEnemy();
+            }
         }
 
         private Vector3 ReadMovementInput()
@@ -199,14 +218,49 @@ namespace Praktikum5.FSM
 #endif
         }
 
-        private bool IsResetPressed()
+        private bool IsAttackTriggered()
         {
 #if ENABLE_INPUT_SYSTEM
             Keyboard keyboard = Keyboard.current;
-            return keyboard != null && keyboard.rKey.wasPressedThisFrame;
+            return keyboard != null && keyboard.spaceKey.wasPressedThisFrame;
 #else
-            return Input.GetKeyDown(KeyCode.R);
+            return Input.GetKeyDown(KeyCode.Space);
 #endif
+        }
+
+        public void TryAttackEnemy()
+        {
+            if (enemy == null)
+            {
+                enemy = FindAnyObjectByType<EnemyFSM>();
+                if (enemy == null) return;
+            }
+
+            float distance = Vector3.Distance(transform.position, enemy.transform.position);
+            if (distance <= attackDistance)
+            {
+                enemy.TakeDamage(attackDamage);
+                Debug.Log($"[SimplePlayerController] Player menyerang Enemy! Jarak: {distance:F2}m (Damage: {attackDamage})", this);
+            }
+            else
+            {
+                Debug.Log($"[SimplePlayerController] Enemy terlalu jauh ({distance:F2}m > {attackDistance}m) untuk diserang.", this);
+            }
+        }
+
+        public void TakeDamage(float damage)
+        {
+            if (IsDead) return;
+
+            currentHealth = Mathf.Clamp(currentHealth - damage, 0f, maxHealth);
+            OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            if (IsDead) Debug.LogWarning("[Player] Player Kalah / Mati!", this);
+        }
+
+        public void ResetHealth()
+        {
+            currentHealth = maxHealth;
+            OnHealthChanged?.Invoke(currentHealth, maxHealth);
         }
 
         [ContextMenu("Reset Position")]
@@ -218,10 +272,7 @@ namespace Praktikum5.FSM
             verticalVelocity = 0f;
             currentStamina = maxStamina;
             isExhausted = false;
-            if (playerHealth != null)
-            {
-                playerHealth.ResetHealth();
-            }
+            ResetHealth();
             controller.enabled = true;
             Debug.Log("[SimplePlayerController] Posisi & HP Player di-reset.", this);
         }

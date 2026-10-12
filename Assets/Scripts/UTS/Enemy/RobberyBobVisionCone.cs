@@ -1,4 +1,5 @@
 using UnityEngine;
+using UTS.Zombies;
 
 namespace Praktikum5.FSM
 {
@@ -9,6 +10,9 @@ namespace Praktikum5.FSM
         [Header("References")]
         [SerializeField] private EnemyPerception perception;
         [SerializeField] private EnemyFSM fsm;
+        private IVisionSource visionSource;
+        private static bool warnedMissingMaterial;
+        private static bool warnedDisabledCone;
 
         [Header("Cone Configuration")]
         [SerializeField, Range(30, 120)] private int rayCount = 72;
@@ -41,6 +45,7 @@ namespace Praktikum5.FSM
         {
             if (perception == null) perception = GetComponent<EnemyPerception>();
             if (fsm == null) fsm = GetComponent<EnemyFSM>();
+            ResolveVisionSource();
 
             SetupVisionConeRenderer();
         }
@@ -51,8 +56,20 @@ namespace Praktikum5.FSM
             if (lineRenderer != null) lineRenderer.enabled = showOutline;
         }
 
+        private void ResolveVisionSource()
+        {
+            // Explicitly prefer the swarm provider when both components exist.
+            ZombieSwarmAgent swarm = GetComponent<ZombieSwarmAgent>();
+            visionSource = swarm != null ? (IVisionSource)swarm : perception as IVisionSource;
+        }
+
         private void OnDisable()
         {
+            if (!warnedDisabledCone)
+            {
+                warnedDisabledCone = true;
+                Debug.LogWarning("[RobberyBobVisionCone] Vision cone is disabled.", this);
+            }
             if (meshRenderer != null) meshRenderer.enabled = false;
             if (lineRenderer != null) lineRenderer.enabled = false;
         }
@@ -100,6 +117,15 @@ namespace Praktikum5.FSM
             Shader shader = Shader.Find("Sprites/Default");
             if (shader == null) shader = Shader.Find("Unlit/Transparent");
             if (shader == null) shader = Shader.Find("UI/Default");
+            if (shader == null)
+            {
+                if (!warnedMissingMaterial)
+                {
+                    warnedMissingMaterial = true;
+                    Debug.LogWarning("[RobberyBobVisionCone] No compatible cone shader was found.", this);
+                }
+                return;
+            }
 
             coneMaterial = new Material(shader)
             {
@@ -156,6 +182,7 @@ namespace Praktikum5.FSM
         {
             if (perception == null) perception = GetComponent<EnemyPerception>();
             if (fsm == null) fsm = GetComponent<EnemyFSM>();
+            if (visionSource == null) ResolveVisionSource();
 
             // Jika Enemy mati, sembunyikan cone
             if (fsm != null && fsm.CurrentState == EnemyState.Dead)
@@ -176,9 +203,9 @@ namespace Praktikum5.FSM
         {
             if (coneMesh == null || meshFilter == null) return;
 
-            float visionRange = perception != null ? perception.VisionRange : 10f;
-            float visionAngle = perception != null ? perception.VisionAngle : 90f;
-            LayerMask obstacleMask = perception != null ? perception.ObstacleMask : LayerMask.GetMask("Obstacle", "Wall");
+            float visionRange = visionSource != null ? visionSource.VisionRange : 10f;
+            float visionAngle = visionSource != null ? visionSource.VisionAngle : 90f;
+            LayerMask obstacleMask = visionSource != null ? visionSource.ObstacleMask : LayerMask.GetMask("Obstacle", "Wall");
 
             Vector3 worldPos = transform.position;
             Vector3 originRay = worldPos + Vector3.up * raycastHeight;
@@ -236,13 +263,18 @@ namespace Praktikum5.FSM
 
         private void UpdateVisionConeColor()
         {
-            bool isAlert = perception != null && perception.CanSeePlayer;
+            bool isAlert = visionSource != null && visionSource.IsSeeingPlayer;
             Color targetColor = isAlert ? alertColor : normalColor;
             Color targetOutlineColor = isAlert ? outlineAlertColor : outlineNormalColor;
 
             if (coneMaterial != null)
             {
                 coneMaterial.color = targetColor;
+            }
+            else if (!warnedMissingMaterial)
+            {
+                warnedMissingMaterial = true;
+                Debug.LogWarning("[RobberyBobVisionCone] Cone material or shader is missing.", this);
             }
 
             if (lineRenderer != null && lineRenderer.material != null)

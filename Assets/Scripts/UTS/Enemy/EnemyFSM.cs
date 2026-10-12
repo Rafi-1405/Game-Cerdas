@@ -16,15 +16,16 @@ namespace Praktikum5.FSM
 
     [RequireComponent(typeof(NavMeshAgent))]
     [RequireComponent(typeof(EnemyPerception))]
-    [RequireComponent(typeof(EnemyHealth))]
     public class EnemyFSM : MonoBehaviour
     {
         [Header("References")]
         [SerializeField] private Transform player;
         [SerializeField] private NavMeshAgent agent;
         [SerializeField] private EnemyPerception perception;
-        [SerializeField] private EnemyHealth health;
         [SerializeField] private global::NPCSensor hearingSensor;
+
+        [Header("Health Settings")]
+        [SerializeField] private float maxHealth = 100f;
 
         [Header("Patrol Settings")]
         [SerializeField] private Transform[] patrolPoints;
@@ -34,7 +35,7 @@ namespace Praktikum5.FSM
 
         [Header("Chase Settings")]
         [SerializeField] private float chaseSpeed = 4f;
-        [SerializeField] private float lostPlayerDelay = 2f;
+        [SerializeField, Min(0f)] private float destinationUpdateThreshold = 0.25f;
 
         [Header("Attack Settings (Hysteresis)")]
         [SerializeField] private float attackRange = 2f;
@@ -51,27 +52,52 @@ namespace Praktikum5.FSM
         [Header("Current State (Read-Only)")]
         [SerializeField] private EnemyState currentState;
 
+        [Header("State Indicator")]
+        [SerializeField] private Vector3 offset = new Vector3(0f, 2.3f, 0f);
+        [SerializeField] private bool enableWorldTextMesh;
+
         private int currentPatrolIndex = 0;
-        private float lostPlayerTimer = 0f;
         private float nextAttackTime = 0f;
         private float investigationTimer;
+        private Vector3 lastKnownPlayerPosition;
+        private Vector3 lastRequestedDestination;
+        private bool hasLastKnownPlayerPosition;
+        private bool hasReachedInvestigationPoint;
+        private bool hasRequestedDestination;
         private bool fleeTriggered = false;
-        private PlayerHealth playerHealth;
+        private SimplePlayerController playerHealth;
+        private GameObject indicatorObject;
+        private TextMesh indicatorText;
+        private float currentHealth;
 
         public EnemyState CurrentState => currentState;
         public float AttackRange => attackRange;
         public float AttackExitRange => attackExitRange;
-        public EnemyHealth Health => health;
+        public float CurrentHealth => currentHealth;
+        public float MaxHealth => maxHealth;
+        public bool IsDead => currentHealth <= 0f;
 
         public event Action<EnemyState> OnStateChanged;
         public event Action OnAttack;
+        public event Action<float, float> OnHealthChanged;
+        public event Action OnDeath;
+
+        // Lets an external controller own movement while this component still
+        // provides its state display and notifications.
+        public void SetDisplayStateOnly(EnemyState state)
+        {
+            if (currentState == state) return;
+
+            currentState = state;
+            OnStateChanged?.Invoke(currentState);
+        }
 
         private void Awake()
         {
             if (agent == null) agent = GetComponent<NavMeshAgent>();
             if (perception == null) perception = GetComponent<EnemyPerception>();
-            if (health == null) health = GetComponent<EnemyHealth>();
             if (hearingSensor == null) hearingSensor = GetComponent<global::NPCSensor>();
+            currentHealth = maxHealth;
 
             if (player == null)
             {
@@ -81,11 +107,24 @@ namespace Praktikum5.FSM
 
             if (player != null)
             {
-                playerHealth = player.GetComponent<PlayerHealth>();
+                playerHealth = player.GetComponent<SimplePlayerController>();
             }
 
             AutoFindWaypointsIfEmpty();
             AutoFindSafePointIfEmpty();
+            if (enableWorldTextMesh) SetupTextMesh();
+        }
+
+        private void OnEnable()
+        {
+            OnStateChanged += UpdateIndicator;
+            OnHealthChanged += UpdateIndicator;
+        }
+
+        private void OnDisable()
+        {
+            OnStateChanged -= UpdateIndicator;
+            OnHealthChanged -= UpdateIndicator;
         }
 
         private void Start()
@@ -100,7 +139,7 @@ namespace Praktikum5.FSM
             // ==========================================
 
             // Prioritas Tertinggi: Dead saat HP <= 0
-            if (health != null && health.IsDead)
+            if (IsDead)
             {
                 if (currentState != EnemyState.Dead)
                 {
@@ -109,8 +148,15 @@ namespace Praktikum5.FSM
                 return;
             }
 
+            if (perception != null && perception.CanSeePlayer &&
+                (playerHealth == null || !playerHealth.IsDead) && currentState != EnemyState.Chase)
+            {
+                ChangeState(EnemyState.Chase);
+                return;
+            }
+
             // Prioritas Kedua: Flee saat HP kritis (<= lowHealthThreshold)
-            if (!fleeTriggered && health != null && health.CurrentHealth <= lowHealthThreshold && currentState != EnemyState.Flee)
+            if (!fleeTriggered && currentHealth <= lowHealthThreshold && currentState != EnemyState.Flee)
             {
                 fleeTriggered = true;
                 ChangeState(EnemyState.Flee);
@@ -143,12 +189,100 @@ namespace Praktikum5.FSM
             }
         }
 
+        private void LateUpdate()
+        {
+            Camera cam = Camera.main;
+            if (cam != null && indicatorObject != null)
+            {
+                indicatorObject.transform.rotation = cam.transform.rotation;
+            }
+        }
+
+        private void SetupTextMesh()
+        {
+            indicatorObject = new GameObject("FSM_State_Indicator");
+            indicatorObject.transform.SetParent(transform);
+            indicatorObject.transform.localPosition = offset;
+            indicatorObject.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
+
+            indicatorText = indicatorObject.AddComponent<TextMesh>();
+            indicatorText.fontSize = 50;
+            indicatorText.characterSize = 0.12f;
+            indicatorText.alignment = TextAlignment.Center;
+            indicatorText.anchor = TextAnchor.MiddleCenter;
+            indicatorText.fontStyle = FontStyle.Bold;
+
+            UpdateIndicator(currentState);
+        }
+
+        private void UpdateIndicator(EnemyState state)
+        {
+            if (indicatorText == null) return;
+
+            indicatorText.text = $"[{state.ToString().ToUpper()}]\nHP: {currentHealth:F0}/{maxHealth:F0}";
+
+            switch (state)
+            {
+                case EnemyState.Patrol:
+                    indicatorText.color = Color.green;
+                    break;
+                case EnemyState.Investigate:
+                    indicatorText.color = new Color(0.05f, 0.85f, 0.9f);
+                    break;
+                case EnemyState.Chase:
+                    indicatorText.color = new Color(1f, 0.55f, 0f);
+                    break;
+                case EnemyState.Attack:
+                    indicatorText.color = Color.red;
+                    break;
+                case EnemyState.Flee:
+                    indicatorText.color = Color.yellow;
+                    break;
+                case EnemyState.Dead:
+                    indicatorText.color = Color.gray;
+                    break;
+            }
+        }
+
+        private void UpdateIndicator(float current, float max)
+        {
+            UpdateIndicator(currentState);
+        }
+
+        public void TakeDamage(float damage)
+        {
+            if (IsDead) return;
+
+            currentHealth = Mathf.Clamp(currentHealth - damage, 0f, maxHealth);
+            OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            if (IsDead) OnDeath?.Invoke();
+        }
+
+        public void Heal(float amount)
+        {
+            if (IsDead) return;
+
+            currentHealth = Mathf.Clamp(currentHealth + amount, 0f, maxHealth);
+            OnHealthChanged?.Invoke(currentHealth, maxHealth);
+        }
+
+        [ContextMenu("Debug: Kill Enemy")]
+        private void DebugKill()
+        {
+            TakeDamage(maxHealth);
+        }
+
         // ==========================================
         // STATE TRANSITION & LIFECYCLE HOOKS
         // ==========================================
 
         public void ChangeState(EnemyState newState)
         {
+            if (newState == EnemyState.Chase && (perception == null || !perception.CanSeePlayer))
+            {
+                newState = hasLastKnownPlayerPosition ? EnemyState.Investigate : EnemyState.Patrol;
+            }
+
             if (currentState == newState && currentState != EnemyState.Patrol) return;
 
             ExitState(currentState);
@@ -170,19 +304,28 @@ namespace Praktikum5.FSM
                 case EnemyState.Patrol:
                     agent.isStopped = false;
                     agent.speed = patrolSpeed;
+                    hasRequestedDestination = false;
                     SetPatrolDestination();
                     break;
 
                 case EnemyState.Chase:
                     agent.isStopped = false;
                     agent.speed = chaseSpeed;
-                    lostPlayerTimer = 0f;
-                    if (player != null) agent.SetDestination(player.position);
+                    if (perception != null && perception.CanSeePlayer && player != null)
+                    {
+                        lastKnownPlayerPosition = player.position;
+                        hasLastKnownPlayerPosition = true;
+                    }
+                    if (hasLastKnownPlayerPosition)
+                    {
+                        SetAgentDestination(lastKnownPlayerPosition);
+                    }
                     break;
 
                 case EnemyState.Attack:
                     agent.isStopped = true;
                     agent.ResetPath();
+                    hasRequestedDestination = false;
                     FacePlayer();
                     break;
 
@@ -191,22 +334,32 @@ namespace Praktikum5.FSM
                     agent.speed = fleeSpeed;
                     if (safePoint != null)
                     {
-                        agent.SetDestination(safePoint.position);
+                        hasRequestedDestination = false;
+                        SetAgentDestination(safePoint.position);
                     }
                     break;
 
                 case EnemyState.Dead:
                     agent.isStopped = true;
                     agent.ResetPath();
+                    hasRequestedDestination = false;
                     break;
 
                 case EnemyState.Investigate:
                     agent.isStopped = false;
                     agent.speed = patrolSpeed;
                     investigationTimer = investigationWaitTime;
-                    if (hearingSensor != null && agent.isOnNavMesh)
+                    hasReachedInvestigationPoint = false;
+                    hasRequestedDestination = false;
+                    if (hasLastKnownPlayerPosition)
                     {
-                        agent.SetDestination(hearingSensor.LastHeardPosition);
+                        SetAgentDestination(lastKnownPlayerPosition);
+                    }
+                    else if (hearingSensor != null && agent.isOnNavMesh)
+                    {
+                        lastKnownPlayerPosition = hearingSensor.LastHeardPosition;
+                        hasLastKnownPlayerPosition = true;
+                        SetAgentDestination(lastKnownPlayerPosition);
                     }
                     break;
             }
@@ -237,8 +390,10 @@ namespace Praktikum5.FSM
                 return;
             }
 
-            if (hearingSensor != null && hearingSensor.CanHearPlayer)
+            if (hearingSensor != null && hearingSensor.HeardPlayerThisFrame)
             {
+                lastKnownPlayerPosition = hearingSensor.LastHeardPosition;
+                hasLastKnownPlayerPosition = true;
                 ChangeState(EnemyState.Investigate);
                 return;
             }
@@ -263,7 +418,25 @@ namespace Praktikum5.FSM
             Transform wp = patrolPoints[currentPatrolIndex];
             if (wp != null)
             {
-                agent.SetDestination(wp.position);
+                SetAgentDestination(wp.position);
+            }
+        }
+
+        private void SetAgentDestination(Vector3 destination)
+        {
+            if (agent == null || !agent.isOnNavMesh) return;
+
+            float thresholdSquared = destinationUpdateThreshold * destinationUpdateThreshold;
+            if (hasRequestedDestination &&
+                (destination - lastRequestedDestination).sqrMagnitude <= thresholdSquared)
+            {
+                return;
+            }
+
+            if (agent.SetDestination(destination))
+            {
+                lastRequestedDestination = destination;
+                hasRequestedDestination = true;
             }
         }
 
@@ -281,10 +454,14 @@ namespace Praktikum5.FSM
 
             if (perception != null && perception.CanSeePlayer)
             {
-                lostPlayerTimer = 0f;
+                if (player != null)
+                {
+                    lastKnownPlayerPosition = player.position;
+                    hasLastKnownPlayerPosition = true;
+                }
                 if (agent.isOnNavMesh && player != null)
                 {
-                    agent.SetDestination(player.position);
+                    SetAgentDestination(player.position);
                 }
 
                 // Transisi ke Attack jika dalam attackRange
@@ -293,21 +470,24 @@ namespace Praktikum5.FSM
                     ChangeState(EnemyState.Attack);
                     return;
                 }
+
+                return;
             }
-            else
+
+            if (!hasLastKnownPlayerPosition)
             {
-                if (hearingSensor != null && hearingSensor.CanHearPlayer)
+                ChangeState(EnemyState.Patrol);
+                return;
+            }
+
+            if (agent.isOnNavMesh)
+            {
+                agent.isStopped = false;
+                SetAgentDestination(lastKnownPlayerPosition);
+                if (!agent.pathPending &&
+                    agent.remainingDistance <= Mathf.Max(waypointTolerance, agent.stoppingDistance))
                 {
                     ChangeState(EnemyState.Investigate);
-                    return;
-                }
-
-                // Player terhalang / keluar dari pandangan
-                lostPlayerTimer += Time.deltaTime;
-                if (lostPlayerTimer >= lostPlayerDelay)
-                {
-                    ChangeState(EnemyState.Patrol);
-                    return;
                 }
             }
         }
@@ -326,10 +506,15 @@ namespace Praktikum5.FSM
 
             FacePlayer();
 
-            // Hysteresis: Kembali ke Chase HANYA jika jarak > attackExitRange ATAU kehilangan Line of Sight
-            if (distance > attackExitRange || (perception != null && !perception.CanSeePlayer))
+            if (perception != null && perception.CanSeePlayer && distance > attackExitRange)
             {
                 ChangeState(EnemyState.Chase);
+                return;
+            }
+
+            if (perception == null || !perception.CanSeePlayer)
+            {
+                ChangeState(EnemyState.Investigate);
                 return;
             }
 
@@ -377,10 +562,7 @@ namespace Praktikum5.FSM
             if (safePointDistance <= 1.5f)
             {
                 Debug.Log($"[{gameObject.name}] Tiba di SafePoint! Memulihkan HP penuh dan kembali ke Patrol.", this);
-                if (health != null)
-                {
-                    health.Heal(health.MaxHealth);
-                }
+                Heal(maxHealth);
                 fleeTriggered = false;
                 ChangeState(EnemyState.Patrol);
                 return;
@@ -389,17 +571,14 @@ namespace Praktikum5.FSM
             else if (playerDistance >= safeDistance)
             {
                 Debug.Log($"[{gameObject.name}] Berhasil menjauh dari Player (>= {safeDistance}m). Memulihkan HP dan kembali ke Patrol.", this);
-                if (health != null)
-                {
-                    health.Heal(health.MaxHealth);
-                }
+                Heal(maxHealth);
                 fleeTriggered = false;
                 ChangeState(EnemyState.Patrol);
                 return;
             }
             else if (agent.isOnNavMesh && !agent.hasPath)
             {
-                agent.SetDestination(safePoint.position);
+                SetAgentDestination(safePoint.position);
             }
         }
 
@@ -416,17 +595,33 @@ namespace Praktikum5.FSM
                 return;
             }
 
-            if (hearingSensor != null && hearingSensor.CanHearPlayer)
+            if (hearingSensor != null && hearingSensor.HeardPlayerThisFrame)
             {
+                lastKnownPlayerPosition = hearingSensor.LastHeardPosition;
+                hasLastKnownPlayerPosition = true;
+                hasReachedInvestigationPoint = false;
                 investigationTimer = investigationWaitTime;
                 if (agent.isOnNavMesh)
                 {
-                    agent.SetDestination(hearingSensor.LastHeardPosition);
+                    hasRequestedDestination = false;
+                    SetAgentDestination(lastKnownPlayerPosition);
                 }
                 return;
             }
 
-            if (agent.isOnNavMesh && !agent.pathPending && agent.remainingDistance <= waypointTolerance)
+            if (agent.isOnNavMesh && !hasReachedInvestigationPoint)
+            {
+                SetAgentDestination(lastKnownPlayerPosition);
+                if (!agent.pathPending &&
+                    agent.remainingDistance <= Mathf.Max(waypointTolerance, agent.stoppingDistance))
+                {
+                    hasReachedInvestigationPoint = true;
+                    investigationTimer = investigationWaitTime;
+                }
+                return;
+            }
+
+            if (hasReachedInvestigationPoint)
             {
                 investigationTimer -= Time.deltaTime;
                 if (investigationTimer <= 0f)

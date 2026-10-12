@@ -25,6 +25,7 @@ public class NPCSensor : MonoBehaviour
     // Properti publik untuk dibaca oleh Brain
     public bool CanSeePlayer { get; private set; }
     public bool CanHearPlayer { get; private set; }
+    public bool HeardPlayerThisFrame { get; private set; }
     public Vector3 LastHeardPosition { get; private set; }
     public Transform Player => player;
 
@@ -70,8 +71,13 @@ public class NPCSensor : MonoBehaviour
 
     private void DetectAudio()
     {
-        CanHearPlayer = false;
-        if (player == null) return;
+        HeardPlayerThisFrame = false;
+        bool canHearPlayer = false;
+        if (player == null)
+        {
+            CanHearPlayer = false;
+            return;
+        }
 
         PlayerMovementState state;
         if (playerController != null)
@@ -84,6 +90,7 @@ public class NPCSensor : MonoBehaviour
         }
         else
         {
+            CanHearPlayer = false;
             return;
         }
         
@@ -93,25 +100,25 @@ public class NPCSensor : MonoBehaviour
         {
             if (distance <= idleHearRadius)
             {
-                CanHearPlayer = true;
-                LastHeardPosition = player.position;
+                canHearPlayer = true;
             }
-            return;
         }
-
-        if (state == PlayerMovementState.Sneak) return;
-
-        // Deteksi berdasarkan state pergerakan
-        if (state == PlayerMovementState.Walk && distance <= walkHearRadius)
+        else if (state == PlayerMovementState.Walk && distance <= walkHearRadius)
         {
-            CanHearPlayer = true;
-            LastHeardPosition = player.position;
+            canHearPlayer = true;
         }
         else if (state == PlayerMovementState.Run && distance <= runHearRadius)
         {
-            CanHearPlayer = true;
-            LastHeardPosition = player.position;
+            canHearPlayer = true;
         }
+
+        if (canHearPlayer)
+        {
+            LastHeardPosition = player.position;
+            HeardPlayerThisFrame = !CanHearPlayer;
+        }
+
+        CanHearPlayer = canHearPlayer;
     }
 
     private void OnDrawGizmosSelected()

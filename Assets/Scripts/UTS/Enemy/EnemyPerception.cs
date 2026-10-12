@@ -2,7 +2,15 @@ using UnityEngine;
 
 namespace Praktikum5.FSM
 {
-    public class EnemyPerception : MonoBehaviour
+    public interface IVisionSource
+    {
+        float VisionRange { get; }
+        float VisionAngle { get; }
+        LayerMask ObstacleMask { get; }
+        bool IsSeeingPlayer { get; }
+    }
+
+    public class EnemyPerception : MonoBehaviour, IVisionSource
     {
         [Header("Target")]
         [SerializeField] private Transform player;
@@ -21,6 +29,7 @@ namespace Praktikum5.FSM
         public float VisionRange => visionRange;
         public float VisionAngle => visionAngle;
         public LayerMask ObstacleMask => obstacleMask;
+        public bool IsSeeingPlayer => CanSeePlayer;
 
         public float DistanceToPlayer
         {
@@ -39,7 +48,10 @@ namespace Praktikum5.FSM
                 if (playerObj != null) player = playerObj.transform;
             }
 
-            if (GetComponent<RobberyBobVisionCone>() == null)
+            // Swarm zombies provide their own vision source and create/configure
+            // their cone in ZombieSwarmAgent, avoiding a competing perception.
+            if (GetComponent<UTS.Zombies.ZombieSwarmAgent>() == null &&
+                GetComponent<RobberyBobVisionCone>() == null)
             {
                 gameObject.AddComponent<RobberyBobVisionCone>();
             }

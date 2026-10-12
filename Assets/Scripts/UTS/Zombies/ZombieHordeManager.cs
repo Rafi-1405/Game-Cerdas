@@ -32,9 +32,11 @@ namespace UTS.Zombies
         [Header("Objective Zones")]
         [SerializeField, Min(0.1f)] private float zoneRadius = 3f;
         [SerializeField, Min(0f)] private float alarmAlertDuration = 10f;
+        [Tooltip("How long the alarm keeps every zombie pursuing the live player position.")]
+        [SerializeField, Min(0.1f)] private float alarmHuntDuration = 12f;
         [SerializeField] private bool restartOnR = true;
 
-        private PlayerHealth playerHealth;
+        private SimplePlayerController playerController;
         private bool objectiveReached;
         private bool extractionReached;
         private bool gameOver;
@@ -66,7 +68,7 @@ namespace UTS.Zombies
                 return;
             }
 
-            if (playerHealth != null && playerHealth.IsDead)
+            if (playerController != null && playerController.IsDead)
             {
                 gameOver = true;
             }
@@ -99,9 +101,9 @@ namespace UTS.Zombies
         {
             if (player != null)
             {
-                if (playerHealth == null)
+                if (playerController == null)
                 {
-                    playerHealth = player.GetComponent<PlayerHealth>();
+                    playerController = player.GetComponent<SimplePlayerController>();
                 }
                 return;
             }
@@ -110,7 +112,7 @@ namespace UTS.Zombies
             if (playerObject != null)
             {
                 player = playerObject.transform;
-                playerHealth = playerObject.GetComponent<PlayerHealth>();
+                playerController = playerObject.GetComponent<SimplePlayerController>();
             }
         }
 
@@ -124,7 +126,7 @@ namespace UTS.Zombies
             {
                 if (zombie != null)
                 {
-                    zombie.ReceiveAlert(player.position, alarmAlertDuration);
+                    zombie.ReceiveHuntOrder(Mathf.Max(alarmAlertDuration, alarmHuntDuration));
                 }
             }
 
@@ -213,6 +215,10 @@ namespace UTS.Zombies
                     swarmAgent = zombieObject.AddComponent<ZombieSwarmAgent>();
                 }
                 swarmAgent.Initialize(player, this);
+                if (objectiveReached)
+                {
+                    swarmAgent.ReceiveHuntOrder(Mathf.Max(alarmAlertDuration, alarmHuntDuration));
+                }
                 return true;
             }
 
