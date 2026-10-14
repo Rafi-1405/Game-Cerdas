@@ -22,9 +22,12 @@ MonoBehaviour:
   m_AdditionalPlatformBuildSettings: []
   m_OverrideGlobalSceneList: 1
   m_Scenes:
-  - m_enabled: 1
+  - m_enabled: 0
     m_path: Assets/Scenes/Praktikum4_NavMesh.unity
     m_guid: c4020000000000000000000000000001
+  - m_enabled: 1
+    m_path: Assets/Scenes/Praktikum5_FSM.unity
+    m_guid: c5010000000000000000000000000001
   m_HasScriptingDefines: 0
   m_ScriptingDefines: []
   m_PlayerSettingsYaml:
