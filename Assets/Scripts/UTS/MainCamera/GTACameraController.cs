@@ -12,6 +12,11 @@ namespace Praktikum5.FSM
         [SerializeField] private Transform target;
         [SerializeField] private Vector3 targetOffset = new Vector3(0f, 1.5f, 0f);
 
+        [Header("Aim Mode (Right Mouse Button)")]
+        [SerializeField] private float aimDistance = 2.2f;
+        [SerializeField] private Vector3 aimOffset = new Vector3(0.55f, 1.45f, 0f);
+        [SerializeField] private float aimZoomSpeed = 10f;
+
         [Header("Orbit & Distance")]
         [SerializeField] private float defaultDistance = 4.5f;
         [SerializeField] private float minDistance = 0.8f;
@@ -40,9 +45,12 @@ namespace Praktikum5.FSM
         private float desiredDistance = 4.5f;
         private float currentDistance = 4.5f;
         private bool isPaused = false;
+        private bool isAiming = false;
+        private Vector3 currentOffset;
         private Camera camComponent;
 
         public bool IsPaused => isPaused;
+        public bool IsAiming => isAiming;
         public Transform Target => target;
 
         private void Awake()
@@ -68,6 +76,7 @@ namespace Praktikum5.FSM
                 }
             }
 
+            currentOffset = targetOffset;
             desiredDistance = defaultDistance;
             currentDistance = defaultDistance;
 
@@ -103,7 +112,12 @@ namespace Praktikum5.FSM
 
             if (Application.isPlaying && !isPaused)
             {
+                isAiming = IsAimPressed();
                 HandleMouseOrbit();
+            }
+            else
+            {
+                isAiming = false;
             }
 
             UpdateCameraPosition();
@@ -170,21 +184,25 @@ namespace Praktikum5.FSM
 
         private void UpdateCameraPosition()
         {
+            float dt = Application.isPlaying ? Time.unscaledDeltaTime : 0.02f;
+            Vector3 targetOffsetGoal = isAiming ? aimOffset : targetOffset;
+            currentOffset = Vector3.Lerp(currentOffset, targetOffsetGoal, dt * aimZoomSpeed);
+
             Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
-            Vector3 pivot = target.position + targetOffset;
+            Vector3 pivot = target.position + Vector3.up * currentOffset.y + (rotation * Vector3.right) * currentOffset.x;
             Vector3 backwardDir = -(rotation * Vector3.forward);
 
-            float targetDist = desiredDistance;
+            float baseDist = isAiming ? aimDistance : desiredDistance;
+            float targetDist = baseDist;
 
             // Algoritma Spring-Arm SphereCast: Deteksi dinding penghalang
-            if (Physics.SphereCast(pivot, collisionRadius, backwardDir, out RaycastHit hit, desiredDistance, collisionLayers, QueryTriggerInteraction.Ignore))
+            if (Physics.SphereCast(pivot, collisionRadius, backwardDir, out RaycastHit hit, baseDist, collisionLayers, QueryTriggerInteraction.Ignore))
             {
                 // Tarik kamera ke depan dinding (kurangi buffer agar near clip plane tidak tembus)
-                targetDist = Mathf.Clamp(hit.distance - collisionBuffer, minDistance, desiredDistance);
+                targetDist = Mathf.Clamp(hit.distance - collisionBuffer, minDistance, baseDist);
             }
 
             // Interpolasi jarak: Sangat cepat saat terbentur dinding (agar tidak ada 1 frame tembus), halus saat kembali ke ruang terbuka
-            float dt = Application.isPlaying ? Time.unscaledDeltaTime : 0.02f;
             float lerpSpeed = (targetDist < currentDistance) ? collisionSharpness : returnSharpness;
             currentDistance = Mathf.Lerp(currentDistance, targetDist, dt * lerpSpeed);
 
@@ -243,6 +261,16 @@ namespace Praktikum5.FSM
             return mouse != null && mouse.leftButton.wasPressedThisFrame;
 #else
             return Input.GetMouseButtonDown(0);
+#endif
+        }
+
+        private bool IsAimPressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Mouse mouse = Mouse.current;
+            return mouse != null && mouse.rightButton.isPressed;
+#else
+            return Input.GetMouseButton(1);
 #endif
         }
 

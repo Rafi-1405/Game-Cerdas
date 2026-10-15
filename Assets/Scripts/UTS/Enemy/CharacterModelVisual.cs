@@ -207,11 +207,15 @@ public class CharacterModelVisual : MonoBehaviour
             return;
         }
 
-        Color sourceColor = sourceRenderer.material.color;
+        Color sourceColor = Application.isPlaying && sourceRenderer.material != null ? sourceRenderer.material.color : (sourceRenderer.sharedMaterial != null ? sourceRenderer.sharedMaterial.color : Color.white);
         foreach (Renderer modelRenderer in modelRenderers)
         {
-            foreach (Material material in modelRenderer.materials)
+            if (modelRenderer == null) continue;
+            Material[] mats = Application.isPlaying ? modelRenderer.materials : modelRenderer.sharedMaterials;
+            if (mats == null) continue;
+            foreach (Material material in mats)
             {
+                if (material == null) continue;
                 if (material.HasProperty("_BaseColor"))
                 {
                     material.SetColor("_BaseColor", sourceColor);

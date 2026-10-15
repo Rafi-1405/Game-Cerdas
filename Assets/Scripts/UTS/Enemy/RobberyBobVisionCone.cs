@@ -35,6 +35,7 @@ namespace Praktikum5.FSM
 
         private GameObject outlineObject;
         private LineRenderer lineRenderer;
+        private Material outlineMaterial;
 
         private Vector3[] vertices;
         private int[] triangles;
@@ -65,11 +66,6 @@ namespace Praktikum5.FSM
 
         private void OnDisable()
         {
-            if (!warnedDisabledCone)
-            {
-                warnedDisabledCone = true;
-                Debug.LogWarning("[RobberyBobVisionCone] Vision cone is disabled.", this);
-            }
             if (meshRenderer != null) meshRenderer.enabled = false;
             if (lineRenderer != null) lineRenderer.enabled = false;
         }
@@ -86,6 +82,18 @@ namespace Praktikum5.FSM
             {
                 if (Application.isPlaying) Destroy(outlineObject);
                 else DestroyImmediate(outlineObject);
+            }
+
+            if (coneMaterial != null)
+            {
+                if (Application.isPlaying) Destroy(coneMaterial);
+                else DestroyImmediate(coneMaterial);
+            }
+
+            if (outlineMaterial != null)
+            {
+                if (Application.isPlaying) Destroy(outlineMaterial);
+                else DestroyImmediate(outlineMaterial);
             }
         }
 
@@ -151,7 +159,8 @@ namespace Praktikum5.FSM
                 lineRenderer = outlineObject.AddComponent<LineRenderer>();
             }
 
-            lineRenderer.material = new Material(shader) { color = outlineNormalColor };
+            outlineMaterial = new Material(shader) { color = outlineNormalColor };
+            lineRenderer.sharedMaterial = outlineMaterial;
             lineRenderer.startWidth = outlineWidth;
             lineRenderer.endWidth = outlineWidth;
             lineRenderer.useWorldSpace = true;
@@ -205,7 +214,9 @@ namespace Praktikum5.FSM
 
             float visionRange = visionSource != null ? visionSource.VisionRange : 10f;
             float visionAngle = visionSource != null ? visionSource.VisionAngle : 90f;
-            LayerMask obstacleMask = visionSource != null ? visionSource.ObstacleMask : LayerMask.GetMask("Obstacle", "Wall");
+            int wallObstacleLayers = LayerMask.GetMask("Wall", "Obstacle");
+            if (wallObstacleLayers == 0) wallObstacleLayers = (1 << 3) | (1 << 7);
+            LayerMask obstacleMask = wallObstacleLayers;
 
             Vector3 worldPos = transform.position;
             Vector3 originRay = worldPos + Vector3.up * raycastHeight;
@@ -277,9 +288,9 @@ namespace Praktikum5.FSM
                 Debug.LogWarning("[RobberyBobVisionCone] Cone material or shader is missing.", this);
             }
 
-            if (lineRenderer != null && lineRenderer.material != null)
+            if (lineRenderer != null && outlineMaterial != null)
             {
-                lineRenderer.material.color = targetOutlineColor;
+                outlineMaterial.color = targetOutlineColor;
             }
         }
     }

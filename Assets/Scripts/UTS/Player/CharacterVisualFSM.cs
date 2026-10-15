@@ -225,8 +225,11 @@ namespace Praktikum5.FSM
             foreach (Renderer r in modelRenderers)
             {
                 if (r == null) continue;
-                foreach (Material mat in r.materials)
+                Material[] mats = Application.isPlaying ? r.materials : r.sharedMaterials;
+                if (mats == null) continue;
+                foreach (Material mat in mats)
                 {
+                    if (mat == null) continue;
                     if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", targetColor);
                     if (mat.HasProperty("_Color")) mat.color = targetColor;
                 }

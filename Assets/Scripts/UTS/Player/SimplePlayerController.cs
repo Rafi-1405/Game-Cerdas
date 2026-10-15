@@ -13,12 +13,14 @@ namespace Praktikum5.FSM
         [SerializeField] private float walkSpeed = 5f;
         [SerializeField] private float sneakSpeed = 2.5f;
         [SerializeField] private float runSpeed = 8f;
+        [SerializeField] private float aimWalkSpeed = 3.0f;
         [SerializeField] private float rotationSpeed = 12f;
         [SerializeField] private float gravity = -9.81f;
 
         [Header("Status (Read-Only)")]
         [SerializeField] private float currentSpeed;
         [SerializeField] private bool isMoving;
+        [SerializeField] private bool isAiming;
 
         [Header("Stamina Settings")]
         [SerializeField] private float maxStamina = 100f;
@@ -39,6 +41,7 @@ namespace Praktikum5.FSM
 
         public float CurrentSpeed => currentSpeed;
         public bool IsMoving => isMoving;
+        public bool IsAiming => isAiming;
         public float CurrentStamina => currentStamina;
         public float MaxStamina => maxStamina;
         public float StaminaRatio => maxStamina > 0f ? currentStamina / maxStamina : 0f;
@@ -46,8 +49,13 @@ namespace Praktikum5.FSM
         public float MaxHealth => maxHealth;
         public bool IsDead => currentHealth <= 0f;
         public global::PlayerMovementState CurrentMovementState { get; private set; }
+        public UTS.Inventory.PlayerInventory Inventory { get; private set; }
+        public UTS.Player.PlayerFlashlight Flashlight => flashlight;
+        public UTS.Player.PlayerSoundEmitter SoundEmitter => soundEmitter;
 
         private CharacterController controller;
+        private UTS.Player.PlayerFlashlight flashlight;
+        private UTS.Player.PlayerSoundEmitter soundEmitter;
         private float verticalVelocity;
         private Vector3 initialPosition;
         private Quaternion initialRotation;
@@ -58,6 +66,23 @@ namespace Praktikum5.FSM
             controller = GetComponent<CharacterController>();
             currentStamina = maxStamina;
             currentHealth = maxHealth;
+            Inventory = GetComponent<UTS.Inventory.PlayerInventory>();
+            if (Inventory == null)
+            {
+                Inventory = gameObject.AddComponent<UTS.Inventory.PlayerInventory>();
+            }
+
+            flashlight = GetComponent<UTS.Player.PlayerFlashlight>();
+            if (flashlight == null)
+            {
+                flashlight = gameObject.AddComponent<UTS.Player.PlayerFlashlight>();
+            }
+
+            soundEmitter = GetComponent<UTS.Player.PlayerSoundEmitter>();
+            if (soundEmitter == null)
+            {
+                soundEmitter = gameObject.AddComponent<UTS.Player.PlayerSoundEmitter>();
+            }
         }
 
         private void Start()
@@ -71,6 +96,13 @@ namespace Praktikum5.FSM
             Vector3 inputDirection = ReadMovementInput();
             isMoving = inputDirection.sqrMagnitude > 0.001f;
 
+            // Tentukan status Aiming (Tahan RMB)
+            isAiming = IsAimPressed();
+            if (flashlight != null)
+            {
+                flashlight.SetAiming(isAiming);
+            }
+
             // Tentukan kecepatan gerak & konsumsi Stamina
             bool runPressed = IsRunPressed();
 
@@ -82,7 +114,11 @@ namespace Praktikum5.FSM
 
             float speed = walkSpeed;
 
-            if (IsSneakPressed())
+            if (isAiming)
+            {
+                speed = aimWalkSpeed;
+            }
+            else if (IsSneakPressed())
             {
                 speed = sneakSpeed;
             }
@@ -123,6 +159,10 @@ namespace Praktikum5.FSM
             {
                 CurrentMovementState = global::PlayerMovementState.Idle;
             }
+            else if (isAiming)
+            {
+                CurrentMovementState = global::PlayerMovementState.Walk;
+            }
             else if (IsSneakPressed())
             {
                 CurrentMovementState = global::PlayerMovementState.Sneak;
@@ -149,8 +189,21 @@ namespace Praktikum5.FSM
 
             controller.Move(move * Time.deltaTime);
 
-            // Rotasi menghadap arah gerak
-            if (isMoving)
+            // Rotasi menghadap arah gerak atau arah bidikan kamera
+            if (isAiming)
+            {
+                Transform camTransform = Camera.main != null ? Camera.main.transform : null;
+                if (camTransform != null)
+                {
+                    Vector3 camForward = Vector3.Scale(camTransform.forward, new Vector3(1f, 0f, 1f)).normalized;
+                    if (camForward.sqrMagnitude > 0.001f)
+                    {
+                        Quaternion targetAimRotation = Quaternion.LookRotation(camForward, Vector3.up);
+                        transform.rotation = Quaternion.Slerp(transform.rotation, targetAimRotation, rotationSpeed * Time.deltaTime);
+                    }
+                }
+            }
+            else if (isMoving)
             {
                 Quaternion targetRotation = Quaternion.LookRotation(inputDirection, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
@@ -218,6 +271,16 @@ namespace Praktikum5.FSM
 #endif
         }
 
+        private bool IsAimPressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Mouse mouse = Mouse.current;
+            return mouse != null && mouse.rightButton.isPressed;
+#else
+            return Input.GetMouseButton(1);
+#endif
+        }
+
         private bool IsAttackTriggered()
         {
 #if ENABLE_INPUT_SYSTEM
@@ -230,21 +293,31 @@ namespace Praktikum5.FSM
 
         public void TryAttackEnemy()
         {
-            if (enemy == null)
+            // Cari EnemyFSM terdekat yang masih hidup
+            EnemyFSM targetEnemy = null;
+            float closestDist = float.MaxValue;
+
+            EnemyFSM[] allEnemies = FindObjectsByType<EnemyFSM>(FindObjectsInactive.Exclude);
+            foreach (var e in allEnemies)
             {
-                enemy = FindAnyObjectByType<EnemyFSM>();
-                if (enemy == null) return;
+                if (e == null || e.IsDead) continue;
+                float d = Vector3.Distance(transform.position, e.transform.position);
+                if (d < closestDist)
+                {
+                    closestDist = d;
+                    targetEnemy = e;
+                }
             }
 
-            float distance = Vector3.Distance(transform.position, enemy.transform.position);
-            if (distance <= attackDistance)
+            if (targetEnemy != null && closestDist <= attackDistance)
             {
-                enemy.TakeDamage(attackDamage);
-                Debug.Log($"[SimplePlayerController] Player menyerang Enemy! Jarak: {distance:F2}m (Damage: {attackDamage})", this);
+                enemy = targetEnemy;
+                targetEnemy.TakeDamage(attackDamage);
+                Debug.Log($"[SimplePlayerController] Player menyerang {targetEnemy.name}! Jarak: {closestDist:F2}m (Damage: {attackDamage})", this);
             }
-            else
+            else if (targetEnemy != null)
             {
-                Debug.Log($"[SimplePlayerController] Enemy terlalu jauh ({distance:F2}m > {attackDistance}m) untuk diserang.", this);
+                Debug.Log($"[SimplePlayerController] Enemy terdekat ({targetEnemy.name}) terlalu jauh ({closestDist:F2}m > {attackDistance}m) untuk diserang.", this);
             }
         }
 
