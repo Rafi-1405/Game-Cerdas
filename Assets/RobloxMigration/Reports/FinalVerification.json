@@ -1,0 +1,20 @@
+{
+  "savedScene": "Assets/Scenes/UTS.unity",
+  "saved": true,
+  "mapActive": true,
+  "pipeline": "PC_RPAsset",
+  "visibleSourceParts": 10585,
+  "sourceMissingMeshes": [
+    9754,
+    9824,
+    9859
+  ],
+  "maxPositionErrorMeters": 1.1121657735202461e-05,
+  "rotationErrorDegrees": 0.0,
+  "directDoorwayTestsPassed": 20,
+  "stairTreadsSupported": 22,
+  "missingMaterials": 0,
+  "unsupportedShaders": 0,
+  "playerOverlapCount": 0,
+  "verifiedAt": "2026-10-20 12:58:08"
+}

@@ -1,0 +1,132 @@
+{
+    "expectedVisible": 10588,
+    "actualVisible": 10585,
+    "renderers": 11568,
+    "colliders": 8508,
+    "missingMaterials": 0,
+    "unsupportedShaders": 0,
+    "maxPositionError": 0.000011121657735202461,
+    "maxRotationErrorDegrees": 0.0,
+    "missingIds": [
+        9754,
+        9824,
+        9859
+    ],
+    "doors": [
+        {
+            "name": "Guardhouse direct doorway",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Sleeping tent direct doorway",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Medical tent direct doorway",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Wicket direct doorway",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 267",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 327",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 361",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 376",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 731",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 736",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 784",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 1380",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 1384",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 1416",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 1609",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 1665",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 2509",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 2511",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 2517",
+            "samples": 17,
+            "hits": []
+        },
+        {
+            "name": "Building doorway 2520",
+            "samples": 17,
+            "hits": []
+        }
+    ],
+    "stairTreadsSupported": 22,
+    "originalRoots": [
+        "Directional Light",
+        "Environment",
+        "PatrolPoints",
+        "SafePoint",
+        "Enemy",
+        "Player",
+        "ZombieHordeManager",
+        "Extraction Zone",
+        "ZombieUnity - Migrated Map"
+    ],
+    "playerOverlaps": [],
+    "playerGround": "Pedestrian plaza",
+    "playerGroundY": 0.05600009858608246
+}

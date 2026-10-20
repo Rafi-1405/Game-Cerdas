@@ -1,0 +1,65 @@
+{
+  "format": 1,
+  "geometryFile": "supplement.zupack",
+  "meshEntries": [
+    {
+      "id": 9832,
+      "records": [
+        {
+          "offset": 4,
+          "length": 221164,
+          "name": "Truck0031",
+          "kind": "base"
+        }
+      ]
+    },
+    {
+      "id": 9854,
+      "records": [
+        {
+          "offset": 221168,
+          "length": 209257,
+          "name": "TireStack1",
+          "kind": "base"
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "Supplement_Truck0031Mtl",
+      "color": [
+        0.00143313,
+        0.14198,
+        0.420508
+      ],
+      "alpha": 1.0,
+      "texture": "Textures/e3ffded7a71aee83.png"
+    },
+    {
+      "name": "Supplement_TireStack1Mtl",
+      "color": [
+        0.373615,
+        0.368591,
+        0.383775
+      ],
+      "alpha": 1.0,
+      "texture": "Textures/252251c50a258ef4.png",
+      "doubleSided": true
+    }
+  ],
+  "proof": [
+    {
+      "id": 9832,
+      "vertices": 5466,
+      "triangles": 3851,
+      "boundsErrorStuds": 0.0003901824804675158
+    },
+    {
+      "id": 9854,
+      "vertices": 5518,
+      "triangles": 2720,
+      "boundsErrorStuds": 0.00027289009094033645
+    }
+  ]
+}

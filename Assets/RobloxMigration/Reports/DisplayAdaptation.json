@@ -1,0 +1,16 @@
+{
+    "pipeline": "PC_RPAsset",
+    "glassMaterials": 8,
+    "cutoutMaterials": 9,
+    "lights": 39,
+    "playerBefore": {
+        "x": -20.0,
+        "y": 1.0,
+        "z": 16.0
+    },
+    "playerAfter": {
+        "x": -20.0,
+        "y": 1.0860000848770142,
+        "z": 16.0
+    }
+}

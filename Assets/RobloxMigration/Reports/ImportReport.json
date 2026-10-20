@@ -1,0 +1,62 @@
+{
+  "scene": "Assets/Scenes/UTS.unity",
+  "sourceInstances": 11628,
+  "visibleParts": 10585,
+  "colliders": 8508,
+  "meshes": 10398,
+  "materials": 321,
+  "labels": 7,
+  "lights": 39,
+  "studToMeter": 0.2800000011920929,
+  "originalRoots": [
+    "Directional Light",
+    "Environment",
+    "PatrolPoints",
+    "SafePoint",
+    "Enemy",
+    "Player",
+    "ZombieHordeManager",
+    "Extraction Zone"
+  ],
+  "backup": "Assets/RobloxMigration/Backups/UTS_BeforeRoblox_20261020.unity",
+  "notes": [
+    "Official Studio OBJ geometry, UVs and image maps imported at .28 meters/stud. Original transforms preserved; max measured position error 0.0000112 m, rotation error 0 degrees.",
+    "Active quality pipeline is URP PC_RPAsset. Glass alpha, cutout rendering, ambient lighting and source sun direction adapted and visually inspected.",
+    "Roblox scripts are not imported. Existing UTS gameplay scripts retained; navigation/gameplay integration is a separate task.",
+    "Old Environment is retained inactive; original scene backed up. Player lifted 0.086 m to clear the imported ground."
+  ],
+  "deferredParts": [
+    {
+      "id": 9754,
+      "reason": "Source Roblox asset fetch Failure (not present in OBJ)"
+    },
+    {
+      "id": 9824,
+      "reason": "Source Roblox asset fetch Failure (not present in OBJ)"
+    },
+    {
+      "id": 9859,
+      "reason": "Source Roblox asset fetch Failure (not present in OBJ)"
+    }
+  ],
+  "unavailableSources": [
+    {
+      "id": 9754,
+      "name": "JunkFirebird",
+      "mesh": "rbxassetid://703128376",
+      "status": "Failure in live Roblox Studio"
+    },
+    {
+      "id": 9824,
+      "name": "JunkFairlane",
+      "mesh": "rbxassetid://2596054139",
+      "status": "Failure in live Roblox Studio"
+    },
+    {
+      "id": 9859,
+      "name": "pick up",
+      "mesh": "rbxassetid://1666172407",
+      "status": "Failure in live Roblox Studio"
+    }
+  ]
+}
