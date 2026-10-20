@@ -1,0 +1,419 @@
+[
+  {
+    "file": "Audio/FootConcrete/footstep_concrete_000.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_concrete_000.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootConcrete/footstep_concrete_001.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_concrete_001.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootConcrete/footstep_concrete_002.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_concrete_002.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootConcrete/footstep_concrete_003.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_concrete_003.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootConcrete/footstep_concrete_004.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_concrete_004.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootGrass/footstep_grass_000.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_grass_000.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootGrass/footstep_grass_001.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_grass_001.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootGrass/footstep_grass_002.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_grass_002.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootGrass/footstep_grass_003.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_grass_003.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootGrass/footstep_grass_004.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_grass_004.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootWood/footstep_wood_000.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_wood_000.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootWood/footstep_wood_001.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_wood_001.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootWood/footstep_wood_002.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_wood_002.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootWood/footstep_wood_003.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_wood_003.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootWood/footstep_wood_004.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_wood_004.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootCarpet/footstep_carpet_000.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_carpet_000.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootCarpet/footstep_carpet_001.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_carpet_001.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootCarpet/footstep_carpet_002.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_carpet_002.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootCarpet/footstep_carpet_003.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_carpet_003.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/FootCarpet/footstep_carpet_004.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\footstep_carpet_004.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PunchHit/impactPunch_medium_000.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\impactPunch_medium_000.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PunchHit/impactPunch_medium_001.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\impactPunch_medium_001.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PunchHit/impactPunch_medium_002.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\impactPunch_medium_002.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PunchHit/impactPunch_medium_003.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\impactPunch_medium_003.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PunchHit/impactPunch_medium_004.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\impactPunch_medium_004.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/BodyFall/impactSoft_heavy_000.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\impactSoft_heavy_000.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/BodyFall/impactSoft_heavy_001.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\impactSoft_heavy_001.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/BodyFall/impactSoft_heavy_002.ogg",
+    "source": "work\\survival_upgrade\\downloads\\impact\\Audio\\impactSoft_heavy_002.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PunchSwing/knifeSlice.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\knifeSlice.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PunchSwing/knifeSlice2.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\knifeSlice2.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Pickup/cloth1.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\cloth1.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Pickup/cloth2.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\cloth2.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Pickup/handleSmallLeather.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\handleSmallLeather.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Pickup/handleSmallLeather2.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\handleSmallLeather2.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Flashlight/metalClick.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\metalClick.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Flashlight/metalLatch.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\metalLatch.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Creak/creak1.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\creak1.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Creak/creak2.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\creak2.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Creak/creak3.ogg",
+    "source": "work\\survival_upgrade\\downloads\\rpg\\Audio\\creak3.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/ZombieGroan/zombie_groan_1.ogg",
+    "source": "work\\survival_upgrade\\downloads\\zombie.ogg",
+    "trimStart": 0.17,
+    "trimDuration": 2.85,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/ZombieGroan/zombie_groan_2.ogg",
+    "source": "work\\survival_upgrade\\downloads\\zombie.ogg",
+    "trimStart": 3.58,
+    "trimDuration": 2.76,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/ZombieGroan/zombie_groan_3.ogg",
+    "source": "work\\survival_upgrade\\downloads\\zombie.ogg",
+    "trimStart": 6.55,
+    "trimDuration": 2.4,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/ZombieGroan/zombie_groan_4.ogg",
+    "source": "work\\survival_upgrade\\downloads\\zombie.ogg",
+    "trimStart": 9.22,
+    "trimDuration": 2.8,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/ZombieAttack/zombie_attack.ogg",
+    "source": "work\\survival_upgrade\\downloads\\zombie.ogg",
+    "trimStart": 12.15,
+    "trimDuration": 1.25,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/ZombieDeath/zombie_death.ogg",
+    "source": "work\\survival_upgrade\\downloads\\zombie.ogg",
+    "trimStart": 9.2,
+    "trimDuration": 2.65,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PlayerHurt/Painsounds v2 - Track 1 - Arrrch.ogg",
+    "source": "work\\survival_upgrade\\downloads\\pain\\Painsounds v2 - Track 1 - Arrrch.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PlayerHurt/Painsounds v2 - Track 2 - Hurgh.ogg",
+    "source": "work\\survival_upgrade\\downloads\\pain\\Painsounds v2 - Track 2 - Hurgh.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PlayerHurt/Painsounds v2 - Track 3 - Huuurh.ogg",
+    "source": "work\\survival_upgrade\\downloads\\pain\\Painsounds v2 - Track 3 - Huuurh.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PlayerHurt/Painsounds v2 - Track 4 - Arrggh .ogg",
+    "source": "work\\survival_upgrade\\downloads\\pain\\Painsounds v2 - Track 4 - Arrggh .ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PlayerDeath/Painsounds v2 - Track 5 - Urggh.ogg",
+    "source": "work\\survival_upgrade\\downloads\\pain\\Painsounds v2 - Track 5 - Urggh.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/PlayerDeath/Painsounds v2 - Track 6 - hyyrdhh.ogg",
+    "source": "work\\survival_upgrade\\downloads\\pain\\Painsounds v2 - Track 6 - hyyrdhh.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Wind/wind.wav",
+    "source": "work\\survival_upgrade\\downloads\\wind.wav",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/Tension/dream.ogg",
+    "source": "work\\survival_upgrade\\downloads\\dream.ogg",
+    "trimStart": null,
+    "trimDuration": null,
+    "license": "CC0-1.0"
+  },
+  {
+    "file": "Audio/UI/ui_tap.wav",
+    "source": "Original procedural audio authored for this project",
+    "license": "CC0-1.0",
+    "notes": "No external recording or music used."
+  },
+  {
+    "file": "Audio/InventoryFull/pack_full.wav",
+    "source": "Original procedural audio authored for this project",
+    "license": "CC0-1.0",
+    "notes": "No external recording or music used."
+  },
+  {
+    "file": "Audio/ExtractionTick/radio_tick.wav",
+    "source": "Original procedural audio authored for this project",
+    "license": "CC0-1.0",
+    "notes": "No external recording or music used."
+  },
+  {
+    "file": "Audio/ExtractionSuccess/extraction_confirm.wav",
+    "source": "Original procedural audio authored for this project",
+    "license": "CC0-1.0",
+    "notes": "No external recording or music used."
+  },
+  {
+    "file": "Audio/Heartbeat/heartbeat.wav",
+    "source": "Original procedural audio authored for this project",
+    "license": "CC0-1.0",
+    "notes": "No external recording or music used."
+  },
+  {
+    "file": "Audio/PunchSwing/fist_air_whoosh_1.wav",
+    "source": "Swishes Sound Pack / swish-2.wav",
+    "author": "artisticdude",
+    "sourcePage": "https://opengameart.org/content/swishes-sound-pack",
+    "license": "CC0-1.0",
+    "notes": "Short recorded air swish; mono, band limited 150-4800 Hz, 0.8 tempo, click-free fades. No metallic slice or impact layer."
+  },
+  {
+    "file": "Audio/PunchSwing/fist_air_whoosh_2.wav",
+    "source": "Swishes Sound Pack / swish-1.wav",
+    "author": "artisticdude",
+    "sourcePage": "https://opengameart.org/content/swishes-sound-pack",
+    "license": "CC0-1.0",
+    "notes": "Short recorded air swish; mono, band limited 150-4800 Hz, 0.8 tempo, click-free fades. No metallic slice or impact layer."
+  }
+]

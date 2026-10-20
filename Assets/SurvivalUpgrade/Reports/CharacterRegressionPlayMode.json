@@ -1,0 +1,159 @@
+{
+    "spawned": 33,
+    "onNavMesh": 33,
+    "naturallyMoved": 31,
+    "samples": [
+        {
+            "name": "player_idle",
+            "state": "Standing",
+            "speed": 0.0,
+            "height": 2.0,
+            "health": 100.0,
+            "crouching": false,
+            "clips": [
+                "Idle"
+            ],
+            "head": {
+                "x": 5.574201583862305,
+                "y": 1.6316310167312622,
+                "z": 0.07031711935997009
+            }
+        },
+        {
+            "name": "player_walk",
+            "state": "Standing",
+            "speed": 2.299999952316284,
+            "height": 2.0,
+            "health": 100.0,
+            "crouching": false,
+            "clips": [
+                "Idle",
+                "Walking2"
+            ],
+            "head": {
+                "x": 5.665980339050293,
+                "y": 1.5710275173187256,
+                "z": 2.7905211448669434
+            }
+        },
+        {
+            "name": "player_run",
+            "state": "Standing",
+            "speed": 5.199999809265137,
+            "height": 2.0,
+            "health": 100.0,
+            "crouching": false,
+            "clips": [
+                "Walking2",
+                "Running"
+            ],
+            "head": {
+                "x": 5.584449768066406,
+                "y": 1.6744275093078613,
+                "z": 9.026012420654297
+            }
+        },
+        {
+            "name": "player_crouch_idle",
+            "state": "Crouching",
+            "speed": 0.0,
+            "height": 1.5,
+            "health": 100.0,
+            "crouching": true,
+            "clips": [
+                "Crouching Idle",
+                "Crouched Walking"
+            ],
+            "head": {
+                "x": 5.662572383880615,
+                "y": 0.9032652378082275,
+                "z": 10.257691383361816
+            }
+        },
+        {
+            "name": "player_crouch_walk",
+            "state": "Crouching",
+            "speed": 1.100000023841858,
+            "height": 1.5,
+            "health": 100.0,
+            "crouching": true,
+            "clips": [
+                "Crouching Idle",
+                "Crouched Walking"
+            ],
+            "head": {
+                "x": 5.536742210388184,
+                "y": 1.3971441984176636,
+                "z": 2.00140118598938
+            }
+        },
+        {
+            "name": "player_crouch_under_ceiling",
+            "state": "Crouching",
+            "speed": 0.0,
+            "height": 1.5,
+            "health": 100.0,
+            "crouching": true,
+            "clips": [
+                "Crouching Idle",
+                "Crouched Walking"
+            ],
+            "head": {
+                "x": 5.663796901702881,
+                "y": 0.9146678447723389,
+                "z": 2.1844561100006104
+            }
+        },
+        {
+            "name": "player_stand",
+            "state": "Standing",
+            "speed": 0.0,
+            "height": 2.0,
+            "health": 100.0,
+            "crouching": false,
+            "clips": [
+                "Idle",
+                "Walking2"
+            ],
+            "head": {
+                "x": 5.571194648742676,
+                "y": 1.6549216508865356,
+                "z": 1.9427176713943481
+            }
+        },
+        {
+            "name": "player_punch",
+            "state": "Punch",
+            "speed": 0.0,
+            "height": 2.0,
+            "health": 100.0,
+            "crouching": false,
+            "clips": [
+                "Punching"
+            ],
+            "head": {
+                "x": 5.610626697540283,
+                "y": 1.5099860429763794,
+                "z": 1.9606640338897705
+            }
+        }
+    ],
+    "walk": true,
+    "run": true,
+    "crouchIdle": true,
+    "crouchWalk": true,
+    "crouchFitsCollider": true,
+    "crouchHeadroomBlocked": true,
+    "stand": true,
+    "punchAnimation": true,
+    "punchHit": true,
+    "punchOccluded": true,
+    "chase": true,
+    "attack": true,
+    "attackHit": true,
+    "death": true,
+    "chaseDistance": 3.0015289783477783,
+    "punchDamage": 20.0,
+    "sceneEnemyMovedDistance": 1.1562799215316772,
+    "errors": []
+}

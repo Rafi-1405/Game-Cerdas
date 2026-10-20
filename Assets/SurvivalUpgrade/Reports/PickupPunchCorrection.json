@@ -1,0 +1,103 @@
+{
+  "items": [
+    {
+      "name": "FirstAidKit",
+      "yTravel": 0.239999443,
+      "rotationDegrees": 198.676056,
+      "scaleUnchanged": true,
+      "usesTexturedModel": true,
+      "spawnY": 0.5
+    },
+    {
+      "name": "Bandage",
+      "yTravel": 0.239999443,
+      "rotationDegrees": 198.676056,
+      "scaleUnchanged": true,
+      "usesTexturedModel": true,
+      "spawnY": 0.5
+    },
+    {
+      "name": "FirstAidKit",
+      "yTravel": 0.239999443,
+      "rotationDegrees": 198.676056,
+      "scaleUnchanged": true,
+      "usesTexturedModel": true,
+      "spawnY": 0.5
+    },
+    {
+      "name": "FirstAidKit",
+      "yTravel": 0.239999443,
+      "rotationDegrees": 198.676056,
+      "scaleUnchanged": true,
+      "usesTexturedModel": true,
+      "spawnY": 0.5
+    },
+    {
+      "name": "Bandage",
+      "yTravel": 0.239999443,
+      "rotationDegrees": 198.676056,
+      "scaleUnchanged": true,
+      "usesTexturedModel": true,
+      "spawnY": 0.5
+    },
+    {
+      "name": "Medkit",
+      "yTravel": 0.239999443,
+      "rotationDegrees": 198.676056,
+      "scaleUnchanged": true,
+      "usesTexturedModel": true,
+      "spawnY": 0.5
+    },
+    {
+      "name": "Bandage",
+      "yTravel": 0.239999443,
+      "rotationDegrees": 198.676056,
+      "scaleUnchanged": true,
+      "usesTexturedModel": true,
+      "spawnY": 0.5
+    },
+    {
+      "name": "Medkit",
+      "yTravel": 0.239999443,
+      "rotationDegrees": 198.676056,
+      "scaleUnchanged": true,
+      "usesTexturedModel": true,
+      "spawnY": 0.5
+    },
+    {
+      "name": "Bandage",
+      "yTravel": 0.239999443,
+      "rotationDegrees": 198.676056,
+      "scaleUnchanged": true,
+      "usesTexturedModel": true,
+      "spawnY": 0.5
+    },
+    {
+      "name": "Bandage",
+      "yTravel": 0.239999443,
+      "rotationDegrees": 198.676056,
+      "scaleUnchanged": true,
+      "usesTexturedModel": true,
+      "spawnY": 0.5
+    }
+  ],
+  "allThreeTypes": true,
+  "allItemsRotate": true,
+  "allItemsBob": true,
+  "modelScalesAndTexturesPreserved": true,
+  "originalSpawnElevation": true,
+  "expectedSpawnY": 0.5,
+  "punchSwingClips": [
+    "fist_air_whoosh_1",
+    "fist_air_whoosh_2"
+  ],
+  "noWeaponSliceAssigned": true,
+  "punchSwingTriggered": true,
+  "airWhooshActuallyPlaying": true,
+  "errors": [],
+  "sceneTransformsPreserved": 23476,
+  "changedAudioCueIDs": [
+    "6"
+  ],
+  "backup": "Assets/SurvivalUpgrade/Backups/PickupPunch_20261020_205439"
+}

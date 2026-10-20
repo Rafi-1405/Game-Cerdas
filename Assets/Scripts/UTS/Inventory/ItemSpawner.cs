@@ -19,6 +19,9 @@ namespace UTS.Inventory
         [Header("Fixed Spawn Points (Optional)")]
         [SerializeField] private Transform[] fixedSpawnPoints;
 
+        [Header("Textured pickup prefabs (Bandage, First Aid Kit, Medkit)")]
+        [SerializeField] private ScavengeItemPickup[] itemPrefabs;
+
         private void Start()
         {
             if (spawnOnStart)
@@ -53,6 +56,11 @@ namespace UTS.Inventory
 
         public GameObject SpawnItem(ScavengeItemType type, Vector3 position)
         {
+            int index=(int)type;
+            if(itemPrefabs!=null&&index>=0&&index<itemPrefabs.Length&&itemPrefabs[index]){
+                var model=Instantiate(itemPrefabs[index],position,Quaternion.identity,transform);
+                model.name="Item_"+ScavengeItemInfo.GetName(type);model.SetItemType(type);return model.gameObject;
+            }
             GameObject itemObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
             itemObj.name = $"Item_{ScavengeItemInfo.GetName(type)}";
             itemObj.transform.position = position;

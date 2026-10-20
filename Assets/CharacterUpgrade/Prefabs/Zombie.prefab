@@ -332,6 +332,7 @@ GameObject:
   - component: {fileID: 4753787139441371309}
   - component: {fileID: 6110079863252030878}
   - component: {fileID: 5861934118544404675}
+  - component: {fileID: 1171999740310468894}
   m_Layer: 6
   m_Name: Zombie
   m_TagString: Enemy
@@ -607,6 +608,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UTS.Characters.HumanoidAnimationDriver
   animator: {fileID: 7600719618756458939}
+--- !u!114 &1171999740310468894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9093913200038688715}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db68d24015d77f64d9a50c2946f39f22, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UTS.Audio.ActorSurvivalAudio
 --- !u!1001 &4040216571813200938
 PrefabInstance:
   m_ObjectHideFlags: 0

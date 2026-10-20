@@ -15,6 +15,8 @@ namespace UTS.Environment
         [SerializeField] private Color nightLightColor = new Color(0.10f, 0.14f, 0.22f); // Midnight blue
         [SerializeField, Range(0.01f, 0.5f)] private float nightIntensity = 0.12f;
 
+        [SerializeField] private bool previewNightInEditor;
+
         private Light directionalLight;
 
         private void Awake()
@@ -48,7 +50,7 @@ namespace UTS.Environment
         {
             if (directionalLight == null) return;
 
-            if (Application.isPlaying)
+            if (Application.isPlaying || previewNightInEditor)
             {
                 directionalLight.color = nightLightColor;
                 directionalLight.intensity = nightIntensity;

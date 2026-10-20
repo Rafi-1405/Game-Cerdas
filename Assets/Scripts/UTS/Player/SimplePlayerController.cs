@@ -45,6 +45,7 @@ namespace Praktikum5.FSM
         public bool IsCrouching { get; private set; }
         public bool IsPunching => Time.time < punchUntil;
         public event Action OnPunch;
+        public event Action<EnemyFSM> OnPunchHit;
 
         private float currentStamina = 100f;
         private float currentHealth;
@@ -105,7 +106,13 @@ namespace Praktikum5.FSM
 
         private void Update()
         {
-            UpdateCrouch(IsSneakPressed() && !IsDead);
+            if(IsDead){
+                currentSpeed=0;isMoving=false;isAiming=false;CurrentMovementState=global::PlayerMovementState.Idle;
+                if(flashlight)flashlight.SetAiming(false);
+                if(controller.enabled){if(controller.isGrounded&&verticalVelocity<0)verticalVelocity=-2;verticalVelocity+=gravity*Time.deltaTime;controller.Move(Vector3.up*verticalVelocity*Time.deltaTime);}
+                return;
+            }
+            UpdateCrouch(IsSneakPressed());
             if(!IsDead && IsAttackTriggered())TryAttackEnemy();
             Vector3 inputDirection = IsDead || IsPunching ? Vector3.zero : ReadMovementInput();
             isMoving = inputDirection.sqrMagnitude > 0.001f;
@@ -348,7 +355,7 @@ namespace Praktikum5.FSM
                 }
                 if(blocked)continue;nearest=target;closest=delta.magnitude;
             }
-            if(nearest)nearest.TakeDamage(attackDamage);
+            if(nearest){nearest.TakeDamage(attackDamage);OnPunchHit?.Invoke(nearest);}
         }
 
         public void TakeDamage(float damage)

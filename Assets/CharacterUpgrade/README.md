@@ -70,3 +70,8 @@ Reports/AvatarReferenceRepair.json summarizes the repair. RunningSourceCompariso
 Backups/MotionRepair_20261020_192344 preserves the scene, controller and prior importer settings. All 23,469 scene Transform blocks match that fresh backup. The current scene is saved and back in Edit mode.
 
 Do not rerun old imports, normalize, setup, align-crouch or CrouchPosePolish creation commands: they may restore obsolete Avatar or crouch settings. Inspect live user changes before any further repair.
+
+
+## Later survival presentation update
+
+See Assets/SurvivalUpgrade/README.md and Reports/UpgradeSummary.json. Player now uses the existing zombie death motion with a death-only ground contact pass. Living walk/run/crouch animation and the Avatar reference repair above are retained. Items, CC0 SFX and night sky were added in this later update.

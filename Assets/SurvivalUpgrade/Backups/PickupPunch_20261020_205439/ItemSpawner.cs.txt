@@ -1,0 +1,107 @@
+using UnityEngine;
+
+namespace UTS.Inventory
+{
+    [DisallowMultipleComponent]
+    public class ItemSpawner : MonoBehaviour
+    {
+        [Header("Spawn Configuration")]
+        [SerializeField] private bool spawnOnStart = true;
+        [SerializeField] private int bandageCount = 4;
+        [SerializeField] private int firstAidCount = 3;
+        [SerializeField] private int medkitCount = 2;
+
+        [Header("Spawn Area")]
+        [SerializeField] private Vector3 areaCenter = Vector3.zero;
+        [SerializeField] private Vector2 areaSize = new Vector2(25f, 25f);
+        [SerializeField] private float itemElevation = 0.5f;
+
+        [Header("Fixed Spawn Points (Optional)")]
+        [SerializeField] private Transform[] fixedSpawnPoints;
+
+        [Header("Textured pickup prefabs (Bandage, First Aid Kit, Medkit)")]
+        [SerializeField] private ScavengeItemPickup[] itemPrefabs;
+
+        private void Start()
+        {
+            if (spawnOnStart)
+            {
+                SpawnAllItems();
+            }
+        }
+
+        [ContextMenu("Spawn Items Now")]
+        public void SpawnAllItems()
+        {
+            // Spawn Bandages (Grey)
+            for (int i = 0; i < bandageCount; i++)
+            {
+                SpawnItem(ScavengeItemType.Bandage, GetRandomSpawnPosition());
+            }
+
+            // Spawn First Aid Kits (Green)
+            for (int i = 0; i < firstAidCount; i++)
+            {
+                SpawnItem(ScavengeItemType.FirstAidKit, GetRandomSpawnPosition());
+            }
+
+            // Spawn Medkits (Purple)
+            for (int i = 0; i < medkitCount; i++)
+            {
+                SpawnItem(ScavengeItemType.Medkit, GetRandomSpawnPosition());
+            }
+
+            Debug.Log($"[ItemSpawner] Berhasil memunculkan {bandageCount} Bandage, {firstAidCount} First Aid Kit, dan {medkitCount} Medkit di arena.", this);
+        }
+
+        public GameObject SpawnItem(ScavengeItemType type, Vector3 position)
+        {
+            int index=(int)type;
+            if(itemPrefabs!=null&&index>=0&&index<itemPrefabs.Length&&itemPrefabs[index]){
+                var model=Instantiate(itemPrefabs[index],position,Quaternion.Euler(0,Random.Range(0,360),0),transform);
+                model.name="Item_"+ScavengeItemInfo.GetName(type);model.SetItemType(type);model.PlaceOnSurface();return model.gameObject;
+            }
+            GameObject itemObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            itemObj.name = $"Item_{ScavengeItemInfo.GetName(type)}";
+            itemObj.transform.position = position;
+            itemObj.transform.SetParent(transform);
+
+            // Pasang collider trigger
+            BoxCollider col = itemObj.GetComponent<BoxCollider>();
+            if (col != null)
+            {
+                col.isTrigger = true;
+                col.size = Vector3.one * 1.5f; // Sedikit lebih besar agar mudah disentuh player
+            }
+
+            // Pasang script ScavengeItemPickup
+            ScavengeItemPickup pickup = itemObj.AddComponent<ScavengeItemPickup>();
+            pickup.SetItemType(type);
+
+            return itemObj;
+        }
+
+        private Vector3 GetRandomSpawnPosition()
+        {
+            if (fixedSpawnPoints != null && fixedSpawnPoints.Length > 0)
+            {
+                Transform pt = fixedSpawnPoints[Random.Range(0, fixedSpawnPoints.Length)];
+                if (pt != null)
+                {
+                    Vector2 jitter = Random.insideUnitCircle * 2f;
+                    return new Vector3(pt.position.x + jitter.x, pt.position.y + itemElevation, pt.position.z + jitter.y);
+                }
+            }
+
+            float x = areaCenter.x + Random.Range(-areaSize.x * 0.5f, areaSize.x * 0.5f);
+            float z = areaCenter.z + Random.Range(-areaSize.y * 0.5f, areaSize.y * 0.5f);
+            return new Vector3(x, areaCenter.y + itemElevation, z);
+        }
+
+        private void OnDrawGizmosSelected()
+        {
+            Gizmos.color = new Color(0.2f, 0.8f, 0.4f, 0.35f);
+            Gizmos.DrawWireCube(new Vector3(areaCenter.x, areaCenter.y + itemElevation, areaCenter.z), new Vector3(areaSize.x, 1f, areaSize.y));
+        }
+    }
+}

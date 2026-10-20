@@ -16,6 +16,9 @@ namespace UTS.Inventory
         [SerializeField] private float bobAmplitude = 0.12f;
         [SerializeField] private float bobFrequency = 2.5f;
 
+        [Header("Supplied model visual")]
+        [SerializeField] private bool useModelVisuals;
+        public bool UsesModelVisuals=>useModelVisuals;
         private Vector3 initialPosition;
         private Renderer itemRenderer;
         private MaterialPropertyBlock propBlock;
@@ -55,6 +58,8 @@ namespace UTS.Inventory
 
         private void ApplyItemAppearance()
         {
+            // Textured model prefabs retain their authored scale and material colors.
+            if(useModelVisuals)return;
             if (itemRenderer == null)
             {
                 itemRenderer = GetComponent<Renderer>();
@@ -117,11 +122,27 @@ namespace UTS.Inventory
 
             if (inventory != null)
             {
+                var actor=inventory.GetComponent<Praktikum5.FSM.SimplePlayerController>();
+                if(actor&&actor.IsDead)return;
                 if (inventory.TryAddItem(itemType))
                 {
                     Destroy(gameObject);
                 }
+                else inventory.GetComponent<UTS.Audio.ActorSurvivalAudio>()?.InventoryFull();
             }
+        }
+
+        // Model pivots are on their underside. Ground against physical support, excluding actors/items.
+        public bool PlaceOnSurface()
+        {
+            float closest=float.MaxValue;RaycastHit support=default;bool found=false;
+            foreach(var hit in Physics.RaycastAll(transform.position+Vector3.up*.6f,Vector3.down,8,~0,QueryTriggerInteraction.Ignore)){
+                var t=hit.collider.transform;
+                if(hit.normal.y<.7f||t.IsChildOf(transform)||t.GetComponentInParent<ScavengeItemPickup>()||t.GetComponentInParent<Praktikum5.FSM.SimplePlayerController>()||t.GetComponentInParent<Praktikum5.FSM.EnemyFSM>()||hit.distance>=closest)continue;
+                support=hit;closest=hit.distance;found=true;
+            }
+            if(found)transform.position=new Vector3(transform.position.x,support.point.y+.008f,transform.position.z);
+            return found;
         }
 
         private void OnDrawGizmos()

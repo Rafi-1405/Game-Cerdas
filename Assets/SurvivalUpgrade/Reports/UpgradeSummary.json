@@ -1,0 +1,26 @@
+{
+  "verifiedAt": "2026-10-20T20:33:56",
+  "scene": "Assets/Scenes/UTS.unity",
+  "itemPrefabs": [
+    "Bandage",
+    "FirstAidKit",
+    "Medkit"
+  ],
+  "suppliedItemMeshesAndTextures": true,
+  "audioClips": 58,
+  "audioCueCategories": 22,
+  "downloadedAudioLicense": "CC0-1.0",
+  "sourceAndLicenseRecords": "Assets/SurvivalUpgrade/Licenses",
+  "survivalChecksPassed": 27,
+  "regressionChecksPassed": 14,
+  "runtimeErrors": [],
+  "audioOutputRms": 0.001997171120230167,
+  "playerDeathMeshFloorOffsetMeters": 0.00599998236,
+  "nightMoonIntensity": 0.2,
+  "preservation": {
+    "existingTransforms": 23469,
+    "changedExistingTransforms": 0,
+    "addedTransforms": 7,
+    "backup": "Assets/SurvivalUpgrade/Backups/Survival_20261020_201157"
+  }
+}

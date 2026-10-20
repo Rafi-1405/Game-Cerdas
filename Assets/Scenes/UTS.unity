@@ -14,19 +14,19 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
-  m_Fog: 0
-  m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  m_Fog: 1
+  m_FogColor: {r: 0.017, g: 0.024, b: 0.04, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.01
+  m_FogDensity: 0.0055
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
-  m_AmbientSkyColor: {r: 0.4509804, g: 0.4666667, b: 0.427451, a: 1}
-  m_AmbientEquatorColor: {r: 0.03, g: 0.04, b: 0.07, a: 1}
-  m_AmbientGroundColor: {r: 0.01, g: 0.015, b: 0.025, a: 1}
+  m_AmbientSkyColor: {r: 0.1, g: 0.125, b: 0.17, a: 1}
+  m_AmbientEquatorColor: {r: 0.055, g: 0.066, b: 0.09, a: 1}
+  m_AmbientGroundColor: {r: 0.025, g: 0.03, b: 0.04, a: 1}
   m_AmbientIntensity: 1
-  m_AmbientMode: 3
+  m_AmbientMode: 1
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SkyboxMaterial: {fileID: 2100000, guid: cd72f3b7b3b501441b3fdf45a2df0a1d, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -35,7 +35,7 @@ RenderSettings:
   m_DefaultReflectionMode: 0
   m_DefaultReflectionResolution: 128
   m_ReflectionBounces: 1
-  m_ReflectionIntensity: 0.25
+  m_ReflectionIntensity: 0.16
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 22}
   m_UseRadianceAmbientProbe: 0
@@ -358,8 +358,8 @@ Light:
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
-  m_Color: {r: 1, g: 0.96, b: 0.88, a: 1}
-  m_Intensity: 1
+  m_Color: {r: 0.52, g: 0.65, b: 1, a: 1}
+  m_Intensity: 0.2
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -456,8 +456,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UTS.Environment.NightEnvironmentController
   editorLightColor: {r: 1, g: 0.96, b: 0.88, a: 1}
   editorIntensity: 1
-  nightLightColor: {r: 0.1, g: 0.14, b: 0.22, a: 1}
-  nightIntensity: 0.12
+  nightLightColor: {r: 0.52, g: 0.65, b: 1, a: 1}
+  nightIntensity: 0.2
+  previewNightInEditor: 1
 --- !u!1 &100
 GameObject:
   m_ObjectHideFlags: 0
@@ -989,6 +990,7 @@ GameObject:
   - component: {fileID: 305}
   - component: {fileID: 307}
   - component: {fileID: 306}
+  - component: {fileID: 308}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -1160,6 +1162,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UTS.Characters.HumanoidAnimationDriver
   animator: {fileID: 1288059448}
+--- !u!114 &308
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db68d24015d77f64d9a50c2946f39f22, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UTS.Audio.ActorSurvivalAudio
 --- !u!1 &150400
 GameObject:
   m_ObjectHideFlags: 0
@@ -27145,47 +27159,6 @@ Transform:
   - {fileID: 623511050}
   m_Father: {fileID: 1317605915}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!21 &33290130
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: Sprites/Default
-  m_Shader: {fileID: 10753, guid: 0000000000000000f000000000000000, type: 0}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _AlphaTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MainTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - PixelSnap: 0
-    - _EnableExternalAlpha: 0
-    m_Colors:
-    - _Color: {r: 1, g: 0.25, b: 0.25, a: 0.85}
-    - _Flip: {r: 1, g: 1, b: 1, a: 1}
-    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1 &33319760
 GameObject:
   m_ObjectHideFlags: 0
@@ -127992,6 +127965,10 @@ MonoBehaviour:
   areaSize: {x: 100, y: 45}
   itemElevation: 0.5
   fixedSpawnPoints: []
+  itemPrefabs:
+  - {fileID: 8006915602730906618, guid: 9bd7dd1b29a3b8d48ac50a55dbabf03d, type: 3}
+  - {fileID: 5117004964946401543, guid: d61fe36550426dd4b87e8b2c08ce7e03, type: 3}
+  - {fileID: 2856552098996046059, guid: adca588cc3b28b84ab332fd8296d2d8a, type: 3}
 --- !u!1 &166167541
 GameObject:
   m_ObjectHideFlags: 0
@@ -133878,185 +133855,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.1736, y: 1.61, z: 0.1736}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!43 &173463943
-Mesh:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: RobberyBob_ConeMesh
-  serializedVersion: 12
-  m_SubMeshes:
-  - serializedVersion: 2
-    firstByte: 0
-    indexCount: 216
-    topology: 0
-    baseVertex: 0
-    firstVertex: 0
-    vertexCount: 74
-    localAABB:
-      m_Center: {x: 0.00000023841858, y: 0.03999996, z: 5}
-      m_Extent: {x: 7.071068, y: 0, z: 5}
-  m_Shapes:
-    vertices: []
-    shapes: []
-    channels: []
-    fullWeights: []
-  m_BindPose: []
-  m_BoneNameHashes: 
-  m_RootBoneNameHash: 0
-  m_BonesAABB: []
-  m_VariableBoneCountWeights:
-    m_Data: 
-  m_MeshCompression: 0
-  m_IsReadable: 1
-  m_KeepVertices: 0
-  m_KeepIndices: 0
-  m_IndexFormat: 0
-  m_IndexBuffer: 000001000200000002000300000003000400000004000500000005000600000006000700000007000800000008000900000009000a0000000a000b0000000b000c0000000c000d0000000d000e0000000e000f0000000f001000000010001100000011001200000012001300000013001400000014001500000015001600000016001700000017001800000018001900000019001a0000001a001b0000001b001c0000001c001d0000001d001e0000001e001f0000001f002000000020002100000021002200000022002300000023002400000024002500000025002600000026002700000027002800000028002900000029002a0000002a002b0000002b002c0000002c002d0000002d002e0000002e002f0000002f003000000030003100000031003200000032003300000033003400000034003500000035003600000036003700000037003800000038003900000039003a0000003a003b0000003b003c0000003c003d0000003d003e0000003e003f0000003f004000000040004100000041004200000042004300000043004400000044004500000045004600000046004700000047004800000048004900y
-  m_VertexData:
-    serializedVersion: 3
-    m_VertexCount: 74
-    m_Channels:
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 3
-    - stream: 0
-      offset: 12
-      format: 0
-      dimension: 3
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 24
-      format: 0
-      dimension: 2
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    - stream: 0
-      offset: 0
-      format: 0
-      dimension: 0
-    m_DataSize: 2368
-    _typelessdata: 0000000000d7233d00000000000000000000803f000000000000003f000000003046e2c000d7233d3046e240000000000000803f00000000000000000000803fc048ddc000d7233d1028e740000000000000803f00000000398e633c0000803f5830d8c000d7233dc8edeb40000000000000803f00000000398ee33c0000803f9cfdd2c000d7233db896f040000000000000803f00000000abaa2a3d0000803f28b1cdc000d7233d6022f540000000000000803f00000000398e633d0000803fa44bc8c000d7233d2890f940000000000000803f00000000e4388e3d0000803fbccdc2c000d7233d80dffd40000000000000803f00000000abaaaa3d0000803f1438bdc000d7233df8070141000000000000803f00000000721cc73d0000803f608bb7c000d7233d78100341000000000000803f00000000398ee33d0000803f50c8b1c000d7233d00090541000000000000803f000000000000003e0000803f94efabc000d7233d50f1064100000000ffff7f3f00000000e4380e3e0000803fe801a6c000d7233d30c90841000000000000803f00000000c7711c3e0000803f0000a0c000d7233d64900a41000000000000803f00000000abaa2a3e0000803f9cea99c000d7233dbc460c41000000000000803f000000008ee3383e0000803f74c293c000d7233df4eb0d41000000000000803f00000000721c473e0000803f4c888dc000d7233de87f0f41000000000000803f000000005555553e0000803fe43c87c000d7233d5c021141000000000000803f00000000398e633e0000803f04e180c000d7233d28731241000000000000803f000000001cc7713e0000803fd8ea74c000d7233d1cd21341000000000000803f000000000000803e0000803fd8f567c000d7233d0c1f1541000000000000803f00000000721c873e0000803f98e45ac000d7233dd0591641000000000000803f00000000e4388e3e0000803fa4b84dc000d7233d44821741000000000000803f000000005555953e0000803fa47340c000d7233d40981841000000000000803f00000000c7719c3e0000803f301733c000d7233da49b1941000000000000803f00000000398ea33e0000803feca425c000d7233d548c1a41000000000000803f00000000abaaaa3e0000803f741e18c000d7233d2c6a1b41000000000000803f000000001cc7b13e0000803f78850ac000d7233d14351c41000000000000803f000000008ee3b83e0000803f30b7f9bf00d7233df8ec1c41000000000000803f000000000000c03e0000803f0845debf00d7233dbc911d41000000000000803f00000000721cc73e0000803fc8b7c2bf00d7233d4c231e4100000000ffff7f3f00000000e438ce3e0000803fd012a7bf00d7233d94a11e41000000000000803f000000005555d53e0000803f80598bbf00d7233d8c0c1f41000000000000803f00000000c771dc3e0000803f601e5fbf00d7233d24641f41000000000000803f00000000398ee33e0000803fa06e27bf00d7233d4ca81f41000000000000803f00000000abaaea3e0000803fc054dfbe00d7233d04d91f41000000000000803f000000001cc7f13e0000803f80625fbe00d7233d40f61f41000000000000803f000000008ee3f83e0000803f0000000000d7233d00002041000000000000803f000000000000003f0000803f80625f3e00d7233d40f61f41000000000000803f00000000398e033f0000803fc054df3e00d7233d04d91f41000000000000803f00000000721c073f0000803fa06e273f00d7233d4ca81f41000000000000803f00000000abaa0a3f0000803f601e5f3f00d7233d24641f41000000000000803f00000000e4380e3f0000803f80598b3f00d7233d8c0c1f41000000000000803f000000001cc7113f0000803fd012a73f00d7233d94a11e41000000000000803f000000005555153f0000803fc8b7c23f00d7233d4c231e4100000000ffff7f3f000000008ee3183f0000803f0845de3f00d7233dbc911d41000000000000803f00000000c7711c3f0000803f30b7f93f00d7233df8ec1c41000000000000803f000000000000203f0000803f78850a4000d7233d14351c41000000000000803f00000000398e233f0000803f741e184000d7233d2c6a1b41000000000000803f00000000721c273f0000803feca4254000d7233d548c1a41000000000000803f00000000abaa2a3f0000803f3017334000d7233da49b1941000000000000803f00000000e4382e3f0000803fa473404000d7233d40981841000000000000803f000000001cc7313f0000803fa4b84d4000d7233d44821741000000000000803f000000005555353f0000803f94e45a4000d7233dd0591641000000000000803f000000008ee3383f0000803fd8f5674000d7233d0c1f1541000000000000803f00000000c7713c3f0000803fd8ea744000d7233d1cd21341000000000000803f000000000000403f0000803f04e1804000d7233d28731241000000000000803f00000000398e433f0000803fe43c874000d7233d5c021141000000000000803f00000000721c473f0000803f4a888d4000d7233de87f0f41000000000000803f00000000abaa4a3f0000803f72c2934000d7233df4eb0d41000000000000803f00000000e4384e3f0000803f9aea994000d7233dbc460c41000000000000803f000000001cc7513f0000803f0000a04000d7233d64900a41000000000000803f000000005555553f0000803fe801a64000d7233d30c90841000000000000803f000000008ee3583f0000803f96efab4000d7233d50f1064100000000ffff7f3f00000000c7715c3f0000803f50c8b14000d7233d00090541000000000000803f000000000000603f0000803f618bb74000d7233d78100341000000000000803f00000000398e633f0000803f1538bd4000d7233df8070141000000000000803f00000000721c673f0000803fbbcdc24000d7233d80dffd40000000000000803f00000000abaa6a3f0000803fa64bc84000d7233d2890f94000000000ffff7f3f00000000e4386e3f0000803f28b1cd4000d7233d6022f540000000000000803f000000001cc7713f0000803f9cfdd24000d7233db896f040000000000000803f000000005555753f0000803f5830d84000d7233dc8edeb40000000000000803f000000008ee3783f0000803fbf48dd4000d7233d1028e740000000000000803f00000000c7717c3f0000803f3146e24000d7233d3046e240000000000000803f000000000000803f0000803f
-  m_CompressedMesh:
-    m_Vertices:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_UV:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Normals:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Tangents:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Weights:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_NormalSigns:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_TangentSigns:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_FloatColors:
-      m_NumItems: 0
-      m_Range: 0
-      m_Start: 0
-      m_Data: 
-      m_BitSize: 0
-    m_BoneIndices:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_Triangles:
-      m_NumItems: 0
-      m_Data: 
-      m_BitSize: 0
-    m_UVInfo: 0
-  m_LocalAABB:
-    m_Center: {x: 0.00000023841858, y: 0.03999996, z: 5}
-    m_Extent: {x: 7.071068, y: 0, z: 5}
-  m_CookingOptions: 30
-  m_PreBakeConvexCollisionMesh: 0
-  m_PreBakeTriangleCollisionMesh: 0
-  m_BakedConvexCollisionMesh: 
-  m_BakedTriangleCollisionMesh: 
-  'm_MeshMetrics[0]': 1
-  'm_MeshMetrics[1]': 1
-  m_MeshOptimizationFlags: 1
-  m_StreamData:
-    serializedVersion: 2
-    offset: 0
-    size: 0
-    path: 
-  m_MeshLodInfo:
-    serializedVersion: 2
-    m_LodSelectionCurve:
-      serializedVersion: 1
-      m_LodSlope: 0
-      m_LodBias: 0
-    m_NumLevels: 1
-    m_SubMeshes:
-    - serializedVersion: 2
-      m_Levels:
-      - serializedVersion: 1
-        m_IndexStart: 0
-        m_IndexCount: 0
 --- !u!1 &173680579
 GameObject:
   m_ObjectHideFlags: 0
@@ -151592,47 +151390,6 @@ Transform:
   - {fileID: 1496208401}
   m_Father: {fileID: 1063801706}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!21 &196317994
-Material:
-  serializedVersion: 8
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: Sprites/Default
-  m_Shader: {fileID: 10753, guid: 0000000000000000f000000000000000, type: 0}
-  m_Parent: {fileID: 0}
-  m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords: []
-  m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
-  m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
-  stringTagMap: {}
-  disabledShaderPasses: []
-  m_LockedProperties: 
-  m_SavedProperties:
-    serializedVersion: 3
-    m_TexEnvs:
-    - _AlphaTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    - _MainTex:
-        m_Texture: {fileID: 0}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
-    m_Ints: []
-    m_Floats:
-    - PixelSnap: 0
-    - _EnableExternalAlpha: 0
-    m_Colors:
-    - _Color: {r: 1, g: 0.12, b: 0.12, a: 0.35}
-    - _Flip: {r: 1, g: 1, b: 1, a: 1}
-    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
-  m_BuildTextureStacks: []
-  m_AllowLocking: 1
 --- !u!1 &196540211
 GameObject:
   m_ObjectHideFlags: 0
@@ -165838,6 +165595,37 @@ Transform:
   m_Children:
   - {fileID: 877875072}
   m_Father: {fileID: 865587897}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &216079092
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 216079093}
+  m_Layer: 0
+  m_Name: Creak near Gate jamb
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &216079093
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 216079092}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 71.68, y: 0.847, z: 57.204002}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1864824419}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &216112138
 GameObject:
@@ -260058,7 +259846,7 @@ PrefabInstance:
     - target: {fileID: 5008441754085199207, guid: f1dac14df95e6274bb8b9b146cf75052, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 33290130}
+      objectReference: {fileID: 1227898945}
     - target: {fileID: 5008441754085199207, guid: f1dac14df95e6274bb8b9b146cf75052, type: 3}
       propertyPath: m_Positions.Array.data[0].x
       value: -12.74217
@@ -260958,7 +260746,7 @@ PrefabInstance:
     - target: {fileID: 6743818243503119713, guid: f1dac14df95e6274bb8b9b146cf75052, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 196317994}
+      objectReference: {fileID: 632532590}
     - target: {fileID: 8364751248930267512, guid: f1dac14df95e6274bb8b9b146cf75052, type: 3}
       propertyPath: eyeHeight
       value: 0.6
@@ -260991,6 +260779,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 2606656284305012834, guid: f1dac14df95e6274bb8b9b146cf75052, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1656822813}
+    - targetCorrespondingSourceObject: {fileID: 2606656284305012834, guid: f1dac14df95e6274bb8b9b146cf75052, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1656822819}
   m_SourcePrefab: {fileID: 100100000, guid: f1dac14df95e6274bb8b9b146cf75052, type: 3}
 --- !u!1 &342809121
 GameObject:
@@ -263532,6 +263323,37 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 346615922}
   m_Mesh: {fileID: 4300000, guid: d66b5f65a80ff144389b57e49045031a, type: 2}
+--- !u!1 &346763934
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 346763935}
+  m_Layer: 0
+  m_Name: Creak near Unobstructed path from gate to porch
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &346763935
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 346763934}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -65.016, y: 0.04060006, z: -57.68}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1864824419}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &346789582
 GameObject:
   m_ObjectHideFlags: 0
@@ -308837,6 +308659,185 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 407260757}
   m_Mesh: {fileID: 4300000, guid: a49392e0f15e5fe4db9add56459cccdd, type: 2}
+--- !u!43 &407277125
+Mesh:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: RobberyBob_ConeMesh
+  serializedVersion: 12
+  m_SubMeshes:
+  - serializedVersion: 2
+    firstByte: 0
+    indexCount: 216
+    topology: 0
+    baseVertex: 0
+    firstVertex: 0
+    vertexCount: 74
+    localAABB:
+      m_Center: {x: 0.00000023841858, y: 0.03999996, z: 5}
+      m_Extent: {x: 7.071068, y: 0, z: 5}
+  m_Shapes:
+    vertices: []
+    shapes: []
+    channels: []
+    fullWeights: []
+  m_BindPose: []
+  m_BoneNameHashes: 
+  m_RootBoneNameHash: 0
+  m_BonesAABB: []
+  m_VariableBoneCountWeights:
+    m_Data: 
+  m_MeshCompression: 0
+  m_IsReadable: 1
+  m_KeepVertices: 0
+  m_KeepIndices: 0
+  m_IndexFormat: 0
+  m_IndexBuffer: 000001000200000002000300000003000400000004000500000005000600000006000700000007000800000008000900000009000a0000000a000b0000000b000c0000000c000d0000000d000e0000000e000f0000000f001000000010001100000011001200000012001300000013001400000014001500000015001600000016001700000017001800000018001900000019001a0000001a001b0000001b001c0000001c001d0000001d001e0000001e001f0000001f002000000020002100000021002200000022002300000023002400000024002500000025002600000026002700000027002800000028002900000029002a0000002a002b0000002b002c0000002c002d0000002d002e0000002e002f0000002f003000000030003100000031003200000032003300000033003400000034003500000035003600000036003700000037003800000038003900000039003a0000003a003b0000003b003c0000003c003d0000003d003e0000003e003f0000003f004000000040004100000041004200000042004300000043004400000044004500000045004600000046004700000047004800000048004900y
+  m_VertexData:
+    serializedVersion: 3
+    m_VertexCount: 74
+    m_Channels:
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 3
+    - stream: 0
+      offset: 12
+      format: 0
+      dimension: 3
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 24
+      format: 0
+      dimension: 2
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    - stream: 0
+      offset: 0
+      format: 0
+      dimension: 0
+    m_DataSize: 2368
+    _typelessdata: 0000000000d7233d00000000000000000000803f000000000000003f000000003046e2c000d7233d3046e240000000000000803f00000000000000000000803fc048ddc000d7233d1028e740000000000000803f00000000398e633c0000803f5830d8c000d7233dc8edeb40000000000000803f00000000398ee33c0000803f9cfdd2c000d7233db896f040000000000000803f00000000abaa2a3d0000803f28b1cdc000d7233d6022f540000000000000803f00000000398e633d0000803fa44bc8c000d7233d2890f940000000000000803f00000000e4388e3d0000803fbccdc2c000d7233d80dffd40000000000000803f00000000abaaaa3d0000803f1438bdc000d7233df8070141000000000000803f00000000721cc73d0000803f608bb7c000d7233d78100341000000000000803f00000000398ee33d0000803f50c8b1c000d7233d00090541000000000000803f000000000000003e0000803f94efabc000d7233d50f1064100000000ffff7f3f00000000e4380e3e0000803fe801a6c000d7233d30c90841000000000000803f00000000c7711c3e0000803f0000a0c000d7233d64900a41000000000000803f00000000abaa2a3e0000803f9cea99c000d7233dbc460c41000000000000803f000000008ee3383e0000803f74c293c000d7233df4eb0d41000000000000803f00000000721c473e0000803f4c888dc000d7233de87f0f41000000000000803f000000005555553e0000803fe43c87c000d7233d5c021141000000000000803f00000000398e633e0000803f04e180c000d7233d28731241000000000000803f000000001cc7713e0000803fd8ea74c000d7233d1cd21341000000000000803f000000000000803e0000803fd8f567c000d7233d0c1f1541000000000000803f00000000721c873e0000803f98e45ac000d7233dd0591641000000000000803f00000000e4388e3e0000803fa4b84dc000d7233d44821741000000000000803f000000005555953e0000803fa47340c000d7233d40981841000000000000803f00000000c7719c3e0000803f301733c000d7233da49b1941000000000000803f00000000398ea33e0000803feca425c000d7233d548c1a41000000000000803f00000000abaaaa3e0000803f741e18c000d7233d2c6a1b41000000000000803f000000001cc7b13e0000803f78850ac000d7233d14351c41000000000000803f000000008ee3b83e0000803f30b7f9bf00d7233df8ec1c41000000000000803f000000000000c03e0000803f0845debf00d7233dbc911d41000000000000803f00000000721cc73e0000803fc8b7c2bf00d7233d4c231e4100000000ffff7f3f00000000e438ce3e0000803fd012a7bf00d7233d94a11e41000000000000803f000000005555d53e0000803f80598bbf00d7233d8c0c1f41000000000000803f00000000c771dc3e0000803f601e5fbf00d7233d24641f41000000000000803f00000000398ee33e0000803fa06e27bf00d7233d4ca81f41000000000000803f00000000abaaea3e0000803fc054dfbe00d7233d04d91f41000000000000803f000000001cc7f13e0000803f80625fbe00d7233d40f61f41000000000000803f000000008ee3f83e0000803f0000000000d7233d00002041000000000000803f000000000000003f0000803f80625f3e00d7233d40f61f41000000000000803f00000000398e033f0000803fc054df3e00d7233d04d91f41000000000000803f00000000721c073f0000803fa06e273f00d7233d4ca81f41000000000000803f00000000abaa0a3f0000803f601e5f3f00d7233d24641f41000000000000803f00000000e4380e3f0000803f80598b3f00d7233d8c0c1f41000000000000803f000000001cc7113f0000803fd012a73f00d7233d94a11e41000000000000803f000000005555153f0000803fc8b7c23f00d7233d4c231e4100000000ffff7f3f000000008ee3183f0000803f0845de3f00d7233dbc911d41000000000000803f00000000c7711c3f0000803f30b7f93f00d7233df8ec1c41000000000000803f000000000000203f0000803f78850a4000d7233d14351c41000000000000803f00000000398e233f0000803f741e184000d7233d2c6a1b41000000000000803f00000000721c273f0000803feca4254000d7233d548c1a41000000000000803f00000000abaa2a3f0000803f3017334000d7233da49b1941000000000000803f00000000e4382e3f0000803fa473404000d7233d40981841000000000000803f000000001cc7313f0000803fa4b84d4000d7233d44821741000000000000803f000000005555353f0000803f94e45a4000d7233dd0591641000000000000803f000000008ee3383f0000803fd8f5674000d7233d0c1f1541000000000000803f00000000c7713c3f0000803fd8ea744000d7233d1cd21341000000000000803f000000000000403f0000803f04e1804000d7233d28731241000000000000803f00000000398e433f0000803fe43c874000d7233d5c021141000000000000803f00000000721c473f0000803f4a888d4000d7233de87f0f41000000000000803f00000000abaa4a3f0000803f72c2934000d7233df4eb0d41000000000000803f00000000e4384e3f0000803f9aea994000d7233dbc460c41000000000000803f000000001cc7513f0000803f0000a04000d7233d64900a41000000000000803f000000005555553f0000803fe801a64000d7233d30c90841000000000000803f000000008ee3583f0000803f96efab4000d7233d50f1064100000000ffff7f3f00000000c7715c3f0000803f50c8b14000d7233d00090541000000000000803f000000000000603f0000803f618bb74000d7233d78100341000000000000803f00000000398e633f0000803f1538bd4000d7233df8070141000000000000803f00000000721c673f0000803fbbcdc24000d7233d80dffd40000000000000803f00000000abaa6a3f0000803fa64bc84000d7233d2890f94000000000ffff7f3f00000000e4386e3f0000803f28b1cd4000d7233d6022f540000000000000803f000000001cc7713f0000803f9cfdd24000d7233db896f040000000000000803f000000005555753f0000803f5830d84000d7233dc8edeb40000000000000803f000000008ee3783f0000803fbf48dd4000d7233d1028e740000000000000803f00000000c7717c3f0000803f3146e24000d7233d3046e240000000000000803f000000000000803f0000803f
+  m_CompressedMesh:
+    m_Vertices:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_UV:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Normals:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Tangents:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Weights:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_NormalSigns:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_TangentSigns:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_FloatColors:
+      m_NumItems: 0
+      m_Range: 0
+      m_Start: 0
+      m_Data: 
+      m_BitSize: 0
+    m_BoneIndices:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_Triangles:
+      m_NumItems: 0
+      m_Data: 
+      m_BitSize: 0
+    m_UVInfo: 0
+  m_LocalAABB:
+    m_Center: {x: 0.00000023841858, y: 0.03999996, z: 5}
+    m_Extent: {x: 7.071068, y: 0, z: 5}
+  m_CookingOptions: 30
+  m_PreBakeConvexCollisionMesh: 0
+  m_PreBakeTriangleCollisionMesh: 0
+  m_BakedConvexCollisionMesh: 
+  m_BakedTriangleCollisionMesh: 
+  'm_MeshMetrics[0]': 1
+  'm_MeshMetrics[1]': 1
+  m_MeshOptimizationFlags: 1
+  m_StreamData:
+    serializedVersion: 2
+    offset: 0
+    size: 0
+    path: 
+  m_MeshLodInfo:
+    serializedVersion: 2
+    m_LodSelectionCurve:
+      serializedVersion: 1
+      m_LodSlope: 0
+      m_LodBias: 0
+    m_NumLevels: 1
+    m_SubMeshes:
+    - serializedVersion: 2
+      m_Levels:
+      - serializedVersion: 1
+        m_IndexStart: 0
+        m_IndexCount: 0
 --- !u!1 &407360510
 GameObject:
   m_ObjectHideFlags: 0
@@ -440137,6 +440138,37 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.0392, y: 1.414, z: 0.0392}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &584555773
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 584555774}
+  m_Layer: 0
+  m_Name: Creak near Gate jamb
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &584555774
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 584555773}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0.5600004, y: 0.847, z: -45.164}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1864824419}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &584731868
 GameObject:
   m_ObjectHideFlags: 0
@@ -476274,6 +476306,47 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.036399998, y: 1.442, z: 0.0532}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!21 &632532590
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Sprites/Default
+  m_Shader: {fileID: 10753, guid: 0000000000000000f000000000000000, type: 0}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _AlphaTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - PixelSnap: 0
+    - _EnableExternalAlpha: 0
+    m_Colors:
+    - _Color: {r: 1, g: 0.12, b: 0.12, a: 0.35}
+    - _Flip: {r: 1, g: 1, b: 1, a: 1}
+    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!1 &632552770
 GameObject:
   m_ObjectHideFlags: 0
@@ -838489,6 +838562,37 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.392, y: 0.0644, z: 0.7}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &1107224208
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1107224209}
+  m_Layer: 0
+  m_Name: Creak near Unobstructed path from gate to porch
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1107224209
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1107224208}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 80.55601, y: 0.04060006, z: 19.74}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1864824419}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1107349496
 GameObject:
   m_ObjectHideFlags: 0
@@ -933812,6 +933916,47 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1227898935}
   m_Mesh: {fileID: 4300000, guid: 162e55e220a251f42a105a3480468ed2, type: 2}
+--- !u!21 &1227898945
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Sprites/Default
+  m_Shader: {fileID: 10753, guid: 0000000000000000f000000000000000, type: 0}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _AlphaTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - PixelSnap: 0
+    - _EnableExternalAlpha: 0
+    m_Colors:
+    - _Color: {r: 1, g: 0.25, b: 0.25, a: 0.85}
+    - _Flip: {r: 1, g: 1, b: 1, a: 1}
+    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!1 &1227906444
 GameObject:
   m_ObjectHideFlags: 0
@@ -945346,6 +945491,47 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1243572579}
   m_Mesh: {fileID: 4300000, guid: f5d441b9169ec8d4c883c3d39b97d279, type: 2}
+--- !u!21 &1243588412
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Sprites/Default
+  m_Shader: {fileID: 10753, guid: 0000000000000000f000000000000000, type: 0}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _AlphaTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - PixelSnap: 0
+    - _EnableExternalAlpha: 0
+    m_Colors:
+    - _Color: {r: 1, g: 0.12, b: 0.12, a: 0.35}
+    - _Flip: {r: 1, g: 1, b: 1, a: 1}
+    - _RendererColor: {r: 1, g: 1, b: 1, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!1 &1243828480
 GameObject:
   m_ObjectHideFlags: 0
@@ -975905,6 +976091,37 @@ Transform:
   m_Children:
   - {fileID: 918579519}
   m_Father: {fileID: 2037525085}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1281773709
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1281773710}
+  m_Layer: 0
+  m_Name: Creak near Gate jamb
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1281773710
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1281773709}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -64.26, y: 0.847, z: -18.284}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1864824419}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1282005968
 GameObject:
@@ -1170248,6 +1170465,37 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.67200005, y: 0.042000003, z: 0.042000003}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &1544438489
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1544438490}
+  m_Layer: 0
+  m_Name: Creak near Unobstructed path from gate to porch
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1544438490
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1544438489}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -55.034, y: 0.04060006, z: 38.36}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1864824419}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1544529443
 GameObject:
   m_ObjectHideFlags: 0
@@ -1255751,6 +1255999,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UTS.Characters.HumanoidAnimationDriver
   animator: {fileID: 1145671487}
+--- !u!114 &1656822819
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1656822805}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: db68d24015d77f64d9a50c2946f39f22, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UTS.Audio.ActorSurvivalAudio
 --- !u!1 &1656857828
 GameObject:
   m_ObjectHideFlags: 0
@@ -1409621,6 +1409881,68 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.050400004, y: 1.54, z: 0.098}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1 &1864824417
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1864824419}
+  - component: {fileID: 1864824418}
+  m_Layer: 0
+  m_Name: Survival Atmosphere
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1864824418
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1864824417}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 872fc57c75ae495449e23cc772c41d23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::UTS.Audio.SurvivalAudioDirector
+  library: {fileID: 11400000, guid: 39c39e6647c92e14db21df4fbda423d2, type: 2}
+  masterVolume: 0.85
+  effectsVolume: 0.9
+  ambienceVolume: 0.75
+  maxVoices: 24
+  environmentalAnchors:
+  - {fileID: 216079093}
+  - {fileID: 584555774}
+  - {fileID: 346763935}
+  - {fileID: 1281773710}
+  - {fileID: 1544438490}
+  - {fileID: 1107224209}
+--- !u!4 &1864824419
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1864824417}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 216079093}
+  - {fileID: 584555774}
+  - {fileID: 346763935}
+  - {fileID: 1281773710}
+  - {fileID: 1544438490}
+  - {fileID: 1107224209}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1864845268
 GameObject:
   m_ObjectHideFlags: 0
@@ -1652879,3 +1653201,4 @@ SceneRoots:
   - {fileID: 59330597}
   - {fileID: 10670368}
   - {fileID: 2029257030}
+  - {fileID: 1864824419}

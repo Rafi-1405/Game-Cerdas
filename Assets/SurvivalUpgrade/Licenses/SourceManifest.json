@@ -1,0 +1,65 @@
+[
+  {
+    "download": "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip",
+    "originalFile": "impact.zip",
+    "author": "Kenney",
+    "sourcePage": "https://kenney.nl/assets/impact-sounds",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sha256": "029d734af1582474edf3a694d1b0cebc97c1c152f2f39fa34d4c2bafc5de77f8"
+  },
+  {
+    "download": "https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip",
+    "originalFile": "rpg.zip",
+    "author": "Kenney",
+    "sourcePage": "https://kenney.nl/assets/rpg-audio",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sha256": "6dbeaf8544da958d8f2adcb4a4a4b76c1ade34a05f8ab9edccd327da7375f38b"
+  },
+  {
+    "download": "https://opengameart.org/sites/default/files/darsycho__zombie-moans_0.ogg",
+    "originalFile": "zombie.ogg",
+    "author": "Darsycho",
+    "sourcePage": "https://opengameart.org/content/zombie-moans",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sha256": "49b0bd7a7908f2b3ea61ae93ccf584ab650705d62e8ed6d4c8c9f5b98ad37b05"
+  },
+  {
+    "download": "https://opengameart.org/sites/default/files/painsounds.zip",
+    "originalFile": "pain.zip",
+    "author": "Lasse B\u00fchrmann / Emopreben",
+    "sourcePage": "https://opengameart.org/content/pain-sounds-by-emopreben",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sha256": "4b7b0567901ee8dc8c44ed0b595bf3ac2ce761eb153e730e0244d482e8830352"
+  },
+  {
+    "download": "https://opengameart.org/sites/default/files/wind1.wav",
+    "originalFile": "wind.wav",
+    "author": "Luke.RUSTLTD",
+    "sourcePage": "https://opengameart.org/content/wind1",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sha256": "a2856f794fbf77e05f8241dc4adeade7f62fa21c3c9dc49f7725b6c6218060c3"
+  },
+  {
+    "download": "https://opengameart.org/sites/default/files/Dream%202%20%28Ambience%29.ogg",
+    "originalFile": "dream.ogg",
+    "author": "TokyoGeisha",
+    "sourcePage": "https://opengameart.org/content/dream-2-ambience",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sha256": "09371312f86814cab01de54ccb9f0147aae674ba7983f8c0aafef4a9d7c1328e"
+  },
+  {
+    "download": "https://opengameart.org/sites/default/files/swishes.zip",
+    "originalFile": "swishes.zip",
+    "author": "artisticdude",
+    "sourcePage": "https://opengameart.org/content/swishes-sound-pack",
+    "license": "CC0-1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sha256": "7980215241b739a787dcf26f660ce510bb237900968789395a86911619795693"
+  }
+]

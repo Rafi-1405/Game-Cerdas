@@ -1,0 +1,238 @@
+{
+  "cues": [
+    {
+      "cue": "FootConcrete",
+      "volume": 0.46,
+      "pitchVariation": 0.055,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/FootConcrete/footstep_concrete_000.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootConcrete/footstep_concrete_001.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootConcrete/footstep_concrete_002.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootConcrete/footstep_concrete_003.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootConcrete/footstep_concrete_004.ogg"
+      ]
+    },
+    {
+      "cue": "FootGrass",
+      "volume": 0.46,
+      "pitchVariation": 0.055,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/FootGrass/footstep_grass_000.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootGrass/footstep_grass_001.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootGrass/footstep_grass_002.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootGrass/footstep_grass_003.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootGrass/footstep_grass_004.ogg"
+      ]
+    },
+    {
+      "cue": "FootWood",
+      "volume": 0.46,
+      "pitchVariation": 0.055,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/FootWood/footstep_wood_000.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootWood/footstep_wood_001.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootWood/footstep_wood_002.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootWood/footstep_wood_003.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootWood/footstep_wood_004.ogg"
+      ]
+    },
+    {
+      "cue": "FootCarpet",
+      "volume": 0.46,
+      "pitchVariation": 0.055,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/FootCarpet/footstep_carpet_000.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootCarpet/footstep_carpet_001.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootCarpet/footstep_carpet_002.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootCarpet/footstep_carpet_003.ogg",
+        "Assets/SurvivalUpgrade/Audio/FootCarpet/footstep_carpet_004.ogg"
+      ]
+    },
+    {
+      "cue": "PunchHit",
+      "volume": 0.67,
+      "pitchVariation": 0.07,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/PunchHit/impactPunch_medium_000.ogg",
+        "Assets/SurvivalUpgrade/Audio/PunchHit/impactPunch_medium_001.ogg",
+        "Assets/SurvivalUpgrade/Audio/PunchHit/impactPunch_medium_002.ogg",
+        "Assets/SurvivalUpgrade/Audio/PunchHit/impactPunch_medium_003.ogg",
+        "Assets/SurvivalUpgrade/Audio/PunchHit/impactPunch_medium_004.ogg"
+      ]
+    },
+    {
+      "cue": "BodyFall",
+      "volume": 0.6,
+      "pitchVariation": 0.05,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/BodyFall/impactSoft_heavy_000.ogg",
+        "Assets/SurvivalUpgrade/Audio/BodyFall/impactSoft_heavy_001.ogg",
+        "Assets/SurvivalUpgrade/Audio/BodyFall/impactSoft_heavy_002.ogg"
+      ]
+    },
+    {
+      "cue": "PunchSwing",
+      "volume": 0.24,
+      "pitchVariation": 0.08,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/PunchSwing/knifeSlice.ogg",
+        "Assets/SurvivalUpgrade/Audio/PunchSwing/knifeSlice2.ogg"
+      ]
+    },
+    {
+      "cue": "Pickup",
+      "volume": 0.38,
+      "pitchVariation": 0.04,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/Pickup/cloth1.ogg",
+        "Assets/SurvivalUpgrade/Audio/Pickup/cloth2.ogg",
+        "Assets/SurvivalUpgrade/Audio/Pickup/handleSmallLeather.ogg",
+        "Assets/SurvivalUpgrade/Audio/Pickup/handleSmallLeather2.ogg"
+      ]
+    },
+    {
+      "cue": "Flashlight",
+      "volume": 0.25,
+      "pitchVariation": 0.02,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/Flashlight/metalClick.ogg",
+        "Assets/SurvivalUpgrade/Audio/Flashlight/metalLatch.ogg"
+      ]
+    },
+    {
+      "cue": "Creak",
+      "volume": 0.22,
+      "pitchVariation": 0.1,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/Creak/creak1.ogg",
+        "Assets/SurvivalUpgrade/Audio/Creak/creak2.ogg",
+        "Assets/SurvivalUpgrade/Audio/Creak/creak3.ogg"
+      ]
+    },
+    {
+      "cue": "ZombieGroan",
+      "volume": 0.55,
+      "pitchVariation": 0.12,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/ZombieGroan/zombie_groan_1.ogg",
+        "Assets/SurvivalUpgrade/Audio/ZombieGroan/zombie_groan_2.ogg",
+        "Assets/SurvivalUpgrade/Audio/ZombieGroan/zombie_groan_3.ogg",
+        "Assets/SurvivalUpgrade/Audio/ZombieGroan/zombie_groan_4.ogg"
+      ]
+    },
+    {
+      "cue": "ZombieAttack",
+      "volume": 0.64,
+      "pitchVariation": 0.08,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/ZombieAttack/zombie_attack.ogg"
+      ]
+    },
+    {
+      "cue": "ZombieDeath",
+      "volume": 0.59,
+      "pitchVariation": 0.08,
+      "spatial": true,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/ZombieDeath/zombie_death.ogg"
+      ]
+    },
+    {
+      "cue": "PlayerHurt",
+      "volume": 0.56,
+      "pitchVariation": 0.025,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/PlayerHurt/Painsounds v2 - Track 1 - Arrrch.ogg",
+        "Assets/SurvivalUpgrade/Audio/PlayerHurt/Painsounds v2 - Track 2 - Hurgh.ogg",
+        "Assets/SurvivalUpgrade/Audio/PlayerHurt/Painsounds v2 - Track 3 - Huuurh.ogg",
+        "Assets/SurvivalUpgrade/Audio/PlayerHurt/Painsounds v2 - Track 4 - Arrggh .ogg"
+      ]
+    },
+    {
+      "cue": "PlayerDeath",
+      "volume": 0.65,
+      "pitchVariation": 0.025,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/PlayerDeath/Painsounds v2 - Track 5 - Urggh.ogg",
+        "Assets/SurvivalUpgrade/Audio/PlayerDeath/Painsounds v2 - Track 6 - hyyrdhh.ogg"
+      ]
+    },
+    {
+      "cue": "Wind",
+      "volume": 0.19,
+      "pitchVariation": 0,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/Wind/wind.wav"
+      ]
+    },
+    {
+      "cue": "Tension",
+      "volume": 0.08,
+      "pitchVariation": 0,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/Tension/dream.ogg"
+      ]
+    },
+    {
+      "cue": "UI",
+      "volume": 0.24,
+      "pitchVariation": 0,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/UI/ui_tap.wav"
+      ]
+    },
+    {
+      "cue": "InventoryFull",
+      "volume": 0.35,
+      "pitchVariation": 0,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/InventoryFull/pack_full.wav"
+      ]
+    },
+    {
+      "cue": "ExtractionTick",
+      "volume": 0.3,
+      "pitchVariation": 0,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/ExtractionTick/radio_tick.wav"
+      ]
+    },
+    {
+      "cue": "ExtractionSuccess",
+      "volume": 0.45,
+      "pitchVariation": 0,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/ExtractionSuccess/extraction_confirm.wav"
+      ]
+    },
+    {
+      "cue": "Heartbeat",
+      "volume": 0.3,
+      "pitchVariation": 0,
+      "spatial": false,
+      "clips": [
+        "Assets/SurvivalUpgrade/Audio/Heartbeat/heartbeat.wav"
+      ]
+    }
+  ]
+}

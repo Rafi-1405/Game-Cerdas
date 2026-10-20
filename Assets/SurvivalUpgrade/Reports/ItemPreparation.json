@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Bandage",
+    "sourceGroup": "Bandage1",
+    "widthMeters": 0.18,
+    "dimensionsMeters": [
+      0.18,
+      0.08809568852459024,
+      0.087604524590164
+    ],
+    "pivot": "bottom center",
+    "source": "C:\\Users\\Desktop\\Downloads\\ItemAssets\\Items.obj"
+  },
+  {
+    "name": "FirstAidKit",
+    "sourceGroup": "Firstaidkit1",
+    "widthMeters": 0.3,
+    "dimensionsMeters": [
+      0.3,
+      0.2425162937743177,
+      0.08925642023346253
+    ],
+    "pivot": "bottom center",
+    "source": "C:\\Users\\Desktop\\Downloads\\ItemAssets\\Items.obj"
+  },
+  {
+    "name": "Medkit",
+    "sourceGroup": "Medkit1",
+    "widthMeters": 0.38,
+    "dimensionsMeters": [
+      0.38,
+      0.1484023668639055,
+      0.27207100591716016
+    ],
+    "pivot": "bottom center",
+    "source": "C:\\Users\\Desktop\\Downloads\\ItemAssets\\Items.obj"
+  }
+]
