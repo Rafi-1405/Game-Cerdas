@@ -1,0 +1,63 @@
+{
+  "date": "2026-10-20",
+  "scene": "Assets/Scenes/UTS.unity",
+  "backup": "Assets/CharacterUpgrade/Backups/CrouchPose_20261020_185705",
+  "clips": [
+    "Assets/CharacterUpgrade/Animations/Player/Crouch Idle Balanced.anim",
+    "Assets/CharacterUpgrade/Animations/Player/Crouch Walk Balanced.anim"
+  ],
+  "changes": [
+    "Replaced one-sided deep crouch idle with a centered Humanoid stance derived from averaged crouch walk, symmetric limbs, subtle breathing, level shoulders/hips, flat feet and forward gaze.",
+    "Removed constant mean 11.58374 degree body roll from crouch walk plus torso/neck side/twist bias, retaining the original time-varying motion and transforming effector curves to preserve their goal trajectories."
+  ],
+  "originalFBXAssetsRetained": true,
+  "standingWalkRunAndFootIKPreserved": true,
+  "allSceneTransformsPreserved": true,
+  "crouchColliderHeight": 1.6,
+  "before": {
+    "idle": {
+      "meanShoulderHeightDifference": 0.0711217508,
+      "meanHeadLateralDisplacement": 0.06843853151333333,
+      "meanTorsoLateralLean": 0.1131472825,
+      "maximumHeadHeight": 0.835720658
+    },
+    "walk": {
+      "meanShoulderHeightDifference": -0.07763749333333334,
+      "meanHeadLateralDisplacement": -0.1037883752,
+      "meanTorsoLateralLean": -0.17457127816666668,
+      "maximumHeadHeight": 1.41362774
+    }
+  },
+  "after": {
+    "idle": {
+      "meanShoulderHeightDifference": 0.0001990993815,
+      "meanHeadLateralDisplacement": -7.5340275e-05,
+      "meanTorsoLateralLean": -0.00033034045566666666,
+      "maximumHeadHeight": 1.38004613
+    },
+    "walk": {
+      "meanShoulderHeightDifference": -0.0004029075316666669,
+      "meanHeadLateralDisplacement": 0.00114170664,
+      "meanTorsoLateralLean": -0.003074096083333334,
+      "maximumHeadHeight": 1.43045461
+    }
+  },
+  "runtimeChecks": {
+    "walk": true,
+    "run": true,
+    "crouchIdle": true,
+    "crouchWalk": true,
+    "crouchFitsCollider": true,
+    "crouchHeadroomBlocked": true,
+    "stand": true,
+    "punchAnimation": true,
+    "punchHit": true,
+    "punchOccluded": true,
+    "chase": true,
+    "attack": true,
+    "attackHit": true,
+    "death": true
+  },
+  "runtimeErrors": [],
+  "qaNote": "Crouch capture includes front/side/back actual Play Mode frames. Virtual keyboard current is maintained after InputSystem updates to prevent physical device focus interference. Natural NPC colliders are disabled only in controlled test phase after movement observation, and crouch walking starts at the known clear street point. All runtime test changes revert on exit."
+}

@@ -1,0 +1,54 @@
+{
+    "mapPreserved": true,
+    "actorTransformsPreserved": true,
+    "avatarsValid": true,
+    "allMaterialsTextured": true,
+    "prefabUsesZombieChar": true,
+    "walking2": true,
+    "mapHash": "E09DCE49B38D01009659D30F6A97BDC3E967E5A68446278E73F9F022E8BB6392",
+    "navTriangles": 14015,
+    "actors": [
+        {
+            "name": "Enemy",
+            "model": "Assets/CharacterUpgrade/Models/ZombieChar.fbx",
+            "controller": "Assets/CharacterUpgrade/Controllers/Zombie.controller",
+            "position": {
+                "x": -12.742170333862305,
+                "y": 1.0399999618530273,
+                "z": 41.40993118286133
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            }
+        },
+        {
+            "name": "Player",
+            "model": "Assets/CharacterUpgrade/Models/PlayerChar.fbx",
+            "controller": "Assets/CharacterUpgrade/Controllers/Player.controller",
+            "position": {
+                "x": -20.0,
+                "y": 1.0860000848770142,
+                "z": 16.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            }
+        }
+    ]
+}

@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-20",
+  "scene": "Assets/Scenes/UTS.unity",
+  "change": "Player.controller Standing.iKOnFeet false -> true",
+  "reason": "Humanoid foot retargeting correction was disabled; applying Foot IK improves knees/feet on PlayerChar proportions during both walk and run.",
+  "clipsRetained": [
+    "Walking2",
+    "Running"
+  ],
+  "backup": "Assets/CharacterUpgrade/Backups/Locomotion_20261020_163512",
+  "sceneTransformChanges": 0,
+  "visualVerification": "Compared actual Play Mode frames across full walk and run cycles, then repeated with the saved controller. Same-frame editor GPU skinning previews are stale; they are not evidence of broken mesh weights. CPU BakeMesh and true runtime frames deform the pants/shoes correctly.",
+  "runtimeChecks": {
+    "walk": true,
+    "run": true,
+    "crouchIdle": true,
+    "crouchWalk": true,
+    "crouchFitsCollider": true,
+    "crouchHeadroomBlocked": true,
+    "stand": true,
+    "punchAnimation": true,
+    "punchHit": true,
+    "punchOccluded": true,
+    "chase": true,
+    "attack": true,
+    "attackHit": true,
+    "death": true
+  },
+  "runtimeErrors": [],
+  "allNPCsNavigating": true,
+  "allNPCsMoved": true
+}

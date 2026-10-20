@@ -1,0 +1,319 @@
+{
+  "verifiedAt": "2026-10-20T19:46:22",
+  "scene": "Assets/Scenes/UTS.unity",
+  "cause": "Animation-only FBXs created separate Humanoid Avatars from posed source skeletons. Their reference knee rotations differed from PlayerChar, producing hyperextension and reverse knee bend planes.",
+  "fix": "Five clips whose skeleton names match PlayerChar now use CopyFromOther with PlayerChar Avatar: Idle, Running, Crouching Idle, Crouched Walking, Punching.",
+  "crouchMotions": [
+    "Crouching Idle.fbx",
+    "Crouched Walking.fbx"
+  ],
+  "generatedBalancedCrouchClipsUsed": false,
+  "proceduralBodyCorrectionUsed": false,
+  "crouchColliderHeightMeters": 1.5,
+  "comparisonSamples": 32,
+  "meanKneeAngleErrorDegreesBefore": {
+    "FK": 31.135787963867188,
+    "FootIK": 18.772451400756836
+  },
+  "meanKneeAngleErrorDegreesAfter": {
+    "FK": 0.01702362298965454,
+    "FootIK": 0.9562088847160339
+  },
+  "actualPlayRunningSamples": 10,
+  "actualPlayRunningKneeBendPlanes": {
+    "leftBend": 0.7061425,
+    "rightBend": 0.712561548
+  },
+  "runtimeChecks": {
+    "walk": true,
+    "run": true,
+    "crouchIdle": true,
+    "crouchWalk": true,
+    "crouchFitsCollider": true,
+    "crouchHeadroomBlocked": true,
+    "stand": true,
+    "punchAnimation": true,
+    "punchHit": true,
+    "punchOccluded": true,
+    "chase": true,
+    "attack": true,
+    "attackHit": true,
+    "death": true
+  },
+  "runtimeErrors": [],
+  "preservation": {
+    "transformCountBefore": 23469,
+    "transformCountAfter": 23469,
+    "changedTransforms": [],
+    "addedTransforms": [],
+    "sourceFBXUnchanged": {
+      "Idle": true,
+      "Running": true,
+      "Crouching Idle": true,
+      "Crouched Walking": true,
+      "Punching": true
+    },
+    "liveInspection": {
+      "scene": "Assets/Scenes/UTS.unity",
+      "playing": false,
+      "dirty": false,
+      "triangles": 14015,
+      "characters": [
+        {
+          "path": "Enemy",
+          "position": {
+            "x": -12.742170333862305,
+            "y": 1.0399999618530273,
+            "z": 41.40993118286133
+          },
+          "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          },
+          "components": [
+            "UnityEngine.Transform",
+            "UnityEngine.MeshFilter",
+            "UnityEngine.MeshRenderer",
+            "UnityEngine.CapsuleCollider",
+            "UnityEngine.AI.NavMeshAgent",
+            "Praktikum5.FSM.EnemyPerception",
+            "Praktikum5.FSM.EnemyFSM",
+            "NPCSensor",
+            "Praktikum5.FSM.RobberyBobVisionCone",
+            "UTS.Zombies.ZombieSwarmAgent",
+            "UTS.Characters.HumanoidAnimationDriver"
+          ],
+          "visualChildren": [
+            "RobberyBob_VisionCone",
+            "RobberyBob_VisionOutline",
+            "Character Model"
+          ],
+          "active": true,
+          "radius": 0.30000001192092896,
+          "height": 1.850000023841858,
+          "baseOffset": 1.0,
+          "onNavMesh": false
+        },
+        {
+          "path": "Player",
+          "position": {
+            "x": -20.0,
+            "y": 1.0860000848770142,
+            "z": 16.0
+          },
+          "scale": {
+            "x": 1.0,
+            "y": 1.0,
+            "z": 1.0
+          },
+          "components": [
+            "UnityEngine.Transform",
+            "UnityEngine.MeshFilter",
+            "UnityEngine.MeshRenderer",
+            "UnityEngine.CharacterController",
+            "Praktikum5.FSM.SimplePlayerController",
+            "UTS.Characters.HumanoidAnimationDriver",
+            "Unity.AI.Navigation.NavMeshModifier"
+          ],
+          "visualChildren": [
+            "Main Camera",
+            "Character Model"
+          ],
+          "active": true,
+          "radius": 0.0,
+          "height": 0.0,
+          "baseOffset": 0.0,
+          "onNavMesh": false
+        }
+      ],
+      "surfaces": [
+        {
+          "path": "Gameplay Navigation",
+          "data": "Assets/CharacterUpgrade/Navigation/TownNavMesh.asset",
+          "collect": "Volume",
+          "use": "PhysicsColliders",
+          "active": true,
+          "agentType": -1372625422
+        },
+        {
+          "path": "Environment",
+          "data": "Assets/Scenes/UTS/NavMesh-Environment.asset",
+          "collect": "All",
+          "use": "RenderMeshes",
+          "active": false,
+          "agentType": 0
+        }
+      ],
+      "models": [
+        {
+          "path": "Assets/Resources/Y Bot.fbx",
+          "animationType": "Legacy",
+          "meshes": 2,
+          "bones": 68,
+          "avatarValid": false,
+          "human": false,
+          "clips": [
+            "mixamo.com | 0.03333334s | legacy=True"
+          ]
+        },
+        {
+          "path": "Assets/Resources/Walking.fbx",
+          "animationType": "Legacy",
+          "meshes": 2,
+          "bones": 68,
+          "avatarValid": false,
+          "human": false,
+          "clips": [
+            "mixamo.com | 1.033333s | legacy=True"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Player/Crouched Walking.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": false,
+          "human": false,
+          "clips": [
+            "Crouched Walking | 1.033333s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Player/Crouching Idle.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": false,
+          "human": false,
+          "clips": [
+            "Crouching Idle | 2.5s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Player/Idle.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": false,
+          "human": false,
+          "clips": [
+            "Idle | 1.966667s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Player/Punching.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": false,
+          "human": false,
+          "clips": [
+            "Punching | 1.033333s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Player/RepairRaw/Running.fbx",
+          "animationType": "Generic",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": false,
+          "human": false,
+          "clips": [
+            "mixamo.com | 0.7s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Player/Running.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": false,
+          "human": false,
+          "clips": [
+            "Running | 0.7s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Player/Walking.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": true,
+          "human": true,
+          "clips": [
+            "Walking | 1.033333s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Player/Walking2.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": true,
+          "human": true,
+          "clips": [
+            "Walking2 | 1.4s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Zombie/zombie attack.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": true,
+          "human": true,
+          "clips": [
+            "zombie attack | 2.633333s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Zombie/zombie death.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": true,
+          "human": true,
+          "clips": [
+            "zombie death | 2.966667s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Zombie/zombie idle.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": true,
+          "human": true,
+          "clips": [
+            "zombie idle | 4.333333s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Zombie/zombie run.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": true,
+          "human": true,
+          "clips": [
+            "zombie run | 0.8000001s | legacy=False"
+          ]
+        },
+        {
+          "path": "Assets/CharacterUpgrade/Animations/Zombie/zombie walk.fbx",
+          "animationType": "Human",
+          "meshes": 0,
+          "bones": 66,
+          "avatarValid": true,
+          "human": true,
+          "clips": [
+            "zombie walk | 4.033334s | legacy=False"
+          ]
+        }
+      ]
+    }
+  },
+  "backup": "Assets/CharacterUpgrade/Backups/MotionRepair_20261020_192344",
+  "scope": "No production runtime scripts, map transforms, navigation, zombie rig, Walking2 import settings, blend thresholds or transitions changed in this repair."
+}

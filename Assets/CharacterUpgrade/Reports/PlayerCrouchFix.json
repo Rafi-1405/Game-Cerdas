@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-20",
+  "scene": "Assets/Scenes/UTS.unity",
+  "changes": [
+    "Crouching state iKOnFeet enabled for idle and walk",
+    "Removed CrouchPoseAlignment component from player visual; native animation pose retained",
+    "Player crouchHeight 1.40 -> 1.60 m to fit supplied crouched walking motion without forced pelvis lowering"
+  ],
+  "cause": "Crouch foot retargeting was disabled. The previous procedural pelvis lowering also over-bent the crouch walk legs while pinning feet. Native Foot IK alone preserved the authored movement more naturally.",
+  "backup": "Assets/CharacterUpgrade/Backups/Crouch_20261020_182735",
+  "transformsPreserved": true,
+  "sampleCount": 16,
+  "maxSampledHeadHeight": 1.416219,
+  "minSampledAnkleHeight": 0.07672459,
+  "capsuleHeight": 1.6,
+  "runtimeChecks": {
+    "walk": true,
+    "run": true,
+    "crouchIdle": true,
+    "crouchWalk": true,
+    "crouchFitsCollider": true,
+    "crouchHeadroomBlocked": true,
+    "stand": true,
+    "punchAnimation": true,
+    "punchHit": true,
+    "punchOccluded": true,
+    "chase": true,
+    "attack": true,
+    "attackHit": true,
+    "death": true
+  },
+  "runtimeErrors": [],
+  "note": "CrouchPoseAlignment.cs retained for compatibility/backups, but no longer attached to current player. Do not run the older align-crouch command, which restores the obsolete lowering correction and 1.4 m capsule."
+}
