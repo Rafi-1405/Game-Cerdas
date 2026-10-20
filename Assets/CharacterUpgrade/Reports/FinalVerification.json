@@ -1,0 +1,31 @@
+{
+  "scene": "Assets/Scenes/UTS.unity",
+  "saved": "Assets/Scenes/UTS.unity | map transforms unchanged | nav triangles 14015",
+  "cause": "Previous NavMeshSurface inactive with old Environment; zero active triangles",
+  "activeNavTriangles": 14015,
+  "npcCount": 33,
+  "npcsOnNavMesh": 33,
+  "npcsObservedMoving": 33,
+  "sceneEnemyMovementMeters": 3.0333242416381836,
+  "completeRoutes": 7,
+  "directDoorwayPathsPassed": 16,
+  "runtimeChecks": {
+    "walk": true,
+    "run": true,
+    "crouchIdle": true,
+    "crouchWalk": true,
+    "crouchFitsCollider": true,
+    "crouchHeadroomBlocked": true,
+    "stand": true,
+    "punchAnimation": true,
+    "punchHit": true,
+    "punchOccluded": true,
+    "chase": true,
+    "attack": true,
+    "attackHit": true,
+    "death": true
+  },
+  "runtimeErrors": [],
+  "mapTransformsUnchanged": true,
+  "verifiedAt": "2026-10-20 14:44:26"
+}

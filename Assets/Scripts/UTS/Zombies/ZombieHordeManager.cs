@@ -50,7 +50,9 @@ namespace UTS.Zombies
         [SerializeField, Min(0)] private int extractionWaveCount = 20;
         [SerializeField, Min(1f)] private float spawnRadius = 30f;
         [SerializeField, Min(0f)] private float minimumPlayerDistance = 22f;
-        [SerializeField, Min(0.1f)] private float navMeshSampleDistance = 6f;
+        [SerializeField, Min(0.1f)] private float navMeshSampleDistance = 1.5f;
+        [SerializeField] private Transform protectedSpawnCenter;
+        [SerializeField] private float protectedSpawnRadius = 20f;
         [SerializeField] private int navMeshAreaMask = NavMesh.AllAreas;
         [SerializeField, Min(1)] private int spawnAttemptsPerZombie = 50;
 
@@ -180,7 +182,7 @@ namespace UTS.Zombies
 
         public void EnsureDefaultSpawnZones(bool forceReset = false)
         {
-            if (!forceReset && spawnZones != null && spawnZones.Count == 7) return;
+            if (!forceReset && spawnZones != null && spawnZones.Count > 0) return;
 
             spawnZones = new List<TownSpawnZone>
             {
@@ -277,7 +279,7 @@ namespace UTS.Zombies
             NavMeshAgent prefabAgent = zombiePrefab.GetComponent<NavMeshAgent>();
             float baseOffset = prefabAgent != null ? prefabAgent.baseOffset : 0f;
             float effectiveSafeDist = Mathf.Max(minimumPlayerDistance, playerSafeSpawnRadius);
-            Vector3 safehouseCenter = new Vector3(-20f, 0f, 16f);
+            
 
             for (int attempt = 0; attempt < spawnAttemptsPerZombie; attempt++)
             {
@@ -290,7 +292,7 @@ namespace UTS.Zombies
                 {
                     continue;
                 }
-                if (PlanarDistance(candidate, safehouseCenter) < effectiveSafeDist)
+                if (protectedSpawnCenter != null && PlanarDistance(candidate, protectedSpawnCenter.position) < protectedSpawnRadius)
                 {
                     continue;
                 }
@@ -305,12 +307,13 @@ namespace UTS.Zombies
                 {
                     continue;
                 }
-                if (PlanarDistance(hit.position, safehouseCenter) < effectiveSafeDist)
+                if (protectedSpawnCenter != null && PlanarDistance(hit.position, protectedSpawnCenter.position) < protectedSpawnRadius)
                 {
                     continue;
                 }
 
                 // Pengecekan Poisson Minimum Spacing Rule (>= 3.5m - 4.0m antar zombie)
+                if (!IsReachableSpawn(hit.position, candidate.y)) continue;
                 bool validSpacing = true;
                 foreach (Vector3 spawnedPos in spawnedPositions)
                 {
@@ -343,7 +346,7 @@ namespace UTS.Zombies
             NavMeshAgent prefabAgent = zombiePrefab.GetComponent<NavMeshAgent>();
             float baseOffset = prefabAgent != null ? prefabAgent.baseOffset : 0f;
             float effectiveSafeDist = Mathf.Max(minimumPlayerDistance, playerSafeSpawnRadius);
-            Vector3 safehouseCenter = new Vector3(-20f, 0f, 16f);
+            
 
             for (int attempt = 0; attempt < spawnAttemptsPerZombie; attempt++)
             {
@@ -354,7 +357,7 @@ namespace UTS.Zombies
                 {
                     continue;
                 }
-                if (PlanarDistance(candidate, safehouseCenter) < effectiveSafeDist)
+                if (protectedSpawnCenter != null && PlanarDistance(candidate, protectedSpawnCenter.position) < protectedSpawnRadius)
                 {
                     continue;
                 }
@@ -368,11 +371,12 @@ namespace UTS.Zombies
                 {
                     continue;
                 }
-                if (PlanarDistance(hit.position, safehouseCenter) < effectiveSafeDist)
+                if (protectedSpawnCenter != null && PlanarDistance(hit.position, protectedSpawnCenter.position) < protectedSpawnRadius)
                 {
                     continue;
                 }
 
+                if (!IsReachableSpawn(hit.position, candidate.y)) continue;
                 bool validSpacing = true;
                 foreach (Vector3 spawnedPos in spawnedPositions)
                 {
@@ -392,6 +396,15 @@ namespace UTS.Zombies
             }
 
             return false;
+        }
+
+        private bool IsReachableSpawn(Vector3 point,float candidateHeight)
+        {
+            if(point.y>candidateHeight+.75f)return false;
+            if(protectedSpawnCenter && PlanarDistance(point,protectedSpawnCenter.position)<protectedSpawnRadius)return false;
+            if(Physics.CheckCapsule(point+Vector3.up*.36f,point+Vector3.up*1.5f,.28f,~0,QueryTriggerInteraction.Ignore))return false;
+            if(!player || !NavMesh.SamplePosition(player.position,out var anchor,3,navMeshAreaMask))return false;
+            var path=new NavMeshPath();return NavMesh.CalculatePath(point,anchor.position,navMeshAreaMask,path)&&path.status==NavMeshPathStatus.PathComplete;
         }
 
         private void SpawnZombieInstance(Vector3 spawnPosition)

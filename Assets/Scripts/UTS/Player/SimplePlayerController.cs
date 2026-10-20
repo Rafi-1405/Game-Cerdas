@@ -32,8 +32,19 @@ namespace Praktikum5.FSM
 
         [Header("Attack Settings")]
         [SerializeField] private EnemyFSM enemy;
-        [SerializeField] private float attackDistance = 3f;
+        [SerializeField] private float attackDistance = 1.6f;
         [SerializeField] private float attackDamage = 20f;
+        [SerializeField, Min(.1f)] private float punchDuration = 1.0333f;
+        [SerializeField, Min(0f)] private float punchImpactDelay = .32f;
+        [SerializeField, Range(0f,180f)] private float punchArc = 110f;
+        [Header("Crouch")]
+        [SerializeField, Min(.6f)] private float crouchHeight = 1.4f;
+        private float standingHeight;
+        private Vector3 standingCenter;
+        private float punchUntil;
+        public bool IsCrouching { get; private set; }
+        public bool IsPunching => Time.time < punchUntil;
+        public event Action OnPunch;
 
         private float currentStamina = 100f;
         private float currentHealth;
@@ -64,6 +75,7 @@ namespace Praktikum5.FSM
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
+            standingHeight = controller.height;standingCenter = controller.center;
             currentStamina = maxStamina;
             currentHealth = maxHealth;
             Inventory = GetComponent<UTS.Inventory.PlayerInventory>();
@@ -93,7 +105,9 @@ namespace Praktikum5.FSM
 
         private void Update()
         {
-            Vector3 inputDirection = ReadMovementInput();
+            UpdateCrouch(IsSneakPressed() && !IsDead);
+            if(!IsDead && IsAttackTriggered())TryAttackEnemy();
+            Vector3 inputDirection = IsDead || IsPunching ? Vector3.zero : ReadMovementInput();
             isMoving = inputDirection.sqrMagnitude > 0.001f;
 
             // Tentukan status Aiming (Tahan RMB)
@@ -114,11 +128,15 @@ namespace Praktikum5.FSM
 
             float speed = walkSpeed;
 
-            if (isAiming)
+            if (IsCrouching)
+            {
+                speed = sneakSpeed;
+            }
+            else if (isAiming)
             {
                 speed = aimWalkSpeed;
             }
-            else if (IsSneakPressed())
+            else if (IsCrouching)
             {
                 speed = sneakSpeed;
             }
@@ -159,13 +177,13 @@ namespace Praktikum5.FSM
             {
                 CurrentMovementState = global::PlayerMovementState.Idle;
             }
+            else if (IsCrouching)
+            {
+                CurrentMovementState = global::PlayerMovementState.Sneak;
+            }
             else if (isAiming)
             {
                 CurrentMovementState = global::PlayerMovementState.Walk;
-            }
-            else if (IsSneakPressed())
-            {
-                CurrentMovementState = global::PlayerMovementState.Sneak;
             }
             else if (runPressed && speed == runSpeed)
             {
@@ -209,10 +227,7 @@ namespace Praktikum5.FSM
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
             }
 
-            if (IsAttackTriggered())
-            {
-                TryAttackEnemy();
-            }
+
         }
 
         private Vector3 ReadMovementInput()
@@ -285,40 +300,55 @@ namespace Praktikum5.FSM
         {
 #if ENABLE_INPUT_SYSTEM
             Keyboard keyboard = Keyboard.current;
-            return keyboard != null && keyboard.spaceKey.wasPressedThisFrame;
+            return (keyboard != null && keyboard.spaceKey.wasPressedThisFrame) || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame);
 #else
-            return Input.GetKeyDown(KeyCode.Space);
+            return Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
 #endif
+        }
+
+        private void UpdateCrouch(bool requested)
+        {
+            if(IsPunching)requested=false;
+            if(!requested && IsCrouching){
+                Vector3 center=transform.TransformPoint(standingCenter);
+                float radius=controller.radius*.94f;
+                var top=center+Vector3.up*(standingHeight*.5f-radius);
+                var bottom=center-Vector3.up*(standingHeight*.5f-radius-.06f);
+                foreach(var c in Physics.OverlapCapsule(bottom,top,radius,~0,QueryTriggerInteraction.Ignore)){
+                    if(!c.transform.IsChildOf(transform)){requested=true;break;}
+                }
+            }
+            if(IsCrouching==requested)return;
+            IsCrouching=requested;
+            controller.height=requested?crouchHeight:standingHeight;
+            controller.center=standingCenter-Vector3.up*(standingHeight-controller.height)*.5f;
         }
 
         public void TryAttackEnemy()
         {
-            // Cari EnemyFSM terdekat yang masih hidup
-            EnemyFSM targetEnemy = null;
-            float closestDist = float.MaxValue;
-
-            EnemyFSM[] allEnemies = FindObjectsByType<EnemyFSM>(FindObjectsInactive.Exclude);
-            foreach (var e in allEnemies)
-            {
-                if (e == null || e.IsDead) continue;
-                float d = Vector3.Distance(transform.position, e.transform.position);
-                if (d < closestDist)
-                {
-                    closestDist = d;
-                    targetEnemy = e;
+            if(IsDead || IsPunching)return;
+            if(IsCrouching){UpdateCrouch(false);if(IsCrouching)return;}
+            punchUntil=Time.time+punchDuration;
+            OnPunch?.Invoke();
+            Invoke(nameof(ApplyPunchImpact),punchImpactDelay);
+        }
+        private void ApplyPunchImpact()
+        {
+            if(IsDead)return;
+            EnemyFSM nearest=null;float closest=attackDistance;
+            Vector3 origin=transform.position+Vector3.up*.25f;
+            foreach(var target in FindObjectsByType<EnemyFSM>(FindObjectsInactive.Exclude)){
+                if(!target||target.IsDead)continue;
+                var delta=target.transform.position-transform.position;delta.y=0;
+                if(delta.magnitude>closest || Vector3.Angle(transform.forward,delta)>punchArc*.5f)continue;
+                var destination=target.transform.position+Vector3.up*.25f;
+                bool blocked=false;
+                foreach(var h in Physics.RaycastAll(origin,destination-origin,Vector3.Distance(origin,destination),~0,QueryTriggerInteraction.Ignore)){
+                    if(!h.transform.IsChildOf(transform)&&!h.transform.IsChildOf(target.transform)){blocked=true;break;}
                 }
+                if(blocked)continue;nearest=target;closest=delta.magnitude;
             }
-
-            if (targetEnemy != null && closestDist <= attackDistance)
-            {
-                enemy = targetEnemy;
-                targetEnemy.TakeDamage(attackDamage);
-                Debug.Log($"[SimplePlayerController] Player menyerang {targetEnemy.name}! Jarak: {closestDist:F2}m (Damage: {attackDamage})", this);
-            }
-            else if (targetEnemy != null)
-            {
-                Debug.Log($"[SimplePlayerController] Enemy terdekat ({targetEnemy.name}) terlalu jauh ({closestDist:F2}m > {attackDistance}m) untuk diserang.", this);
-            }
+            if(nearest)nearest.TakeDamage(attackDamage);
         }
 
         public void TakeDamage(float damage)
@@ -339,6 +369,7 @@ namespace Praktikum5.FSM
         [ContextMenu("Reset Position")]
         public void ResetPosition()
         {
+            CancelInvoke(nameof(ApplyPunchImpact));punchUntil=0;IsCrouching=false;controller.height=standingHeight;controller.center=standingCenter;
             controller.enabled = false;
             transform.position = initialPosition;
             transform.rotation = initialRotation;

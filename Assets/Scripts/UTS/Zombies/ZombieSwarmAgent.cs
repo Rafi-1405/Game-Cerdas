@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Action = System.Action;
 using UnityEngine;
 using UnityEngine.AI;
 using Praktikum5.FSM;
@@ -21,6 +22,7 @@ namespace UTS.Zombies
 
         private static readonly HashSet<ZombieSwarmAgent> activeAgents = new HashSet<ZombieSwarmAgent>();
         private static bool warnedMissingObstacleLayers;
+        private readonly RaycastHit[] occlusionHits = new RaycastHit[16];
 
         [Header("Perception (Project Zomboid Senses)")]
         [Tooltip("Jarak pandang visual kerucut zombie (10m)")]
@@ -78,7 +80,9 @@ namespace UTS.Zombies
         [SerializeField] private float attackExitRange = 1.8f;
 
         [Tooltip("Jeda waktu antar serangan (1.2s)")]
-        [SerializeField] private float attackCooldown = 1.2f;
+        [SerializeField] private float attackCooldown = 2.7f;
+        [SerializeField, Min(0f)] private float attackImpactDelay = .65f;
+        public event Action OnAttack;
 
         [Tooltip("Besaran luka per serangan (15 HP)")]
         [SerializeField] private float attackDamage = 15f;
@@ -95,6 +99,7 @@ namespace UTS.Zombies
         private EnemyFSM enemyFsm;
         private Transform player;
         private SimplePlayerController playerController;
+        private CharacterController playerCapsule;
         private PlayerSoundEmitter playerSoundEmitter;
         private ZombieHordeManager hordeManager;
 
@@ -377,16 +382,17 @@ namespace UTS.Zombies
                 if (Time.time >= nextAttackTime)
                 {
                     nextAttackTime = Time.time + attackCooldown;
-                    if (playerController != null)
-                    {
-                        playerController.TakeDamage(attackDamage);
-                        if (debugLogging)
-                        {
-                            Debug.Log($"[ZombieSwarmAgent] {name} menyerang player! Damage: {attackDamage}", this);
-                        }
-                    }
+                    OnAttack?.Invoke();
+                    Invoke(nameof(ApplyAttackImpact),attackImpactDelay);
                 }
             }
+        }
+
+        private void ApplyAttackImpact()
+        {
+            if(enemyFsm&&enemyFsm.IsDead || !playerController || playerController.IsDead || !player)return;
+            if(PlanarDistance(transform.position,player.position)>attackExitRange || !CanSeePlayer())return;
+            playerController.TakeDamage(attackDamage);
         }
 
         private void UpdateIdleWander()
@@ -428,6 +434,8 @@ namespace UTS.Zombies
 
                 if (NavMesh.SamplePosition(candidate, out NavMeshHit hit, 4f, agent.areaMask))
                 {
+                    var path=new NavMeshPath();
+                    if(!agent.CalculatePath(hit.position,path)||path.status!=NavMeshPathStatus.PathComplete)continue;
                     currentWanderTarget = hit.position;
                     return;
                 }
@@ -449,9 +457,9 @@ namespace UTS.Zombies
             // Tetap lakukan raycast oklusi rintangan agar tidak tembus dinding 0.3m
             if (distance <= closeSenseRadius)
             {
-                Vector3 toChestNear = (player.position + Vector3.up * targetChestHeight) - origin;
+                Vector3 toChestNear = TargetPoint(.58f,targetChestHeight) - origin;
                 float nearDist = toChestNear.magnitude;
-                bool occluded = Physics.Raycast(origin, toChestNear.normalized, Mathf.Max(0f, nearDist - 0.05f), obstacleMask, QueryTriggerInteraction.Ignore);
+                bool occluded = HasOccluder(origin,toChestNear,nearDist);
                 if (!occluded)
                 {
                     return true;
@@ -466,20 +474,37 @@ namespace UTS.Zombies
             }
 
             // Dual-point Raycast: Mata Zombie -> Dada Pemain (0.9m) & Kepala Pemain (1.5m)
-            Vector3 chestPoint = player.position + Vector3.up * targetChestHeight;
-            Vector3 headPoint = player.position + Vector3.up * targetHeadHeight;
+            Vector3 chestPoint = TargetPoint(.58f,targetChestHeight);
+            Vector3 headPoint = TargetPoint(.88f,targetHeadHeight);
 
             Vector3 toChest = chestPoint - origin;
             float chestDist = toChest.magnitude;
-            bool chestVisible = !Physics.Raycast(origin, toChest.normalized, Mathf.Max(0f, chestDist - 0.05f), obstacleMask, QueryTriggerInteraction.Ignore);
+            bool chestVisible = !HasOccluder(origin,toChest,chestDist);
 
             if (chestVisible) return true;
 
             Vector3 toHead = headPoint - origin;
             float headDist = toHead.magnitude;
-            bool headVisible = !Physics.Raycast(origin, toHead.normalized, Mathf.Max(0f, headDist - 0.05f), obstacleMask, QueryTriggerInteraction.Ignore);
+            bool headVisible = !HasOccluder(origin,toHead,headDist);
 
             return headVisible;
+        }
+
+        private Vector3 TargetPoint(float fraction,float fallbackHeight)
+        {
+            if(!playerCapsule)return player.position+Vector3.up*fallbackHeight;
+            var center=player.TransformPoint(playerCapsule.center);
+            return center+Vector3.up*(playerCapsule.height*(fraction-.5f));
+        }
+
+        private bool HasOccluder(Vector3 origin,Vector3 direction,float distance)
+        {
+            int count=Physics.RaycastNonAlloc(origin,direction.normalized,occlusionHits,Mathf.Max(0,distance-.05f),obstacleMask,QueryTriggerInteraction.Ignore);
+            for(int i=0;i<count;i++){
+                var t=occlusionHits[i].transform;if(t.IsChildOf(transform)||(player&&t.IsChildOf(player)))continue;
+                return true;
+            }
+            return false;
         }
 
         private bool CheckHearingPlayer()
@@ -569,12 +594,12 @@ namespace UTS.Zombies
 
         private void ConfigureObstacleMask()
         {
-            int obstacleLayers = LayerMask.GetMask("Obstacle", "Wall");
+            int obstacleLayers = LayerMask.GetMask("Default", "Obstacle", "Wall");
             if (obstacleLayers == 0) obstacleLayers = (1 << 3) | (1 << 7);
             obstacleMask = obstacleLayers;
 
-            obstacleMask.value &= ~(1 << gameObject.layer);
-            if (player != null) obstacleMask.value &= ~(1 << player.gameObject.layer);
+            if(gameObject.layer!=0)obstacleMask.value &= ~(1 << gameObject.layer);
+            if (player != null && player.gameObject.layer!=0) obstacleMask.value &= ~(1 << player.gameObject.layer);
             obstacleMask.value &= ~LayerMask.GetMask("Player", "Zombie", "Zombies");
         }
 
@@ -595,6 +620,7 @@ namespace UTS.Zombies
             player = target;
             if (player == null) return;
             playerController = player.GetComponent<SimplePlayerController>();
+            playerCapsule = player.GetComponent<CharacterController>();
             playerSoundEmitter = player.GetComponent<PlayerSoundEmitter>();
             ConfigureObstacleMask();
         }

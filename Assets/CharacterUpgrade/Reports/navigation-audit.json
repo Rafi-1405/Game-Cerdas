@@ -1,0 +1,403 @@
+{
+    "triangles": 14015,
+    "agentType": -1372625422,
+    "surface": "Gameplay Navigation",
+    "data": "Assets/CharacterUpgrade/Navigation/TownNavMesh.asset",
+    "routes": [
+        {
+            "name": "Main street to fortress camp",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 66.0660171508789,
+            "start": {
+                "x": 5.599999904632568,
+                "y": 0.07999992370605469,
+                "z": 0.0
+            },
+            "end": {
+                "x": 5.704469680786133,
+                "y": 0.039999961853027344,
+                "z": 65.12187957763672
+            }
+        },
+        {
+            "name": "Main street to minimarket",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 30.819961547851563,
+            "start": {
+                "x": 5.599999904632568,
+                "y": 0.07999992370605469,
+                "z": 0.0
+            },
+            "end": {
+                "x": -20.0,
+                "y": 0.11999988555908203,
+                "z": -16.0
+            }
+        },
+        {
+            "name": "Main street to townhall",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 38.03553009033203,
+            "start": {
+                "x": 5.599999904632568,
+                "y": 0.07999992370605469,
+                "z": 0.0
+            },
+            "end": {
+                "x": -18.0,
+                "y": 0.11999988555908203,
+                "z": 28.0
+            }
+        },
+        {
+            "name": "Main street to east service station",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 53.871070861816406,
+            "start": {
+                "x": 5.599999904632568,
+                "y": 0.07999992370605469,
+                "z": 0.0
+            },
+            "end": {
+                "x": 48.0,
+                "y": 0.11999988555908203,
+                "z": -19.0
+            }
+        },
+        {
+            "name": "Main street to west neighborhood",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 71.23152160644531,
+            "start": {
+                "x": 5.599999904632568,
+                "y": 0.07999992370605469,
+                "z": 0.0
+            },
+            "end": {
+                "x": -65.0,
+                "y": 0.07999992370605469,
+                "z": 0.0
+            }
+        },
+        {
+            "name": "Main street to east neighborhood",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 75.48143005371094,
+            "start": {
+                "x": 5.599999904632568,
+                "y": 0.07999992370605469,
+                "z": 0.0
+            },
+            "end": {
+                "x": 80.0,
+                "y": 0.07999992370605469,
+                "z": 0.0
+            }
+        },
+        {
+            "name": "Scene Enemy to main street",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 45.735435485839844,
+            "start": {
+                "x": -12.742170333862305,
+                "y": 0.039999961853027344,
+                "z": 41.40993118286133
+            },
+            "end": {
+                "x": 5.599999904632568,
+                "y": 0.07999992370605469,
+                "z": 0.0
+            }
+        }
+    ],
+    "doorways": [
+        {
+            "name": "Direct doorway: Architecture - Clinic (18.48, 2.30, -19.32)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0,
+            "start": {
+                "x": 18.479999542236328,
+                "y": 0.11999988555908203,
+                "z": -18.81999969482422
+            },
+            "end": {
+                "x": 18.479999542236328,
+                "y": 0.11999988555908203,
+                "z": -19.81999969482422
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Clinic (29.68, 2.30, -14.84)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.000232458114624,
+            "start": {
+                "x": 29.68000030517578,
+                "y": 0.08057685196399689,
+                "z": -14.34000015258789
+            },
+            "end": {
+                "x": 29.68000030517578,
+                "y": 0.10214277356863022,
+                "z": -15.34000015258789
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Clinic (26.32, 2.30, -19.32)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0,
+            "start": {
+                "x": 26.31999969482422,
+                "y": 0.11999988555908203,
+                "z": -18.81999969482422
+            },
+            "end": {
+                "x": 26.31999969482422,
+                "y": 0.11999988555908203,
+                "z": -19.81999969482422
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Clinic (29.68, 2.30, -24.92)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0025818347930908,
+            "start": {
+                "x": 29.68000030517578,
+                "y": 0.11190462857484818,
+                "z": -24.420000076293945
+            },
+            "end": {
+                "x": 29.68000030517578,
+                "y": 0.039999961853027344,
+                "z": -25.420000076293945
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Fast Food Restaurant (-3.92, 2.30, -15.40)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0002964735031128,
+            "start": {
+                "x": -3.9200000762939453,
+                "y": 0.07949145138263702,
+                "z": -14.899999618530273
+            },
+            "end": {
+                "x": -3.9200000762939453,
+                "y": 0.10384605079889297,
+                "z": -15.899999618530273
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Fast Food Restaurant (-10.22, 2.30, -26.04)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0027132034301758,
+            "start": {
+                "x": -10.220000267028809,
+                "y": 0.15272971987724304,
+                "z": -25.540000915527344
+            },
+            "end": {
+                "x": -10.220000267028809,
+                "y": 0.07901553809642792,
+                "z": -26.540000915527344
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Fast Food Restaurant (-4.26, 2.30, -22.68)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0,
+            "start": {
+                "x": -4.25600004196167,
+                "y": 0.11999988555908203,
+                "z": -22.18000030517578
+            },
+            "end": {
+                "x": -4.25600004196167,
+                "y": 0.11999988555908203,
+                "z": -23.18000030517578
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Service Station (56.28, 2.30, -15.68)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0,
+            "start": {
+                "x": 56.279998779296875,
+                "y": 0.11999988555908203,
+                "z": -15.180000305175781
+            },
+            "end": {
+                "x": 56.279998779296875,
+                "y": 0.11999988555908203,
+                "z": -16.18000030517578
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Service Station (53.20, 2.30, -21.56)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0,
+            "start": {
+                "x": 53.70000076293945,
+                "y": 0.11999988555908203,
+                "z": -21.559999465942383
+            },
+            "end": {
+                "x": 52.70000076293945,
+                "y": 0.11999988555908203,
+                "z": -21.559999465942383
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Service Station (50.96, 2.30, -25.20)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0006803274154663,
+            "start": {
+                "x": 50.959999084472656,
+                "y": 0.10285712778568268,
+                "z": -24.700000762939453
+            },
+            "end": {
+                "x": 50.959999084472656,
+                "y": 0.06596490740776062,
+                "z": -25.700000762939453
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Minimarket (-19.88, 2.30, -14.28)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0001140832901,
+            "start": {
+                "x": -19.8799991607666,
+                "y": 0.08703695982694626,
+                "z": -13.779999732971191
+            },
+            "end": {
+                "x": -19.8799991607666,
+                "y": 0.10214275866746902,
+                "z": -14.779999732971191
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Minimarket (-20.16, 2.30, -23.52)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0008562803268433,
+            "start": {
+                "x": -20.15999984741211,
+                "y": 0.10541113466024399,
+                "z": -23.020000457763672
+            },
+            "end": {
+                "x": -20.15999984741211,
+                "y": 0.06401845812797546,
+                "z": -24.020000457763672
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Town Hall (-22.54, 2.30, 30.80)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0,
+            "start": {
+                "x": -22.540000915527344,
+                "y": 0.11999988555908203,
+                "z": 30.299999237060547
+            },
+            "end": {
+                "x": -22.540000915527344,
+                "y": 0.11999988555908203,
+                "z": 31.299999237060547
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Town Hall (-18.06, 2.30, 24.92)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0,
+            "start": {
+                "x": -18.059999465942383,
+                "y": 0.11999988555908203,
+                "z": 24.420000076293945
+            },
+            "end": {
+                "x": -18.059999465942383,
+                "y": 0.11999988555908203,
+                "z": 25.420000076293945
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Town Hall (-24.22, 2.30, 36.12)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0020692348480225,
+            "start": {
+                "x": -24.219999313354492,
+                "y": 0.10436352342367172,
+                "z": 35.619998931884766
+            },
+            "end": {
+                "x": -24.219999313354492,
+                "y": 0.039999961853027344,
+                "z": 36.619998931884766
+            }
+        },
+        {
+            "name": "Direct doorway: Architecture - Town Hall (-13.58, 2.30, 30.80)",
+            "status": "PathComplete",
+            "sampled": true,
+            "complete": true,
+            "length": 1.0,
+            "start": {
+                "x": -13.579999923706055,
+                "y": 0.11999988555908203,
+                "z": 30.299999237060547
+            },
+            "end": {
+                "x": -13.579999923706055,
+                "y": 0.11999988555908203,
+                "z": 31.299999237060547
+            }
+        }
+    ],
+    "humanoidPlayer": true,
+    "humanoidZombie": true
+}
