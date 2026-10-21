@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!29 &1
 OcclusionCullingSettings:
@@ -271,25 +271,33 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Praktikum5.FSM::Praktikum5.FSM.GTACameraController
   target: {fileID: 301}
-  targetOffset: {x: 0, y: 1.5, z: 0}
-  aimDistance: 2.2
-  aimOffset: {x: 0.55, y: 1.45, z: 0}
+  targetOffset: {x: 0, y: 0.4, z: 0}
+  crouchOffset: {x: 0, y: -0.05, z: 0}
+  offsetTransitionSpeed: 8
+  aimDistance: 1.8
+  aimCrouchDistance: 1.6
+  aimOffset: {x: 0.48, y: 0.42, z: 0}
+  aimCrouchOffset: {x: 0.48, y: 0.05, z: 0}
   aimZoomSpeed: 10
-  defaultDistance: 4.5
-  minDistance: 0.8
-  maxDistance: 7.5
+  defaultDistance: 3.2
+  crouchDistance: 2.8
+  minDistance: 0.6
+  maxDistance: 6
   zoomSpeed: 2.5
   mouseSensitivityX: 2.5
   mouseSensitivityY: 2
-  minPitch: -20
-  maxPitch: 60
+  minPitch: -25
+  maxPitch: 55
   collisionLayers:
     serializedVersion: 2
     m_Bits: 137
-  collisionRadius: 0.25
+  collisionRadius: 0.22
   collisionBuffer: 0.15
   collisionSharpness: 30
   returnSharpness: 8
+  enableCeilingGuard: 1
+  ceilingRaycastHeight: 2.5
+  ceilingBuffer: 0.25
   autoLockOnStart: 1
   showPauseGUI: 1
 --- !u!114 &16
@@ -1109,10 +1117,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5010000000000000000000000000004, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Praktikum5.FSM::Praktikum5.FSM.SimplePlayerController
-  walkSpeed: 2.3
-  sneakSpeed: 1.1
-  runSpeed: 5.2
-  aimWalkSpeed: 1.7
+  walkSpeed: 4.2
+  sneakSpeed: 2.5
+  runSpeed: 7.2
+  aimWalkSpeed: 2.8
   rotationSpeed: 12
   gravity: -9.81
   currentSpeed: 0

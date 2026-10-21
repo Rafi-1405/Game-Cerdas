@@ -10,14 +10,14 @@ namespace UTS.Player
         [Tooltip("Suara saat diam (tidak bergerak): 0m")]
         [SerializeField] private float idleRadius = 0f;
 
-        [Tooltip("Suara saat mengendap (Sneak / Ctrl): 1.8m")]
-        [SerializeField] private float sneakRadius = 1.8f;
+        [Tooltip("Suara saat mengendap (Sneak / Ctrl): 0m (senyap total)")]
+        [SerializeField] private float sneakRadius = 0f;
 
-        [Tooltip("Suara saat jalan santai (Walk): 6.5m")]
-        [SerializeField] private float walkRadius = 6.5f;
+        [Tooltip("Suara saat jalan santai (Walk): 4.0m")]
+        [SerializeField] private float walkRadius = 4.0f;
 
-        [Tooltip("Suara saat lari / sprint (Run / Shift): 16m")]
-        [SerializeField] private float runRadius = 16f;
+        [Tooltip("Suara saat lari / sprint (Run / Shift): 10m")]
+        [SerializeField] private float runRadius = 10f;
 
         [Tooltip("Peredaman suara jika terhalang dinding/rintangan (0.5 = 50% reduksi radius)")]
         [Range(0f, 1f)]

@@ -10,10 +10,10 @@ namespace Praktikum5.FSM
     public class SimplePlayerController : MonoBehaviour
     {
         [Header("Movement Speeds")]
-        [SerializeField] private float walkSpeed = 5f;
+        [SerializeField] private float walkSpeed = 4.2f;
         [SerializeField] private float sneakSpeed = 2.5f;
-        [SerializeField] private float runSpeed = 8f;
-        [SerializeField] private float aimWalkSpeed = 3.0f;
+        [SerializeField] private float runSpeed = 7.2f;
+        [SerializeField] private float aimWalkSpeed = 2.8f;
         [SerializeField] private float rotationSpeed = 12f;
         [SerializeField] private float gravity = -9.81f;
 
@@ -42,6 +42,7 @@ namespace Praktikum5.FSM
         private float standingHeight;
         private Vector3 standingCenter;
         private float punchUntil;
+        private bool crouchToggleRequested;
         public bool IsCrouching { get; private set; }
         public bool IsPunching => Time.time < punchUntil;
         public event Action OnPunch;
@@ -76,9 +77,12 @@ namespace Praktikum5.FSM
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
-            standingHeight = controller.height;standingCenter = controller.center;
+            standingHeight = controller.height;
+            standingCenter = controller.center;
             currentStamina = maxStamina;
             currentHealth = maxHealth;
+            crouchToggleRequested = false;
+
             Inventory = GetComponent<UTS.Inventory.PlayerInventory>();
             if (Inventory == null)
             {
@@ -106,14 +110,33 @@ namespace Praktikum5.FSM
 
         private void Update()
         {
-            if(IsDead){
-                currentSpeed=0;isMoving=false;isAiming=false;CurrentMovementState=global::PlayerMovementState.Idle;
-                if(flashlight)flashlight.SetAiming(false);
-                if(controller.enabled){if(controller.isGrounded&&verticalVelocity<0)verticalVelocity=-2;verticalVelocity+=gravity*Time.deltaTime;controller.Move(Vector3.up*verticalVelocity*Time.deltaTime);}
+            if (IsDead)
+            {
+                currentSpeed = 0;
+                isMoving = false;
+                isAiming = false;
+                crouchToggleRequested = false;
+                CurrentMovementState = global::PlayerMovementState.Idle;
+                if (flashlight) flashlight.SetAiming(false);
+                if (controller.enabled)
+                {
+                    if (controller.isGrounded && verticalVelocity < 0) verticalVelocity = -2;
+                    verticalVelocity += gravity * Time.deltaTime;
+                    controller.Move(Vector3.up * verticalVelocity * Time.deltaTime);
+                }
                 return;
             }
-            UpdateCrouch(IsSneakPressed());
-            if(!IsDead && IsAttackTriggered())TryAttackEnemy();
+
+            // Crouch Toggle: Tekan Ctrl sekali untuk jongkok, tekan lagi untuk berdiri
+            if (WasCrouchToggleTriggered())
+            {
+                crouchToggleRequested = !crouchToggleRequested;
+            }
+            UpdateCrouch(crouchToggleRequested);
+
+            // Punch: Hanya menggunakan klik kiri mouse
+            if (!IsDead && IsAttackTriggered()) TryAttackEnemy();
+
             Vector3 inputDirection = IsDead || IsPunching ? Vector3.zero : ReadMovementInput();
             isMoving = inputDirection.sqrMagnitude > 0.001f;
 
@@ -142,10 +165,6 @@ namespace Praktikum5.FSM
             else if (isAiming)
             {
                 speed = aimWalkSpeed;
-            }
-            else if (IsCrouching)
-            {
-                speed = sneakSpeed;
             }
             else if (runPressed && isMoving && !isExhausted)
             {
@@ -233,8 +252,6 @@ namespace Praktikum5.FSM
                 Quaternion targetRotation = Quaternion.LookRotation(inputDirection, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
             }
-
-
         }
 
         private Vector3 ReadMovementInput()
@@ -273,14 +290,19 @@ namespace Praktikum5.FSM
             return direction;
         }
 
-        private bool IsSneakPressed()
+        private bool WasCrouchToggleTriggered()
         {
 #if ENABLE_INPUT_SYSTEM
             Keyboard keyboard = Keyboard.current;
-            return keyboard != null && (keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed);
+            return keyboard != null && (keyboard.leftCtrlKey.wasPressedThisFrame || keyboard.rightCtrlKey.wasPressedThisFrame || keyboard.cKey.wasPressedThisFrame);
 #else
-            return Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            return Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.RightControl) || Input.GetKeyDown(KeyCode.C);
 #endif
+        }
+
+        private bool IsSneakPressed()
+        {
+            return IsCrouching;
         }
 
         private bool IsRunPressed()
@@ -306,56 +328,84 @@ namespace Praktikum5.FSM
         private bool IsAttackTriggered()
         {
 #if ENABLE_INPUT_SYSTEM
-            Keyboard keyboard = Keyboard.current;
-            return (keyboard != null && keyboard.spaceKey.wasPressedThisFrame) || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame);
+            Mouse mouse = Mouse.current;
+            return mouse != null && mouse.leftButton.wasPressedThisFrame;
 #else
-            return Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0);
+            return Input.GetMouseButtonDown(0);
 #endif
         }
 
         private void UpdateCrouch(bool requested)
         {
-            if(IsPunching)requested=false;
-            if(!requested && IsCrouching){
-                Vector3 center=transform.TransformPoint(standingCenter);
-                float radius=controller.radius*.94f;
-                var top=center+Vector3.up*(standingHeight*.5f-radius);
-                var bottom=center-Vector3.up*(standingHeight*.5f-radius-.06f);
-                foreach(var c in Physics.OverlapCapsule(bottom,top,radius,~0,QueryTriggerInteraction.Ignore)){
-                    if(!c.transform.IsChildOf(transform)){requested=true;break;}
+            if (IsPunching) requested = false;
+            if (!requested && IsCrouching)
+            {
+                Vector3 center = transform.TransformPoint(standingCenter);
+                float radius = controller.radius * .94f;
+                var top = center + Vector3.up * (standingHeight * .5f - radius);
+                var bottom = center - Vector3.up * (standingHeight * .5f - radius - .06f);
+                foreach (var c in Physics.OverlapCapsule(bottom, top, radius, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    if (!c.transform.IsChildOf(transform))
+                    {
+                        requested = true;
+                        crouchToggleRequested = true;
+                        break;
+                    }
                 }
             }
-            if(IsCrouching==requested)return;
-            IsCrouching=requested;
-            controller.height=requested?crouchHeight:standingHeight;
-            controller.center=standingCenter-Vector3.up*(standingHeight-controller.height)*.5f;
+            if (IsCrouching == requested) return;
+            IsCrouching = requested;
+            controller.height = requested ? crouchHeight : standingHeight;
+            controller.center = standingCenter - Vector3.up * (standingHeight - controller.height) * .5f;
         }
 
         public void TryAttackEnemy()
         {
-            if(IsDead || IsPunching)return;
-            if(IsCrouching){UpdateCrouch(false);if(IsCrouching)return;}
-            punchUntil=Time.time+punchDuration;
+            if (IsDead || IsPunching) return;
+            if (IsCrouching)
+            {
+                crouchToggleRequested = false;
+                UpdateCrouch(false);
+                if (IsCrouching) return;
+            }
+            punchUntil = Time.time + punchDuration;
             OnPunch?.Invoke();
-            Invoke(nameof(ApplyPunchImpact),punchImpactDelay);
+            Invoke(nameof(ApplyPunchImpact), punchImpactDelay);
         }
+
         private void ApplyPunchImpact()
         {
-            if(IsDead)return;
-            EnemyFSM nearest=null;float closest=attackDistance;
-            Vector3 origin=transform.position+Vector3.up*.25f;
-            foreach(var target in FindObjectsByType<EnemyFSM>(FindObjectsInactive.Exclude)){
-                if(!target||target.IsDead)continue;
-                var delta=target.transform.position-transform.position;delta.y=0;
-                if(delta.magnitude>closest || Vector3.Angle(transform.forward,delta)>punchArc*.5f)continue;
-                var destination=target.transform.position+Vector3.up*.25f;
-                bool blocked=false;
-                foreach(var h in Physics.RaycastAll(origin,destination-origin,Vector3.Distance(origin,destination),~0,QueryTriggerInteraction.Ignore)){
-                    if(!h.transform.IsChildOf(transform)&&!h.transform.IsChildOf(target.transform)){blocked=true;break;}
+            if (IsDead) return;
+            EnemyFSM nearest = null;
+            float closest = attackDistance;
+            Vector3 origin = transform.position + Vector3.up * .25f;
+
+            foreach (var target in FindObjectsByType<EnemyFSM>(FindObjectsInactive.Exclude))
+            {
+                if (!target || target.IsDead) continue;
+                var delta = target.transform.position - transform.position;
+                delta.y = 0;
+                if (delta.magnitude > closest || Vector3.Angle(transform.forward, delta) > punchArc * .5f) continue;
+                var destination = target.transform.position + Vector3.up * .25f;
+                bool blocked = false;
+                foreach (var h in Physics.RaycastAll(origin, destination - origin, Vector3.Distance(origin, destination), ~0, QueryTriggerInteraction.Ignore))
+                {
+                    if (!h.transform.IsChildOf(transform) && !h.transform.IsChildOf(target.transform))
+                    {
+                        blocked = true;
+                        break;
+                    }
                 }
-                if(blocked)continue;nearest=target;closest=delta.magnitude;
+                if (blocked) continue;
+                nearest = target;
+                closest = delta.magnitude;
             }
-            if(nearest){nearest.TakeDamage(attackDamage);OnPunchHit?.Invoke(nearest);}
+            if (nearest)
+            {
+                nearest.TakeDamage(attackDamage);
+                OnPunchHit?.Invoke(nearest);
+            }
         }
 
         public void TakeDamage(float damage)
@@ -367,6 +417,53 @@ namespace Praktikum5.FSM
             if (IsDead) Debug.LogWarning("[Player] Player Kalah / Mati!", this);
         }
 
+        public bool Heal(float amount)
+        {
+            if (IsDead || currentHealth >= maxHealth) return false;
+
+            currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
+            OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            Debug.Log($"[Player] Berhasil memulihkan {amount} HP! Darah sekarang: {currentHealth:F0}/{maxHealth:F0}", this);
+            return true;
+        }
+
+        public bool UseItem(UTS.Inventory.ScavengeItemType type)
+        {
+            if (IsDead) return false;
+            if (currentHealth >= maxHealth)
+            {
+                Debug.Log("[Player] Darah sudah penuh (100%), tidak perlu menggunakan item penyembuh.", this);
+                return false;
+            }
+
+            if (Inventory == null || Inventory.GetCount(type) <= 0)
+            {
+                return false;
+            }
+
+            float healAmount = 0f;
+            switch (type)
+            {
+                case UTS.Inventory.ScavengeItemType.Bandage:
+                    healAmount = 15f;
+                    break;
+                case UTS.Inventory.ScavengeItemType.FirstAidKit:
+                    healAmount = 35f;
+                    break;
+                case UTS.Inventory.ScavengeItemType.Medkit:
+                    healAmount = 70f;
+                    break;
+            }
+
+            if (Inventory.TryConsumeItem(type))
+            {
+                Heal(healAmount);
+                return true;
+            }
+
+            return false;
+        }
+
         public void ResetHealth()
         {
             currentHealth = maxHealth;
@@ -376,7 +473,12 @@ namespace Praktikum5.FSM
         [ContextMenu("Reset Position")]
         public void ResetPosition()
         {
-            CancelInvoke(nameof(ApplyPunchImpact));punchUntil=0;IsCrouching=false;controller.height=standingHeight;controller.center=standingCenter;
+            CancelInvoke(nameof(ApplyPunchImpact));
+            punchUntil = 0;
+            crouchToggleRequested = false;
+            IsCrouching = false;
+            controller.height = standingHeight;
+            controller.center = standingCenter;
             controller.enabled = false;
             transform.position = initialPosition;
             transform.rotation = initialRotation;

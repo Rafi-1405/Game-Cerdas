@@ -34,6 +34,7 @@ namespace UTS.Player
         private Light floodLight;
         private Light ambientFootLight;
         private bool isAiming = false;
+        private readonly RaycastHit[] aimHitBuffer = new RaycastHit[16];
 
         public bool IsOn => isOn;
         public bool IsAttachedToBelt => isAttachedToBelt;
@@ -207,20 +208,41 @@ namespace UTS.Player
             {
                 // Arahkan senter ke titik bidik kursor/tengah layar
                 Camera cam = Camera.main;
-                Vector3 targetAimPoint;
                 if (cam != null)
                 {
                     Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-                    if (Physics.Raycast(ray, out RaycastHit hit, spotRange, ~LayerMask.GetMask("Player"), QueryTriggerInteraction.Ignore))
+                    Vector3 targetAimPoint = ray.origin + ray.direction * spotRange;
+
+                    int hitCount = Physics.RaycastNonAlloc(ray, aimHitBuffer, spotRange, ~0, QueryTriggerInteraction.Ignore);
+                    float closestValidDist = float.MaxValue;
+
+                    for (int i = 0; i < hitCount; i++)
                     {
-                        targetAimPoint = hit.point;
-                    }
-                    else
-                    {
-                        targetAimPoint = ray.origin + ray.direction * spotRange;
+                        RaycastHit hit = aimHitBuffer[i];
+                        if (hit.collider == null) continue;
+
+                        // Abaikan collider milik Player itu sendiri atau child-nya
+                        if (hit.transform == transform || hit.transform.IsChildOf(transform))
+                        {
+                            continue;
+                        }
+
+                        if (hit.distance < closestValidDist)
+                        {
+                            closestValidDist = hit.distance;
+                            targetAimPoint = hit.point;
+                        }
                     }
 
                     Vector3 aimDirection = (targetAimPoint - lightHolder.transform.position).normalized;
+
+                    // Proteksi keamanan: Senter HARUS mengarah ke depan (searah pandangan kamera).
+                    // Cegah senter berbalik ke belakang menyinari badan/muka pemain sendiri.
+                    if (Vector3.Dot(aimDirection, cam.transform.forward) < 0.2f)
+                    {
+                        aimDirection = cam.transform.forward;
+                    }
+
                     if (aimDirection.sqrMagnitude > 0.001f)
                     {
                         Quaternion targetRot = Quaternion.LookRotation(aimDirection, Vector3.up);

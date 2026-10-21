@@ -56,13 +56,13 @@ namespace Praktikum5.FSM
                 gameObject.AddComponent<RobberyBobVisionCone>();
             }
 
-            // Jika obstacleMask belum disetel di inspector, sertakan Layer Obstacle dan Wall
+            // Jika obstacleMask belum disetel di inspector, sertakan Layer Default, Obstacle dan Wall
             if (obstacleMask == 0)
             {
-                obstacleMask = LayerMask.GetMask("Obstacle", "Wall");
+                obstacleMask = LayerMask.GetMask("Default", "Obstacle", "Wall");
                 if (obstacleMask == 0)
                 {
-                    obstacleMask = LayerMask.GetMask("Default");
+                    obstacleMask = (1 << 0) | (1 << 3) | (1 << 7);
                 }
             }
         }

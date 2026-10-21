@@ -1,6 +1,10 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UTS.Zombies;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 namespace Praktikum5.FSM
 {
@@ -24,7 +28,13 @@ namespace Praktikum5.FSM
         [SerializeField] private float enemyBarHeight = 24f;
         [SerializeField] private float enemyHeightOffset = 2.4f;
 
-        // Tekstur prosedural untuk styling Soul Knight
+        [Header("Inventory Animation & State")]
+        [SerializeField] private bool isInventoryOpen = false;
+        private float inventoryAnimProgress = 0f;
+        private float itemFeedbackTimer = 0f;
+        private string itemFeedbackText = "";
+
+        // Tekstur prosedural untuk styling Soul Knight & Minecraft Hotbar
         private Texture2D texBorder;
         private Texture2D texTrackDark;
         private Texture2D texHpFill;
@@ -46,6 +56,15 @@ namespace Praktikum5.FSM
         private Texture2D texExtractionFill;
         private Texture2D texExtractionGlow;
         private Texture2D texVictoryBackdrop;
+
+        // Minecraft Hotbar Textures
+        private Texture2D texMinecraftSlot;
+        private Texture2D texMinecraftSlotGold;
+        private Texture2D texMinecraftPanelBg;
+        private Texture2D texIconBandage;
+        private Texture2D texIconFirstAid;
+        private Texture2D texIconMedkit;
+
         private UTS.Inventory.PlayerInventory playerInventory;
 
         private GUIStyle textStyleCenter;
@@ -56,6 +75,12 @@ namespace Praktikum5.FSM
         private GUIStyle victorySubStyle;
         private GUIStyle victoryStatStyle;
 
+        private GUIStyle slotKeyStyle;
+        private GUIStyle slotCountStyle;
+        private GUIStyle slotNameStyle;
+        private GUIStyle slotFeedbackStyle;
+        private GUIStyle hintTextStyle;
+
         private void Awake()
         {
             FindReferences();
@@ -65,6 +90,43 @@ namespace Praktikum5.FSM
         private void Start()
         {
             FindReferences();
+        }
+
+        private void Update()
+        {
+            if (Application.isPlaying)
+            {
+                // Toggle Inventory dengan tombol E (atau Tab sebagai alternatif)
+                if (WasInventoryTogglePressed())
+                {
+                    isInventoryOpen = !isInventoryOpen;
+                }
+
+                // Hotkey 1, 2, 3 untuk konsumsi item
+                if (WasKey1Pressed())
+                {
+                    TryUseItem(UTS.Inventory.ScavengeItemType.Bandage);
+                }
+                else if (WasKey2Pressed())
+                {
+                    TryUseItem(UTS.Inventory.ScavengeItemType.FirstAidKit);
+                }
+                else if (WasKey3Pressed())
+                {
+                    TryUseItem(UTS.Inventory.ScavengeItemType.Medkit);
+                }
+            }
+
+            // Animasi slide-up / slide-down halus
+            float targetProgress = isInventoryOpen ? 1f : 0f;
+            float dt = Application.isPlaying ? Time.unscaledDeltaTime : 0.02f;
+            inventoryAnimProgress = Mathf.MoveTowards(inventoryAnimProgress, targetProgress, dt * 8f);
+
+            // Timer notifikasi konsumsi item
+            if (itemFeedbackTimer > 0f)
+            {
+                itemFeedbackTimer -= dt;
+            }
         }
 
         private void FindReferences()
@@ -107,20 +169,297 @@ namespace Praktikum5.FSM
             texBadgeFlee = CreateSolidTexture(new Color(0.92f, 0.78f, 0.05f, 0.95f));
             texBadgeDead = CreateSolidTexture(new Color(0.30f, 0.30f, 0.30f, 0.95f));
 
-            texBadgeBandage = CreateSolidTexture(new Color(0.55f, 0.55f, 0.55f, 0.95f)); // Grey
-            texBadgeFirstAid = CreateSolidTexture(new Color(0.18f, 0.75f, 0.25f, 0.95f)); // Green
-            texBadgeMedkit = CreateSolidTexture(new Color(0.68f, 0.18f, 0.88f, 0.95f)); // Purple
-            texWeightFill = CreateSolidTexture(new Color(0.25f, 0.65f, 0.95f, 0.95f)); // Blue Weight Bar
+            texBadgeBandage = CreateSolidTexture(new Color(0.55f, 0.55f, 0.55f, 0.95f));
+            texBadgeFirstAid = CreateSolidTexture(new Color(0.18f, 0.75f, 0.25f, 0.95f));
+            texBadgeMedkit = CreateSolidTexture(new Color(0.68f, 0.18f, 0.88f, 0.95f));
+            texWeightFill = CreateSolidTexture(new Color(0.25f, 0.65f, 0.95f, 0.95f));
 
-            texExtractionFill = CreateSolidTexture(new Color(0.12f, 0.95f, 0.40f, 0.95f)); // Neon Rescue Green
+            texExtractionFill = CreateSolidTexture(new Color(0.12f, 0.95f, 0.40f, 0.95f));
             texExtractionGlow = CreateSolidTexture(new Color(0.12f, 1.0f, 0.40f, 0.20f));
             texVictoryBackdrop = CreateSolidTexture(new Color(0.06f, 0.09f, 0.07f, 0.94f));
+
+            // Minecraft Hotbar textures
+            texMinecraftSlot = CreateMinecraftSlotTexture(false);
+            texMinecraftSlotGold = CreateMinecraftSlotTexture(true);
+            texMinecraftPanelBg = CreateSolidTexture(new Color(0.12f, 0.12f, 0.15f, 0.95f));
+
+            // Procedural 2D item icon textures
+            texIconBandage = CreateBandageIcon(32);
+            texIconFirstAid = CreateFirstAidIcon(32);
+            texIconMedkit = CreateMedkitIcon(32);
         }
 
         private Texture2D CreateSolidTexture(Color color)
         {
             Texture2D tex = new Texture2D(1, 1);
             tex.SetPixel(0, 0, color);
+            tex.Apply();
+            return tex;
+        }
+
+        private Texture2D CreateMinecraftSlotTexture(bool isGold)
+        {
+            int s = 32;
+            Texture2D tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+
+            Color cOuter = new Color(0.10f, 0.10f, 0.12f, 0.98f);
+            Color cShadow = isGold ? new Color(0.55f, 0.42f, 0.08f, 0.98f) : new Color(0.24f, 0.24f, 0.26f, 0.98f);
+            Color cLight = isGold ? new Color(1.0f, 0.88f, 0.28f, 1.0f) : new Color(0.78f, 0.78f, 0.82f, 0.98f);
+            Color cInner = new Color(0.28f, 0.28f, 0.32f, 0.92f);
+
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    if (x == 0 || x == s - 1 || y == 0 || y == s - 1)
+                    {
+                        tex.SetPixel(x, y, cOuter);
+                    }
+                    else if (x <= 2 || y >= s - 3)
+                    {
+                        tex.SetPixel(x, y, cShadow);
+                    }
+                    else if (x >= s - 3 || y <= 2)
+                    {
+                        tex.SetPixel(x, y, cLight);
+                    }
+                    else
+                    {
+                        tex.SetPixel(x, y, cInner);
+                    }
+                }
+            }
+            tex.Apply();
+            return tex;
+        }
+
+        private Texture2D CreateBandageIcon(int s)
+        {
+            Texture2D tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+
+            Color clear = Color.clear;
+            Color gauzeWhite = new Color(0.92f, 0.91f, 0.88f, 1f);
+            Color gauzeShade = new Color(0.74f, 0.72f, 0.68f, 1f);
+            Color outline = new Color(0.20f, 0.18f, 0.16f, 1f);
+            Color redCross = new Color(0.85f, 0.15f, 0.15f, 1f);
+
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    tex.SetPixel(x, y, clear);
+                }
+            }
+
+            // Draw angled rolled bandage
+            for (int y = 7; y <= 24; y++)
+            {
+                for (int x = 7; x <= 24; x++)
+                {
+                    bool isBorder = (x == 7 || x == 24 || y == 7 || y == 24);
+                    if (isBorder)
+                    {
+                        tex.SetPixel(x, y, outline);
+                    }
+                    else
+                    {
+                        bool isStripe = ((x + y) % 4 == 0);
+                        tex.SetPixel(x, y, isStripe ? gauzeShade : gauzeWhite);
+                    }
+                }
+            }
+
+            // Center Red Cross
+            for (int y = 12; y <= 19; y++)
+            {
+                for (int x = 14; x <= 17; x++)
+                {
+                    tex.SetPixel(x, y, redCross);
+                }
+            }
+            for (int y = 14; y <= 17; y++)
+            {
+                for (int x = 11; x <= 20; x++)
+                {
+                    tex.SetPixel(x, y, redCross);
+                }
+            }
+
+            tex.Apply();
+            return tex;
+        }
+
+        private Texture2D CreateFirstAidIcon(int s)
+        {
+            Texture2D tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+
+            Color clear = Color.clear;
+            Color bodyRed = new Color(0.88f, 0.16f, 0.16f, 1f);
+            Color bodyDark = new Color(0.60f, 0.10f, 0.10f, 1f);
+            Color outline = new Color(0.15f, 0.05f, 0.05f, 1f);
+            Color metal = new Color(0.80f, 0.80f, 0.85f, 1f);
+            Color crossWhite = Color.white;
+
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    tex.SetPixel(x, y, clear);
+                }
+            }
+
+            // Top handle
+            for (int y = 24; y <= 27; y++)
+            {
+                for (int x = 11; x <= 20; x++)
+                {
+                    if (y == 27 || x == 11 || x == 20)
+                    {
+                        tex.SetPixel(x, y, metal);
+                    }
+                }
+            }
+
+            // Main briefcase body
+            for (int y = 6; y <= 23; y++)
+            {
+                for (int x = 5; x <= 26; x++)
+                {
+                    if (x == 5 || x == 26 || y == 6 || y == 23)
+                    {
+                        tex.SetPixel(x, y, outline);
+                    }
+                    else if (y <= 9)
+                    {
+                        tex.SetPixel(x, y, bodyDark);
+                    }
+                    else
+                    {
+                        tex.SetPixel(x, y, bodyRed);
+                    }
+                }
+            }
+
+            // Side silver latches
+            for (int y = 13; y <= 16; y++)
+            {
+                tex.SetPixel(5, y, metal);
+                tex.SetPixel(6, y, metal);
+                tex.SetPixel(25, y, metal);
+                tex.SetPixel(26, y, metal);
+            }
+
+            // Bold white medical cross in center
+            for (int y = 10; y <= 19; y++)
+            {
+                for (int x = 14; x <= 17; x++)
+                {
+                    tex.SetPixel(x, y, crossWhite);
+                }
+            }
+            for (int y = 13; y <= 16; y++)
+            {
+                for (int x = 10; x <= 21; x++)
+                {
+                    tex.SetPixel(x, y, crossWhite);
+                }
+            }
+
+            tex.Apply();
+            return tex;
+        }
+
+        private Texture2D CreateMedkitIcon(int s)
+        {
+            Texture2D tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+
+            Color clear = Color.clear;
+            Color casePurple = new Color(0.55f, 0.18f, 0.78f, 1f);
+            Color caseDark = new Color(0.35f, 0.10f, 0.52f, 1f);
+            Color goldAccent = new Color(0.96f, 0.78f, 0.22f, 1f);
+            Color outline = new Color(0.12f, 0.06f, 0.18f, 1f);
+            Color crossWhite = Color.white;
+
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    tex.SetPixel(x, y, clear);
+                }
+            }
+
+            // Top tactical double handle
+            for (int y = 24; y <= 28; y++)
+            {
+                for (int x = 10; x <= 21; x++)
+                {
+                    if (y >= 27 || x <= 12 || x >= 19)
+                    {
+                        tex.SetPixel(x, y, goldAccent);
+                    }
+                }
+            }
+
+            // Main case body
+            for (int y = 5; y <= 23; y++)
+            {
+                for (int x = 4; x <= 27; x++)
+                {
+                    if (x == 4 || x == 27 || y == 5 || y == 23)
+                    {
+                        tex.SetPixel(x, y, outline);
+                    }
+                    else if (y <= 8)
+                    {
+                        tex.SetPixel(x, y, caseDark);
+                    }
+                    else
+                    {
+                        tex.SetPixel(x, y, casePurple);
+                    }
+                }
+            }
+
+            // Gold reinforced corner brackets
+            int[] cx = { 4, 5, 6, 25, 26, 27 };
+            int[] cy = { 5, 6, 7, 21, 22, 23 };
+            foreach (int px in cx)
+            {
+                foreach (int py in cy)
+                {
+                    tex.SetPixel(px, py, goldAccent);
+                }
+            }
+
+            // Center gold backing badge
+            for (int y = 10; y <= 18; y++)
+            {
+                for (int x = 11; x <= 20; x++)
+                {
+                    tex.SetPixel(x, y, goldAccent);
+                }
+            }
+
+            // White medical cross inside the gold badge
+            for (int y = 11; y <= 17; y++)
+            {
+                for (int x = 14; x <= 17; x++)
+                {
+                    tex.SetPixel(x, y, crossWhite);
+                }
+            }
+            for (int y = 13; y <= 15; y++)
+            {
+                for (int x = 12; x <= 19; x++)
+                {
+                    tex.SetPixel(x, y, crossWhite);
+                }
+            }
+
             tex.Apply();
             return tex;
         }
@@ -138,7 +477,7 @@ namespace Praktikum5.FSM
             textStyleCenter.normal.textColor = Color.white;
 
             textStyleShadow = new GUIStyle(textStyleCenter);
-            textStyleShadow.normal.textColor = new Color(0f, 0f, 0f, 0.8f);
+            textStyleShadow.normal.textColor = new Color(0f, 0f, 0f, 0.85f);
 
             badgeTextStyle = new GUIStyle
             {
@@ -155,6 +494,46 @@ namespace Praktikum5.FSM
                 alignment = TextAnchor.MiddleLeft
             };
             headerTextStyle.normal.textColor = new Color(0.85f, 0.85f, 0.9f, 0.9f);
+
+            slotKeyStyle = new GUIStyle
+            {
+                fontSize = 11,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            slotKeyStyle.normal.textColor = new Color(1.0f, 0.85f, 0.25f, 1f); // Bright Gold
+
+            slotCountStyle = new GUIStyle
+            {
+                fontSize = 15,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.LowerRight
+            };
+            slotCountStyle.normal.textColor = Color.white;
+
+            slotNameStyle = new GUIStyle
+            {
+                fontSize = 10,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.UpperCenter
+            };
+            slotNameStyle.normal.textColor = new Color(0.9f, 0.9f, 0.95f, 0.95f);
+
+            slotFeedbackStyle = new GUIStyle
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            slotFeedbackStyle.normal.textColor = new Color(0.2f, 1.0f, 0.45f, 1f); // Neon Green
+
+            hintTextStyle = new GUIStyle
+            {
+                fontSize = 10,
+                fontStyle = FontStyle.Normal,
+                alignment = TextAnchor.MiddleCenter
+            };
+            hintTextStyle.normal.textColor = new Color(0.75f, 0.75f, 0.82f, 0.85f);
 
             victoryTitleStyle = new GUIStyle
             {
@@ -183,8 +562,6 @@ namespace Praktikum5.FSM
 
         private void OnGUI()
         {
-            if (Event.current.type != EventType.Repaint) return;
-
             InitTextures();
             InitStyles();
 
@@ -193,6 +570,8 @@ namespace Praktikum5.FSM
                 FindReferences();
             }
 
+            if (Event.current.type != EventType.Repaint) return;
+
             DrawPlayerSoulKnightHUD();
 
             if (showEnemyOverhead)
@@ -200,7 +579,9 @@ namespace Praktikum5.FSM
                 DrawEnemyOverheadBar();
             }
 
-            DrawInventoryHUD();
+            // Minecraft Bottom Hotbar Inventory (menggantikan UI pojok kanan atas)
+            DrawMinecraftBottomInventory();
+
             DrawExtractionHUD();
             DrawAimReticle();
         }
@@ -299,6 +680,26 @@ namespace Praktikum5.FSM
             if (fsm == null || cam == null) return;
 
             Vector3 worldHead = fsm.transform.position + Vector3.up * enemyHeightOffset;
+
+            // Line of Sight check: Bar overhead tidak boleh tembus tembok / partisi
+            Vector3 camPos = cam.transform.position;
+            Vector3 toHead = worldHead - camPos;
+            float dist = toHead.magnitude;
+            if (dist > 0.05f)
+            {
+                Vector3 dir = toHead / dist;
+                int wallMask = LayerMask.GetMask("Wall", "Obstacle", "Default");
+                RaycastHit[] hits = Physics.RaycastAll(camPos, dir, dist - 0.25f, wallMask, QueryTriggerInteraction.Ignore);
+                foreach (RaycastHit hit in hits)
+                {
+                    if (hit.transform == fsm.transform || hit.transform.IsChildOf(fsm.transform)) continue;
+                    if (playerController != null && (hit.transform == playerController.transform || hit.transform.IsChildOf(playerController.transform))) continue;
+
+                    // Terhalang tembok atau rintangan lain
+                    return;
+                }
+            }
+
             Vector3 screenPos = cam.WorldToScreenPoint(worldHead);
 
             // Hanya gambar jika objek berada di depan kamera
@@ -385,12 +786,19 @@ namespace Praktikum5.FSM
             }
 
             // Text Label di dalam bar (dengan drop shadow halus)
-            Rect textShadowRect = new Rect(rect.x + 1.2f, rect.y + 1.2f, rect.width, rect.height);
-            GUI.Label(textShadowRect, label, textStyleShadow);
-            GUI.Label(rect, label, textStyleCenter);
+            if (!string.IsNullOrEmpty(label))
+            {
+                Rect textShadowRect = new Rect(rect.x + 1.2f, rect.y + 1.2f, rect.width, rect.height);
+                GUI.Label(textShadowRect, label, textStyleShadow);
+                GUI.Label(rect, label, textStyleCenter);
+            }
         }
 
-        private void DrawInventoryHUD()
+        /// <summary>
+        /// Menggambar Hotbar Inventaris 3 Slot gaya Minecraft yang meluncur dari bawah saat tombol E ditekan.
+        /// Skor / Value sengaja dihilangkan dari HUD gameplay dan hanya ditampilkan saat game selesai (evakuasi).
+        /// </summary>
+        private void DrawMinecraftBottomInventory()
         {
             if (playerInventory == null)
             {
@@ -400,66 +808,228 @@ namespace Praktikum5.FSM
                     if (playerInventory == null)
                         playerInventory = playerController.GetComponent<UTS.Inventory.PlayerInventory>();
                 }
-                if (playerInventory == null) return;
             }
 
-            float panelW = 230f;
-            float panelH = 104f;
-            float startX = Screen.width - panelW - 20f;
-            float startY = 20f;
+            // Jika tertutup sepenuhnya dan tidak sedang membuka, tampilkan pill petunjuk kecil di bagian bawah layar
+            if (!isInventoryOpen && inventoryAnimProgress <= 0.01f)
+            {
+                float hintW = 130f;
+                float hintH = 24f;
+                float hintX = (Screen.width - hintW) * 0.5f;
+                float hintY = Screen.height - hintH - 12f;
+                Rect hintRect = new Rect(hintX, hintY, hintW, hintH);
 
-            // Header Container Label
-            GUI.Label(new Rect(startX, startY, panelW, 18f), "SCAVENGED RESOURCES", headerTextStyle);
+                GUI.DrawTexture(hintRect, texBorder);
+                GUI.DrawTexture(new Rect(hintRect.x + 1.5f, hintRect.y + 1.5f, hintRect.width - 3f, hintRect.height - 3f), texTrackDark);
 
-            // Container Panel Background
-            Rect panelRect = new Rect(startX, startY + 18f, panelW, panelH);
+                string hText = "[E] INVENTORY";
+                GUI.Label(new Rect(hintRect.x + 1f, hintRect.y + 1f, hintRect.width, hintRect.height), hText, textStyleShadow);
+                GUI.Label(hintRect, hText, badgeTextStyle);
+                return;
+            }
+
+            // Dimensi Panel Minecraft Hotbar
+            float panelW = 310f;
+            float panelH = 150f;
+            float panelX = (Screen.width - panelW) * 0.5f;
+
+            // Animasi slide-up dari bawah layar (SmoothStep)
+            float t = Mathf.SmoothStep(0f, 1f, inventoryAnimProgress);
+            float hiddenY = Screen.height + 15f;
+            float openY = Screen.height - panelH - 18f;
+            float panelY = Mathf.Lerp(hiddenY, openY, t);
+
+            Rect panelRect = new Rect(panelX, panelY, panelW, panelH);
+
+            // Floating feedback banner saat item digunakan
+            if (itemFeedbackTimer > 0f && !string.IsNullOrEmpty(itemFeedbackText))
+            {
+                float fbW = 240f;
+                float fbH = 22f;
+                float fbX = panelX + (panelW - fbW) * 0.5f;
+                float fbY = panelY - fbH - 6f;
+                Rect fbRect = new Rect(fbX, fbY, fbW, fbH);
+
+                GUI.DrawTexture(fbRect, texBorder);
+                GUI.DrawTexture(new Rect(fbRect.x + 1.5f, fbRect.y + 1.5f, fbRect.width - 3f, fbRect.height - 3f), texTrackDark);
+                GUI.Label(new Rect(fbRect.x + 1f, fbRect.y + 1f, fbRect.width, fbRect.height), itemFeedbackText, textStyleShadow);
+                GUI.Label(fbRect, itemFeedbackText, slotFeedbackStyle);
+            }
+
+            // Container Panel Background (Minecraft Stone / Charcoal Frame)
             GUI.DrawTexture(panelRect, texBorder);
             Rect panelInnerRect = new Rect(panelRect.x + 2f, panelRect.y + 2f, panelRect.width - 4f, panelRect.height - 4f);
-            GUI.DrawTexture(panelInnerRect, texTrackDark);
+            GUI.DrawTexture(panelInnerRect, texMinecraftPanelBg);
 
-            // Row 1: Total Value / Score
-            int totalVal = playerInventory.TotalValue;
-            Rect valRect = new Rect(panelInnerRect.x + 8f, panelInnerRect.y + 6f, panelInnerRect.width - 16f, 20f);
-            string valText = $"VALUE / SCORE: {totalVal} PTS";
-            GUI.Label(new Rect(valRect.x + 1f, valRect.y + 1f, valRect.width, valRect.height), valText, textStyleShadow);
-            GUI.Label(valRect, valText, headerTextStyle);
+            // Baris 1: Header Title & Berat Ransel (Skor sengaja tidak ditampilkan)
+            float curW = playerInventory != null ? playerInventory.CurrentWeight : 0f;
+            float maxW = playerInventory != null ? playerInventory.MaxWeight : 40f;
+            float wRatio = playerInventory != null ? playerInventory.WeightRatio : 0f;
 
-            // Row 2: Weight Bar
-            float curW = playerInventory.CurrentWeight;
-            float maxW = playerInventory.MaxWeight;
-            float wRatio = playerInventory.WeightRatio;
-            Rect weightBarRect = new Rect(panelInnerRect.x + 8f, valRect.yMax + 4f, panelInnerRect.width - 16f, 20f);
-            string weightText = $"WEIGHT  {curW:F1} / {maxW:F1} KG";
-            DrawSoulKnightBar(weightBarRect, wRatio, texBorder, texWeightFill, weightText);
+            Rect titleRect = new Rect(panelInnerRect.x + 10f, panelInnerRect.y + 6f, 130f, 16f);
+            GUI.Label(new Rect(titleRect.x + 1f, titleRect.y + 1f, titleRect.width, titleRect.height), "INVENTORY  [E]", textStyleShadow);
+            GUI.Label(titleRect, "INVENTORY  [E]", headerTextStyle);
 
-            // Row 3: Items Breakdown (3 Badges)
-            float badgeW = (panelInnerRect.width - 24f) / 3f;
-            float badgeH = 22f;
-            float badgeY = weightBarRect.yMax + 8f;
+            string weightText = $"BEBAN: {curW:F1} / {maxW:F1} KG";
+            GUIStyle weightStyle = new GUIStyle(headerTextStyle) { alignment = TextAnchor.MiddleRight };
+            Rect weightLabelRect = new Rect(panelInnerRect.xMax - 140f, panelInnerRect.y + 6f, 130f, 16f);
+            GUI.Label(new Rect(weightLabelRect.x + 1f, weightLabelRect.y + 1f, weightLabelRect.width, weightLabelRect.height), weightText, textStyleShadow);
+            GUI.Label(weightLabelRect, weightText, weightStyle);
 
-            // Bandage (Grey)
-            Rect bRect = new Rect(panelInnerRect.x + 8f, badgeY, badgeW, badgeH);
-            GUI.DrawTexture(bRect, texBorder);
-            GUI.DrawTexture(new Rect(bRect.x + 1.5f, bRect.y + 1.5f, bRect.width - 3f, bRect.height - 3f), texBadgeBandage);
-            string bText = $"BND: {playerInventory.BandageCount}";
-            GUI.Label(new Rect(bRect.x + 1f, bRect.y + 1f, bRect.width, bRect.height), bText, textStyleShadow);
-            GUI.Label(bRect, bText, badgeTextStyle);
+            // Mini Weight Progress Bar
+            Rect weightBarRect = new Rect(panelInnerRect.x + 10f, titleRect.yMax + 4f, panelInnerRect.width - 20f, 6f);
+            DrawSoulKnightBar(weightBarRect, wRatio, texBorder, texWeightFill, "");
 
-            // First Aid Kit (Green)
-            Rect fRect = new Rect(bRect.xMax + 4f, badgeY, badgeW, badgeH);
-            GUI.DrawTexture(fRect, texBorder);
-            GUI.DrawTexture(new Rect(fRect.x + 1.5f, fRect.y + 1.5f, fRect.width - 3f, fRect.height - 3f), texBadgeFirstAid);
-            string fText = $"FAK: {playerInventory.FirstAidCount}";
-            GUI.Label(new Rect(fRect.x + 1f, fRect.y + 1f, fRect.width, fRect.height), fText, textStyleShadow);
-            GUI.Label(fRect, fText, badgeTextStyle);
+            // 3 Slot Kotak Gaya Minecraft
+            float slotSize = 74f;
+            float slotGap = 12f;
+            float totalSlotsW = (3f * slotSize) + (2f * slotGap);
+            float startSlotX = panelRect.x + (panelW - totalSlotsW) * 0.5f;
+            float slotY = weightBarRect.yMax + 8f;
 
-            // Medkit (Purple)
-            Rect mRect = new Rect(fRect.xMax + 4f, badgeY, badgeW, badgeH);
-            GUI.DrawTexture(mRect, texBorder);
-            GUI.DrawTexture(new Rect(mRect.x + 1.5f, mRect.y + 1.5f, mRect.width - 3f, mRect.height - 3f), texBadgeMedkit);
-            string mText = $"MED: {playerInventory.MedkitCount}";
-            GUI.Label(new Rect(mRect.x + 1f, mRect.y + 1f, mRect.width, mRect.height), mText, textStyleShadow);
-            GUI.Label(mRect, mText, badgeTextStyle);
+            // Slot 1: Bandage (+15 HP, Key [1])
+            int bCount = playerInventory != null ? playerInventory.BandageCount : 0;
+            Rect slot1Rect = new Rect(startSlotX, slotY, slotSize, slotSize);
+            DrawMinecraftSlot(slot1Rect, 0, "[1]", texIconBandage, bCount, "BANDAGE", "+15 HP");
+
+            // Slot 2: First Aid Kit (+35 HP, Key [2])
+            int fCount = playerInventory != null ? playerInventory.FirstAidCount : 0;
+            Rect slot2Rect = new Rect(startSlotX + slotSize + slotGap, slotY, slotSize, slotSize);
+            DrawMinecraftSlot(slot2Rect, 1, "[2]", texIconFirstAid, fCount, "FIRST AID", "+35 HP");
+
+            // Slot 3: Medkit (+70 HP, Key [3])
+            int mCount = playerInventory != null ? playerInventory.MedkitCount : 0;
+            Rect slot3Rect = new Rect(startSlotX + (slotSize + slotGap) * 2f, slotY, slotSize, slotSize);
+            DrawMinecraftSlot(slot3Rect, 2, "[3]", texIconMedkit, mCount, "MEDKIT", "+70 HP");
+
+            // Footer Subtitle Hint
+            string hint = "Tekan [1] Bandage  |  [2] First Aid  |  [3] Medkit";
+            Rect footerRect = new Rect(panelInnerRect.x, panelInnerRect.yMax - 18f, panelInnerRect.width, 14f);
+            GUI.Label(new Rect(footerRect.x + 1f, footerRect.y + 1f, footerRect.width, footerRect.height), hint, textStyleShadow);
+            GUI.Label(footerRect, hint, hintTextStyle);
+        }
+
+        private void DrawMinecraftSlot(Rect rect, int slotIndex, string keyBadge, Texture2D iconTex, int count, string itemName, string healLabel)
+        {
+            // 1. Gambar latar belakang beveled Minecraft slot (aksen emas jika memiliki item)
+            Texture2D slotTex = count > 0 ? texMinecraftSlotGold : texMinecraftSlot;
+            GUI.DrawTexture(rect, slotTex);
+
+            // 2. Gambar Ikon Item di tengah slot
+            float iconSize = 44f;
+            float iconX = rect.x + (rect.width - iconSize) * 0.5f;
+            float iconY = rect.y + 8f;
+            Rect iconRect = new Rect(iconX, iconY, iconSize, iconSize);
+
+            if (iconTex != null)
+            {
+                // Jika jumlah 0, beri efek transparansi sedikit redup
+                Color oldColor = GUI.color;
+                if (count <= 0)
+                {
+                    GUI.color = new Color(1f, 1f, 1f, 0.35f);
+                }
+                GUI.DrawTexture(iconRect, iconTex);
+                GUI.color = oldColor;
+            }
+
+            // 3. Hotkey Badge di pojok kiri atas slot
+            Rect badgeRect = new Rect(rect.x + 4f, rect.y + 4f, 20f, 14f);
+            GUI.DrawTexture(badgeRect, texBorder);
+            GUI.Label(new Rect(badgeRect.x + 1f, badgeRect.y + 1f, badgeRect.width, badgeRect.height), keyBadge, textStyleShadow);
+            GUI.Label(badgeRect, keyBadge, slotKeyStyle);
+
+            // 4. Stack Count di pojok kanan bawah slot (Minecraft Style: x0, x1, ...)
+            string countText = $"x{count}";
+            Rect countRect = new Rect(rect.x, rect.y, rect.width - 6f, rect.height - 4f);
+            GUI.Label(new Rect(countRect.x + 1.2f, countRect.y + 1.2f, countRect.width, countRect.height), countText, textStyleShadow);
+
+            Color oldTextColor = slotCountStyle.normal.textColor;
+            slotCountStyle.normal.textColor = count > 0 ? Color.white : new Color(0.6f, 0.6f, 0.65f, 0.7f);
+            GUI.Label(countRect, countText, slotCountStyle);
+            slotCountStyle.normal.textColor = oldTextColor;
+
+            // 5. Nama Item & Status Pemulihan di bawah slot
+            string subText = $"{itemName} ({healLabel})";
+            Rect nameRect = new Rect(rect.x - 12f, rect.yMax + 2f, rect.width + 24f, 14f);
+            GUI.Label(new Rect(nameRect.x + 1f, nameRect.y + 1f, nameRect.width, nameRect.height), subText, textStyleShadow);
+            GUI.Label(nameRect, subText, slotNameStyle);
+        }
+
+        private void TryUseItem(UTS.Inventory.ScavengeItemType type)
+        {
+            if (playerController == null)
+            {
+                FindReferences();
+                if (playerController == null) return;
+            }
+
+            if (playerController.CurrentHealth >= playerController.MaxHealth)
+            {
+                SetItemFeedback("HP SUDAH PENUH (100%)");
+                return;
+            }
+
+            int count = playerInventory != null ? playerInventory.GetCount(type) : 0;
+            string itemName = UTS.Inventory.ScavengeItemInfo.GetName(type);
+
+            if (count <= 0)
+            {
+                SetItemFeedback($"{itemName.ToUpper()} KOSONG / HABIS!");
+                return;
+            }
+
+            if (playerController.UseItem(type))
+            {
+                float heal = type == UTS.Inventory.ScavengeItemType.Bandage ? 15f : (type == UTS.Inventory.ScavengeItemType.FirstAidKit ? 35f : 70f);
+                SetItemFeedback($"+{heal:F0} HP ({itemName.ToUpper()})");
+            }
+        }
+
+        private void SetItemFeedback(string message)
+        {
+            itemFeedbackText = message;
+            itemFeedbackTimer = 2.2f;
+        }
+
+        private bool WasInventoryTogglePressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard kb = Keyboard.current;
+            return kb != null && (kb.eKey.wasPressedThisFrame || kb.tabKey.wasPressedThisFrame);
+#else
+            return Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Tab);
+#endif
+        }
+
+        private bool WasKey1Pressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard kb = Keyboard.current;
+            return kb != null && (kb.digit1Key.wasPressedThisFrame || kb.numpad1Key.wasPressedThisFrame);
+#else
+            return Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1);
+#endif
+        }
+
+        private bool WasKey2Pressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard kb = Keyboard.current;
+            return kb != null && (kb.digit2Key.wasPressedThisFrame || kb.numpad2Key.wasPressedThisFrame);
+#else
+            return Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2);
+#endif
+        }
+
+        private bool WasKey3Pressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard kb = Keyboard.current;
+            return kb != null && (kb.digit3Key.wasPressedThisFrame || kb.numpad3Key.wasPressedThisFrame);
+#else
+            return Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3);
+#endif
         }
 
         private void DrawExtractionHUD()
@@ -497,7 +1067,7 @@ namespace Praktikum5.FSM
                 GUI.Label(noteRect, noteText, badgeTextStyle);
             }
 
-            // 2. Victory Modal Dialog (Ketika berhasil bertahan 10 detik)
+            // 2. Victory Modal Dialog (Ketika berhasil bertahan 10 detik - Menampilkan Total Nilai / Score)
             if (zone.IsExtracted)
             {
                 float modalW = 460f;
@@ -525,10 +1095,10 @@ namespace Praktikum5.FSM
                 // Divider line
                 GUI.DrawTexture(new Rect(innerRect.x + 20f, subRect.yMax + 10f, innerRect.width - 40f, 2f), texExtractionFill);
 
-                // Stats recap
+                // Stats recap (Menampilkan Skor Akhir Hasil Petualangan)
                 int totalVal = playerInventory != null ? playerInventory.TotalValue : 0;
-                float curW = playerInventory != null ? playerInventory.CurrentWeight : 0f;
-                float maxW = playerInventory != null ? playerInventory.MaxWeight : 100f;
+                float totalCurW = playerInventory != null ? playerInventory.CurrentWeight : 0f;
+                float totalMaxW = playerInventory != null ? playerInventory.MaxWeight : 100f;
                 int bCount = playerInventory != null ? playerInventory.BandageCount : 0;
                 int fCount = playerInventory != null ? playerInventory.FirstAidCount : 0;
                 int mCount = playerInventory != null ? playerInventory.MedkitCount : 0;
@@ -541,7 +1111,7 @@ namespace Praktikum5.FSM
                 GUI.Label(new Rect(valR.x + 1f, valR.y + 1f, valR.width, valR.height), valStr, textStyleShadow);
                 GUI.Label(valR, valStr, victoryStatStyle);
 
-                string wStr = $"TOTAL BEBAN DIBAWA     : {curW:F1} / {maxW:F1} KG";
+                string wStr = $"TOTAL BEBAN DIBAWA     : {totalCurW:F1} / {totalMaxW:F1} KG";
                 Rect wR = new Rect(innerRect.x + 30f, valR.yMax + 4f, innerRect.width - 60f, statLineH);
                 GUI.Label(new Rect(wR.x + 1f, wR.y + 1f, wR.width, wR.height), wStr, textStyleShadow);
                 GUI.Label(wR, wStr, victoryStatStyle);
@@ -585,8 +1155,6 @@ namespace Praktikum5.FSM
             GUI.DrawTexture(new Rect(centerX - lineThick * 0.5f, centerY - lineGap - lineLen, lineThick, lineLen), texBadgeChase);
             // Bottom
             GUI.DrawTexture(new Rect(centerX - lineThick * 0.5f, centerY + lineGap, lineThick, lineLen), texBadgeChase);
-
-            // [AIMING] text label removed per user request
         }
     }
 }

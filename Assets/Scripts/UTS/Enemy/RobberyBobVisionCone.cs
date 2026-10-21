@@ -17,7 +17,8 @@ namespace Praktikum5.FSM
         [Header("Cone Configuration")]
         [SerializeField, Range(30, 120)] private int rayCount = 72;
         [SerializeField] private float groundOffset = 0.04f;
-        [SerializeField] private float raycastHeight = 0.5f;
+        [SerializeField] private float raycastHeight = 0.65f;
+        [SerializeField] private LayerMask obstacleLayers;
 
         [Header("Robbery Bob Colors")]
         [SerializeField] private Color normalColor = new Color(1f, 0.12f, 0.12f, 0.35f);
@@ -41,12 +42,14 @@ namespace Praktikum5.FSM
         private int[] triangles;
         private Vector2[] uvs;
         private Vector3[] outlinePoints;
+        private readonly RaycastHit[] raycastHits = new RaycastHit[16];
 
         private void Awake()
         {
             if (perception == null) perception = GetComponent<EnemyPerception>();
             if (fsm == null) fsm = GetComponent<EnemyFSM>();
             ResolveVisionSource();
+            ConfigureObstacleMask();
 
             SetupVisionConeRenderer();
         }
@@ -62,6 +65,18 @@ namespace Praktikum5.FSM
             // Explicitly prefer the swarm provider when both components exist.
             ZombieSwarmAgent swarm = GetComponent<ZombieSwarmAgent>();
             visionSource = swarm != null ? (IVisionSource)swarm : perception as IVisionSource;
+        }
+
+        private void ConfigureObstacleMask()
+        {
+            if (obstacleLayers == 0)
+            {
+                obstacleLayers = LayerMask.GetMask("Default", "Wall", "Obstacle");
+                if (obstacleLayers == 0)
+                {
+                    obstacleLayers = (1 << 0) | (1 << 3) | (1 << 7);
+                }
+            }
         }
 
         private void OnDisable()
@@ -99,7 +114,6 @@ namespace Praktikum5.FSM
 
         private void SetupVisionConeRenderer()
         {
-            // Pastikan objek child mesh ada
             Transform existingCone = transform.Find("RobberyBob_VisionCone");
             if (existingCone != null)
             {
@@ -121,8 +135,8 @@ namespace Praktikum5.FSM
             coneMesh.MarkDynamic();
             meshFilter.mesh = coneMesh;
 
-            // Shader Sprites/Default atau Unlit/Transparent untuk transparansi bersih
             Shader shader = Shader.Find("Sprites/Default");
+            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
             if (shader == null) shader = Shader.Find("Unlit/Transparent");
             if (shader == null) shader = Shader.Find("UI/Default");
             if (shader == null)
@@ -143,7 +157,6 @@ namespace Praktikum5.FSM
             meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             meshRenderer.receiveShadows = false;
 
-            // Setup LineRenderer untuk outline batas luar
             Transform existingOutline = transform.Find("RobberyBob_VisionOutline");
             if (existingOutline != null)
             {
@@ -176,9 +189,8 @@ namespace Praktikum5.FSM
             vertices = new Vector3[vertCount];
             triangles = new int[rayCount * 3];
             uvs = new Vector2[vertCount];
-            outlinePoints = new Vector3[rayCount + 2]; // dari origin -> perimeter arc -> origin
+            outlinePoints = new Vector3[rayCount + 3];
 
-            // Pre-hitung indeks segitiga (tetap sepanjang waktu)
             for (int i = 0; i < rayCount; i++)
             {
                 triangles[i * 3 + 0] = 0;
@@ -214,49 +226,83 @@ namespace Praktikum5.FSM
 
             float visionRange = visionSource != null ? visionSource.VisionRange : 10f;
             float visionAngle = visionSource != null ? visionSource.VisionAngle : 90f;
-            int wallObstacleLayers = LayerMask.GetMask("Wall", "Obstacle");
-            if (wallObstacleLayers == 0) wallObstacleLayers = (1 << 3) | (1 << 7);
-            LayerMask obstacleMask = wallObstacleLayers;
+            if (obstacleLayers == 0) ConfigureObstacleMask();
 
             Vector3 worldPos = transform.position;
-            Vector3 originRay = worldPos + Vector3.up * raycastHeight;
-            Vector3 groundOrigin = worldPos + Vector3.up * groundOffset;
 
-            // Titik tengah (Local space untuk mesh)
+            // Cari ketinggian tanah aktual di bawah zombie (karena NavMeshAgent baseOffset biasanya 1m di atas ground)
+            float groundY = worldPos.y - 1.0f + groundOffset;
+            if (Physics.Raycast(worldPos + Vector3.up * 0.5f, Vector3.down, out RaycastHit groundHit, 2.5f, obstacleLayers, QueryTriggerInteraction.Ignore))
+            {
+                groundY = groundHit.point.y + groundOffset;
+            }
+
+            Vector3 groundOrigin = new Vector3(worldPos.x, groundY, worldPos.z);
+            Vector3 originRay = new Vector3(worldPos.x, groundY + Mathf.Max(0.5f, raycastHeight), worldPos.z);
+
             vertices[0] = transform.InverseTransformPoint(groundOrigin);
             uvs[0] = new Vector2(0.5f, 0f);
 
             float halfAngle = visionAngle * 0.5f;
             float angleStep = visionAngle / rayCount;
 
+            if (outlinePoints == null || outlinePoints.Length != rayCount + 3)
+            {
+                outlinePoints = new Vector3[rayCount + 3];
+            }
             outlinePoints[0] = groundOrigin;
+
+            const float startOffset = 0.35f; // Jarak start raycast di luar capsule collider zombie (radius 0.30m)
+            float maxCastDist = Mathf.Max(0.1f, visionRange - startOffset);
 
             for (int i = 0; i <= rayCount; i++)
             {
                 float currentAngle = -halfAngle + (angleStep * i);
                 Vector3 worldDir = Quaternion.Euler(0f, currentAngle, 0f) * transform.forward;
+                Vector3 rayStart = originRay + worldDir * startOffset;
+
+                int count = Physics.RaycastNonAlloc(rayStart, worldDir, raycastHits, maxCastDist, obstacleLayers, QueryTriggerInteraction.Ignore);
+                float closestDist = float.MaxValue;
+
+                for (int h = 0; h < count; h++)
+                {
+                    RaycastHit hit = raycastHits[h];
+                    if (hit.collider == null) continue;
+                    Transform hitT = hit.collider.transform;
+
+                    // Abaikan jika collider milik zombie ini sendiri
+                    if (hitT == transform || hitT.IsChildOf(transform)) continue;
+
+                    // Abaikan Player (agar cone tetap melingkupi player saat terlihat)
+                    if (hitT.CompareTag("Player") || hit.collider.GetComponentInParent<SimplePlayerController>() != null) continue;
+
+                    // Abaikan Zombie lain
+                    if (hit.collider.GetComponentInParent<ZombieSwarmAgent>() != null || hit.collider.GetComponentInParent<EnemyFSM>() != null) continue;
+
+                    float actualDist = hit.distance + startOffset;
+                    if (actualDist < closestDist)
+                    {
+                        closestDist = actualDist;
+                    }
+                }
 
                 float hitDistance = visionRange;
-                Vector3 perimeterWorldPoint;
+                if (closestDist < float.MaxValue)
+                {
+                    // Potong tepat di depan dinding (mundurkan 0.04m agar tidak tembus atau z-fight dengan permukaan dinding)
+                    hitDistance = Mathf.Max(0.1f, closestDist - 0.04f);
+                }
 
-                // Raycast oklusi rintangan/tembok
-                if (Physics.Raycast(originRay, worldDir, out RaycastHit hit, visionRange, obstacleMask))
-                {
-                    hitDistance = hit.distance;
-                    // Tempelkan di atas permukaan lantai pada titik benturan tembok
-                    perimeterWorldPoint = hit.point;
-                    perimeterWorldPoint.y = worldPos.y + groundOffset;
-                }
-                else
-                {
-                    perimeterWorldPoint = groundOrigin + worldDir * hitDistance;
-                    perimeterWorldPoint.y = worldPos.y + groundOffset;
-                }
+                Vector3 perimeterWorldPoint = groundOrigin + worldDir * hitDistance;
+                perimeterWorldPoint.y = groundY;
 
                 vertices[i + 1] = transform.InverseTransformPoint(perimeterWorldPoint);
                 uvs[i + 1] = new Vector2((float)i / rayCount, 1f);
                 outlinePoints[i + 1] = perimeterWorldPoint;
             }
+
+            // Tutup outline kembali ke titik asal
+            outlinePoints[rayCount + 2] = groundOrigin;
 
             coneMesh.Clear();
             coneMesh.vertices = vertices;

@@ -79,6 +79,35 @@ namespace UTS.Inventory
             }
         }
 
+        public bool TryConsumeItem(ScavengeItemType type)
+        {
+            if (GetCount(type) <= 0) return false;
+
+            float itemWeight = ScavengeItemInfo.GetWeight(type);
+            int itemValue = ScavengeItemInfo.GetValue(type);
+            string itemName = ScavengeItemInfo.GetName(type);
+
+            switch (type)
+            {
+                case ScavengeItemType.Bandage:
+                    bandageCount--;
+                    break;
+                case ScavengeItemType.FirstAidKit:
+                    firstAidCount--;
+                    break;
+                case ScavengeItemType.Medkit:
+                    medkitCount--;
+                    break;
+            }
+
+            currentWeight = Mathf.Max(0f, currentWeight - itemWeight);
+            totalValue = Mathf.Max(0, totalValue - itemValue);
+
+            Debug.Log($"[PlayerInventory] Menggunakan {itemName}. Sisa: {GetCount(type)} pcs (Beban: {currentWeight:F1}/{maxWeight:F1}kg)", this);
+            OnInventoryChanged?.Invoke();
+            return true;
+        }
+
         public void ClearInventory()
         {
             totalValue = 0;

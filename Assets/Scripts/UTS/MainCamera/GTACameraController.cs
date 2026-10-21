@@ -8,50 +8,67 @@ namespace Praktikum5.FSM
     [ExecuteAlways]
     public class GTACameraController : MonoBehaviour
     {
-        [Header("Target Tracking")]
+        [Header("Target Tracking & Offsets")]
         [SerializeField] private Transform target;
-        [SerializeField] private Vector3 targetOffset = new Vector3(0f, 1.5f, 0f);
+        [Tooltip("Offset kamera saat berdiri normal (relatif terhadap root Player). Default: (0, 0.40, 0)")]
+        [SerializeField] private Vector3 targetOffset = new Vector3(0f, 0.40f, 0f);
+        [Tooltip("Offset kamera saat jongkok (relatif terhadap root Player). Default: (0, -0.05, 0)")]
+        [SerializeField] private Vector3 crouchOffset = new Vector3(0f, -0.05f, 0f);
+        [Tooltip("Kecepatan transisi interpolasi offset saat berdiri/jongkok")]
+        [SerializeField] private float offsetTransitionSpeed = 8f;
 
         [Header("Aim Mode (Right Mouse Button)")]
-        [SerializeField] private float aimDistance = 2.2f;
-        [SerializeField] private Vector3 aimOffset = new Vector3(0.55f, 1.45f, 0f);
+        [SerializeField] private float aimDistance = 1.8f;
+        [SerializeField] private float aimCrouchDistance = 1.6f;
+        [SerializeField] private Vector3 aimOffset = new Vector3(0.48f, 0.42f, 0f);
+        [SerializeField] private Vector3 aimCrouchOffset = new Vector3(0.48f, 0.05f, 0f);
         [SerializeField] private float aimZoomSpeed = 10f;
 
         [Header("Orbit & Distance")]
-        [SerializeField] private float defaultDistance = 4.5f;
-        [SerializeField] private float minDistance = 0.8f;
-        [SerializeField] private float maxDistance = 7.5f;
+        [SerializeField] private float defaultDistance = 3.2f;
+        [SerializeField] private float crouchDistance = 2.8f;
+        [SerializeField] private float minDistance = 0.6f;
+        [SerializeField] private float maxDistance = 6.0f;
         [SerializeField] private float zoomSpeed = 2.5f;
 
         [Header("Mouse Sensitivity & Clamping")]
         [SerializeField] private float mouseSensitivityX = 2.5f;
         [SerializeField] private float mouseSensitivityY = 2.0f;
-        [SerializeField] private float minPitch = -20f;
-        [SerializeField] private float maxPitch = 60f;
+        [SerializeField] private float minPitch = -25f;
+        [SerializeField] private float maxPitch = 55f;
 
         [Header("Wall Collision Avoidance (Anti-Tembus Tembok)")]
         [SerializeField] private LayerMask collisionLayers;
-        [SerializeField] private float collisionRadius = 0.25f;
+        [SerializeField] private float collisionRadius = 0.22f;
         [SerializeField] private float collisionBuffer = 0.15f;
         [SerializeField] private float collisionSharpness = 30f;
         [SerializeField] private float returnSharpness = 8f;
+
+        [Header("Indoor Ceiling Clearance Guard")]
+        [SerializeField] private bool enableCeilingGuard = true;
+        [SerializeField] private float ceilingRaycastHeight = 2.5f;
+        [SerializeField] private float ceilingBuffer = 0.25f;
 
         [Header("Pause & Cursor Settings")]
         [SerializeField] private bool autoLockOnStart = true;
         [SerializeField] private bool showPauseGUI = true;
 
         private float yaw = 0f;
-        private float pitch = 20f;
-        private float desiredDistance = 4.5f;
-        private float currentDistance = 4.5f;
+        private float pitch = 12f;
+        private float desiredDistance = 3.2f;
+        private float currentDistance = 3.2f;
         private bool isPaused = false;
         private bool isAiming = false;
         private Vector3 currentOffset;
         private Camera camComponent;
+        private SimplePlayerController playerController;
+        private readonly RaycastHit[] collisionHitBuffer = new RaycastHit[16];
 
         public bool IsPaused => isPaused;
         public bool IsAiming => isAiming;
         public Transform Target => target;
+        public Vector3 TargetOffset { get => targetOffset; set => targetOffset = value; }
+        public Vector3 CrouchOffset { get => crouchOffset; set => crouchOffset = value; }
 
         private void Awake()
         {
@@ -61,10 +78,21 @@ namespace Praktikum5.FSM
                 camComponent.nearClipPlane = 0.1f;
             }
 
+            if (Application.isPlaying && transform.parent != null)
+            {
+                transform.SetParent(null);
+            }
+
             if (target == null)
             {
                 GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
                 if (playerObj != null) target = playerObj.transform;
+            }
+
+            if (target != null)
+            {
+                playerController = target.GetComponent<SimplePlayerController>();
+                yaw = target.eulerAngles.y;
             }
 
             if (collisionLayers == 0)
@@ -79,11 +107,6 @@ namespace Praktikum5.FSM
             currentOffset = targetOffset;
             desiredDistance = defaultDistance;
             currentDistance = defaultDistance;
-
-            if (target != null)
-            {
-                yaw = target.eulerAngles.y;
-            }
         }
 
         private void Start()
@@ -185,28 +208,88 @@ namespace Praktikum5.FSM
         private void UpdateCameraPosition()
         {
             float dt = Application.isPlaying ? Time.unscaledDeltaTime : 0.02f;
-            Vector3 targetOffsetGoal = isAiming ? aimOffset : targetOffset;
-            currentOffset = Vector3.Lerp(currentOffset, targetOffsetGoal, dt * aimZoomSpeed);
+
+            if (playerController == null && target != null)
+            {
+                playerController = target.GetComponent<SimplePlayerController>();
+            }
+            bool isCrouching = playerController != null && playerController.IsCrouching;
+
+            Vector3 targetOffsetGoal;
+            float targetBaseDist;
+
+            if (isAiming)
+            {
+                targetOffsetGoal = isCrouching ? aimCrouchOffset : aimOffset;
+                targetBaseDist = isCrouching ? aimCrouchDistance : aimDistance;
+            }
+            else
+            {
+                targetOffsetGoal = isCrouching ? crouchOffset : targetOffset;
+                targetBaseDist = isCrouching ? crouchDistance : desiredDistance;
+            }
+
+            float transitionSpeed = isAiming ? aimZoomSpeed : offsetTransitionSpeed;
+            currentOffset = Vector3.Lerp(currentOffset, targetOffsetGoal, dt * transitionSpeed);
 
             Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
             Vector3 pivot = target.position + Vector3.up * currentOffset.y + (rotation * Vector3.right) * currentOffset.x;
             Vector3 backwardDir = -(rotation * Vector3.forward);
 
-            float baseDist = isAiming ? aimDistance : desiredDistance;
-            float targetDist = baseDist;
+            float targetDist = targetBaseDist;
 
-            // Algoritma Spring-Arm SphereCast: Deteksi dinding penghalang
-            if (Physics.SphereCast(pivot, collisionRadius, backwardDir, out RaycastHit hit, baseDist, collisionLayers, QueryTriggerInteraction.Ignore))
+            // Algoritma Spring-Arm SphereCast Non-Alloc: Deteksi dinding penghalang (filter target/player)
+            int hitCount = Physics.SphereCastNonAlloc(pivot, collisionRadius, backwardDir, collisionHitBuffer, targetBaseDist, collisionLayers, QueryTriggerInteraction.Ignore);
+            float closestObstacleDist = float.MaxValue;
+
+            for (int i = 0; i < hitCount; i++)
             {
-                // Tarik kamera ke depan dinding (kurangi buffer agar near clip plane tidak tembus)
-                targetDist = Mathf.Clamp(hit.distance - collisionBuffer, minDistance, baseDist);
+                RaycastHit hit = collisionHitBuffer[i];
+                if (hit.collider == null) continue;
+                Transform hitTransform = hit.collider.transform;
+
+                // Abaikan jika collider milik player/target atau child-nya
+                if (target != null && (hitTransform == target || hitTransform.IsChildOf(target)))
+                {
+                    continue;
+                }
+
+                if (hit.distance < closestObstacleDist)
+                {
+                    closestObstacleDist = hit.distance;
+                }
             }
 
-            // Interpolasi jarak: Sangat cepat saat terbentur dinding (agar tidak ada 1 frame tembus), halus saat kembali ke ruang terbuka
+            if (closestObstacleDist < float.MaxValue)
+            {
+                // Tarik kamera ke depan dinding (kurangi buffer agar near clip plane tidak tembus)
+                targetDist = Mathf.Clamp(closestObstacleDist - collisionBuffer, minDistance, targetBaseDist);
+            }
+
+            // Interpolasi jarak: Sangat cepat saat terbentur dinding, halus saat kembali ke ruang terbuka
             float lerpSpeed = (targetDist < currentDistance) ? collisionSharpness : returnSharpness;
             currentDistance = Mathf.Lerp(currentDistance, targetDist, dt * lerpSpeed);
 
-            transform.position = pivot + backwardDir * currentDistance;
+            Vector3 calculatedPos = pivot + backwardDir * currentDistance;
+
+            // Indoor Ceiling Clearance Guard: Cegah kamera menembus plafon atau menukik tajam
+            if (enableCeilingGuard)
+            {
+                if (Physics.Raycast(pivot, Vector3.up, out RaycastHit ceilingHit, ceilingRaycastHeight, collisionLayers, QueryTriggerInteraction.Ignore))
+                {
+                    Transform ceilTransform = ceilingHit.collider.transform;
+                    if (target == null || (ceilTransform != target && !ceilTransform.IsChildOf(target)))
+                    {
+                        float maxAllowedY = ceilingHit.point.y - collisionRadius - ceilingBuffer;
+                        if (calculatedPos.y > maxAllowedY)
+                        {
+                            calculatedPos.y = maxAllowedY;
+                        }
+                    }
+                }
+            }
+
+            transform.position = calculatedPos;
             transform.rotation = rotation;
         }
 
