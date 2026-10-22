@@ -14,15 +14,20 @@ namespace UTS.Player
 
         [Header("Light Parameters (Resident Evil Tactical Dual-Beam)")]
         [SerializeField] private Color lightColor = new Color(1f, 0.97f, 0.90f, 1f);
-        [SerializeField] private float spotIntensity = 9.0f;
-        [SerializeField] private float spotRange = 40f;
-        [SerializeField] private float spotAngle = 76f;
-        [SerializeField] private float innerSpotAngle = 38f;
+        [SerializeField] private float spotIntensity = 12.0f;
+        [SerializeField] private float spotRange = 52f;
+        [SerializeField] private float spotAngle = 80f;
+        [SerializeField] private float innerSpotAngle = 56f;
 
         [Header("Wide Flood Spill (Peripheral Lighting)")]
-        [SerializeField] private float floodIntensity = 3.2f;
-        [SerializeField] private float floodRange = 22f;
-        [SerializeField] private float floodAngle = 92f;
+        [SerializeField] private float floodIntensity = 4.8f;
+        [SerializeField] private float floodRange = 30f;
+        [SerializeField] private float floodAngle = 102f;
+        [SerializeField] private float floodInnerAngle = 65f;
+
+        [Header("Foot Ambient Light")]
+        [SerializeField] private float footLightIntensity = 1.2f;
+        [SerializeField] private float footLightRange = 7.0f;
 
         [Header("Anchors & Offsets")]
         [SerializeField] private Vector3 handheldOffset = new Vector3(0.28f, 1.05f, 0.32f);
@@ -138,15 +143,15 @@ namespace UTS.Player
                 floodLight.intensity = floodIntensity;
                 floodLight.range = floodRange;
                 floodLight.spotAngle = floodAngle;
-                floodLight.innerSpotAngle = 55f;
+                floodLight.innerSpotAngle = floodInnerAngle;
                 floodLight.enabled = isOn;
             }
 
             if (ambientFootLight != null)
             {
                 ambientFootLight.color = new Color(0.85f, 0.9f, 1f);
-                ambientFootLight.intensity = 0.65f;
-                ambientFootLight.range = 5.0f;
+                ambientFootLight.intensity = footLightIntensity;
+                ambientFootLight.range = footLightRange;
                 ambientFootLight.enabled = isOn;
             }
         }

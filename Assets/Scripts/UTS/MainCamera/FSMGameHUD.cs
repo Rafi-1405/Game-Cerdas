@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UTS.Zombies;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -15,6 +16,7 @@ namespace Praktikum5.FSM
         [Header("References (Auto-Found if Empty)")]
         [SerializeField] private SimplePlayerController playerController;
         [SerializeField] private EnemyFSM enemyFSM;
+        [SerializeField] private GTACameraController cameraController;
 
         [Header("Player HUD Settings (Bottom-Left)")]
         [SerializeField] private Vector2 playerHudOffset = new Vector2(25f, 25f);
@@ -34,52 +36,81 @@ namespace Praktikum5.FSM
         private float itemFeedbackTimer = 0f;
         private string itemFeedbackText = "";
 
-        // Tekstur prosedural untuk styling Soul Knight & Minecraft Hotbar
-        private Texture2D texBorder;
-        private Texture2D texTrackDark;
-        private Texture2D texHpFill;
-        private Texture2D texStaminaFill;
-        private Texture2D texEnemyHpFill;
-        private Texture2D texEnemyDeadFill;
+        [Header("Playtime & Game Flow State")]
+        private float elapsedPlaytime = 0f;
+        private float finalPlaytime = 0f;
+        private bool extractionRecorded = false;
+        private int finalScore = 0;
+        private int finalSpeedBonus = 0;
+        private string finalRank = "RANK B  ★ SURVIVOR ★";
+        private Color finalRankColor = new Color(0.25f, 0.75f, 1.0f);
+        private float mainMenuFeedbackTimer = 0f;
+        private string mainMenuFeedbackText = "";
 
-        private Texture2D texBadgePatrol;
-        private Texture2D texBadgeInvestigate;
-        private Texture2D texBadgeChase;
-        private Texture2D texBadgeAttack;
-        private Texture2D texBadgeFlee;
-        private Texture2D texBadgeDead;
+        // Tekstur prosedural untuk styling Soul Knight & Minecraft Hotbar (NonSerialized agar tidak rusak saat hot-reload)
+        [System.NonSerialized] private Texture2D texBorder;
+        [System.NonSerialized] private Texture2D texTrackDark;
+        [System.NonSerialized] private Texture2D texHpFill;
+        [System.NonSerialized] private Texture2D texStaminaFill;
+        [System.NonSerialized] private Texture2D texEnemyHpFill;
+        [System.NonSerialized] private Texture2D texEnemyDeadFill;
 
-        private Texture2D texBadgeBandage;
-        private Texture2D texBadgeFirstAid;
-        private Texture2D texBadgeMedkit;
-        private Texture2D texWeightFill;
-        private Texture2D texExtractionFill;
-        private Texture2D texExtractionGlow;
-        private Texture2D texVictoryBackdrop;
+        [System.NonSerialized] private Texture2D texBadgePatrol;
+        [System.NonSerialized] private Texture2D texBadgeInvestigate;
+        [System.NonSerialized] private Texture2D texBadgeChase;
+        [System.NonSerialized] private Texture2D texBadgeAttack;
+        [System.NonSerialized] private Texture2D texBadgeFlee;
+        [System.NonSerialized] private Texture2D texBadgeDead;
+
+        [System.NonSerialized] private Texture2D texBadgeBandage;
+        [System.NonSerialized] private Texture2D texBadgeFirstAid;
+        [System.NonSerialized] private Texture2D texBadgeMedkit;
+        [System.NonSerialized] private Texture2D texWeightFill;
+        [System.NonSerialized] private Texture2D texExtractionFill;
+        [System.NonSerialized] private Texture2D texExtractionGlow;
+        [System.NonSerialized] private Texture2D texVictoryBackdrop;
 
         // Minecraft Hotbar Textures
-        private Texture2D texMinecraftSlot;
-        private Texture2D texMinecraftSlotGold;
-        private Texture2D texMinecraftPanelBg;
-        private Texture2D texIconBandage;
-        private Texture2D texIconFirstAid;
-        private Texture2D texIconMedkit;
+        [System.NonSerialized] private Texture2D texMinecraftSlot;
+        [System.NonSerialized] private Texture2D texMinecraftSlotGold;
+        [System.NonSerialized] private Texture2D texMinecraftPanelBg;
+        [System.NonSerialized] private Texture2D texIconBandage;
+        [System.NonSerialized] private Texture2D texIconFirstAid;
+        [System.NonSerialized] private Texture2D texIconMedkit;
 
-        private UTS.Inventory.PlayerInventory playerInventory;
+        // Modal & Button Textures
+        [System.NonSerialized] private Texture2D texModalBackdropDark;
+        [System.NonSerialized] private Texture2D texModalBg;
+        [System.NonSerialized] private Texture2D texModalBorderGold;
+        [System.NonSerialized] private Texture2D texModalBorderCyan;
+        [System.NonSerialized] private Texture2D texBtnNormal;
+        [System.NonSerialized] private Texture2D texBtnHover;
+        [System.NonSerialized] private Texture2D texBtnGreenNormal;
+        [System.NonSerialized] private Texture2D texBtnGreenHover;
 
-        private GUIStyle textStyleCenter;
-        private GUIStyle textStyleShadow;
-        private GUIStyle badgeTextStyle;
-        private GUIStyle headerTextStyle;
-        private GUIStyle victoryTitleStyle;
-        private GUIStyle victorySubStyle;
-        private GUIStyle victoryStatStyle;
+        [System.NonSerialized] private UTS.Inventory.PlayerInventory playerInventory;
 
-        private GUIStyle slotKeyStyle;
-        private GUIStyle slotCountStyle;
-        private GUIStyle slotNameStyle;
-        private GUIStyle slotFeedbackStyle;
-        private GUIStyle hintTextStyle;
+        [System.NonSerialized] private GUIStyle textStyleCenter;
+        [System.NonSerialized] private GUIStyle badgeTextStyle;
+        [System.NonSerialized] private GUIStyle headerTextStyle;
+        [System.NonSerialized] private GUIStyle victoryTitleStyle;
+        [System.NonSerialized] private GUIStyle victorySubStyle;
+        [System.NonSerialized] private GUIStyle victoryStatStyle;
+
+        [System.NonSerialized] private GUIStyle slotKeyStyle;
+        [System.NonSerialized] private GUIStyle slotCountStyle;
+        [System.NonSerialized] private GUIStyle slotNameStyle;
+        [System.NonSerialized] private GUIStyle slotFeedbackStyle;
+        [System.NonSerialized] private GUIStyle hintTextStyle;
+
+        [System.NonSerialized] private GUIStyle btnPrimaryStyle;
+        [System.NonSerialized] private GUIStyle btnSecondaryStyle;
+        [System.NonSerialized] private GUIStyle modalTitleStyle;
+        [System.NonSerialized] private GUIStyle modalSubtitleStyle;
+        [System.NonSerialized] private GUIStyle rankBadgeStyle;
+        [System.NonSerialized] private GUIStyle statRowStyle;
+        [System.NonSerialized] private GUIStyle statValStyle;
+        [System.NonSerialized] private GUIStyle toastTextStyle;
 
         private void Awake()
         {
@@ -94,38 +125,95 @@ namespace Praktikum5.FSM
 
         private void Update()
         {
+            var zone = UTS.Environment.GreenSmokeExtractionZone.Instance;
+            bool isExtracted = zone != null && zone.IsExtracted;
+            bool isPaused = cameraController != null && cameraController.IsPaused;
+
+            float dt = Application.isPlaying ? Time.unscaledDeltaTime : 0.02f;
+
             if (Application.isPlaying)
             {
-                // Toggle Inventory dengan tombol E (atau Tab sebagai alternatif)
-                if (WasInventoryTogglePressed())
+                // Hitung waktu bermain hanya jika game aktif (tidak pause & belum selesai ekstraksi)
+                if (!isPaused && !isExtracted)
                 {
-                    isInventoryOpen = !isInventoryOpen;
+                    elapsedPlaytime += dt;
                 }
 
-                // Hotkey 1, 2, 3 untuk konsumsi item
-                if (WasKey1Pressed())
+                // Kunci statistik akhir begitu ekstraksi berhasil dicapai
+                if (isExtracted && !extractionRecorded)
                 {
-                    TryUseItem(UTS.Inventory.ScavengeItemType.Bandage);
+                    RecordExtractionCompletion();
                 }
-                else if (WasKey2Pressed())
+
+                // Kontrol gameplay (Inventory Hotbar & Item Use) hanya saat aktif bermain
+                if (!isPaused && !isExtracted)
                 {
-                    TryUseItem(UTS.Inventory.ScavengeItemType.FirstAidKit);
-                }
-                else if (WasKey3Pressed())
-                {
-                    TryUseItem(UTS.Inventory.ScavengeItemType.Medkit);
+                    if (WasInventoryTogglePressed())
+                    {
+                        isInventoryOpen = !isInventoryOpen;
+                    }
+
+                    if (WasKey1Pressed())
+                    {
+                        TryUseItem(UTS.Inventory.ScavengeItemType.Bandage);
+                    }
+                    else if (WasKey2Pressed())
+                    {
+                        TryUseItem(UTS.Inventory.ScavengeItemType.FirstAidKit);
+                    }
+                    else if (WasKey3Pressed())
+                    {
+                        TryUseItem(UTS.Inventory.ScavengeItemType.Medkit);
+                    }
                 }
             }
 
-            // Animasi slide-up / slide-down halus
-            float targetProgress = isInventoryOpen ? 1f : 0f;
-            float dt = Application.isPlaying ? Time.unscaledDeltaTime : 0.02f;
+            // Animasi slide-up / slide-down inventaris
+            float targetProgress = (isInventoryOpen && !isPaused && !isExtracted) ? 1f : 0f;
             inventoryAnimProgress = Mathf.MoveTowards(inventoryAnimProgress, targetProgress, dt * 8f);
 
-            // Timer notifikasi konsumsi item
-            if (itemFeedbackTimer > 0f)
+            // Timer feedback
+            if (itemFeedbackTimer > 0f) itemFeedbackTimer -= dt;
+            if (mainMenuFeedbackTimer > 0f) mainMenuFeedbackTimer -= dt;
+        }
+
+        private void RecordExtractionCompletion()
+        {
+            extractionRecorded = true;
+            finalPlaytime = elapsedPlaytime;
+
+            // Hentikan waktu & buka kursor mouse untuk modal dialog kemenangan
+            Time.timeScale = 0f;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+
+            // Kalkulasi Skor Akhir Dinamis: Loot + Speed Bonus + Survival Clear
+            int lootVal = playerInventory != null ? playerInventory.TotalValue : 0;
+            const float parTime = 300f; // Target 5 Menit
+            finalSpeedBonus = Mathf.Max(0, Mathf.RoundToInt((parTime - finalPlaytime) * 10f));
+            int survivalClearBonus = 1000;
+            finalScore = lootVal + finalSpeedBonus + survivalClearBonus;
+
+            // Penentuan Pangkat / Rank Survivor
+            if (finalScore >= 3500)
             {
-                itemFeedbackTimer -= dt;
+                finalRank = "RANK S  ★ ELITE SURVIVOR ★";
+                finalRankColor = new Color(1f, 0.84f, 0.0f); // Gold
+            }
+            else if (finalScore >= 2500)
+            {
+                finalRank = "RANK A  ★ VETERAN SURVIVOR ★";
+                finalRankColor = new Color(0.2f, 1.0f, 0.45f); // Emerald Green
+            }
+            else if (finalScore >= 1500)
+            {
+                finalRank = "RANK B  ★ SURVIVOR ★";
+                finalRankColor = new Color(0.25f, 0.75f, 1.0f); // Cyan
+            }
+            else
+            {
+                finalRank = "RANK C  ★ ROOKIE SCAVENGER ★";
+                finalRankColor = new Color(0.75f, 0.75f, 0.82f); // Silver
             }
         }
 
@@ -141,6 +229,11 @@ namespace Praktikum5.FSM
                 enemyFSM = FindAnyObjectByType<EnemyFSM>();
             }
 
+            if (cameraController == null)
+            {
+                cameraController = FindAnyObjectByType<GTACameraController>();
+            }
+
             if (playerInventory == null && playerController != null)
             {
                 playerInventory = playerController.Inventory;
@@ -153,12 +246,10 @@ namespace Praktikum5.FSM
 
         private void InitTextures()
         {
-            if (texBorder != null) return;
-
             texBorder = CreateSolidTexture(new Color(0.08f, 0.08f, 0.12f, 0.95f));
             texTrackDark = CreateSolidTexture(new Color(0.18f, 0.18f, 0.22f, 0.85f));
-            texHpFill = CreateSolidTexture(new Color(0.92f, 0.18f, 0.22f, 1f)); // Red Soul Knight
-            texStaminaFill = CreateSolidTexture(new Color(0.96f, 0.65f, 0.12f, 1f)); // Gold/Amber Soul Knight
+            texHpFill = CreateSolidTexture(new Color(0.92f, 0.18f, 0.22f, 1f));
+            texStaminaFill = CreateSolidTexture(new Color(0.96f, 0.65f, 0.12f, 1f));
             texEnemyHpFill = CreateSolidTexture(new Color(0.90f, 0.15f, 0.15f, 1f));
             texEnemyDeadFill = CreateSolidTexture(new Color(0.35f, 0.35f, 0.35f, 0.85f));
 
@@ -187,11 +278,22 @@ namespace Praktikum5.FSM
             texIconBandage = CreateBandageIcon(32);
             texIconFirstAid = CreateFirstAidIcon(32);
             texIconMedkit = CreateMedkitIcon(32);
+
+            // Modal & Button Textures
+            texModalBackdropDark = CreateSolidTexture(new Color(0f, 0f, 0f, 0.78f));
+            texModalBg = CreateSolidTexture(new Color(0.10f, 0.11f, 0.14f, 0.98f));
+            texModalBorderGold = CreateSolidTexture(new Color(1f, 0.82f, 0.22f, 1f));
+            texModalBorderCyan = CreateSolidTexture(new Color(0.25f, 0.72f, 0.95f, 1f));
+            texBtnNormal = CreateSolidTexture(new Color(0.20f, 0.22f, 0.26f, 0.95f));
+            texBtnHover = CreateSolidTexture(new Color(0.30f, 0.35f, 0.42f, 1f));
+            texBtnGreenNormal = CreateSolidTexture(new Color(0.16f, 0.58f, 0.28f, 0.95f));
+            texBtnGreenHover = CreateSolidTexture(new Color(0.22f, 0.78f, 0.38f, 1f));
         }
 
         private Texture2D CreateSolidTexture(Color color)
         {
             Texture2D tex = new Texture2D(1, 1);
+            tex.hideFlags = HideFlags.DontSave;
             tex.SetPixel(0, 0, color);
             tex.Apply();
             return tex;
@@ -201,6 +303,7 @@ namespace Praktikum5.FSM
         {
             int s = 32;
             Texture2D tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.hideFlags = HideFlags.DontSave;
             tex.filterMode = FilterMode.Point;
 
             Color cOuter = new Color(0.10f, 0.10f, 0.12f, 0.98f);
@@ -237,6 +340,7 @@ namespace Praktikum5.FSM
         private Texture2D CreateBandageIcon(int s)
         {
             Texture2D tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.hideFlags = HideFlags.DontSave;
             tex.filterMode = FilterMode.Point;
 
             Color clear = Color.clear;
@@ -253,7 +357,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // Draw angled rolled bandage
             for (int y = 7; y <= 24; y++)
             {
                 for (int x = 7; x <= 24; x++)
@@ -271,7 +374,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // Center Red Cross
             for (int y = 12; y <= 19; y++)
             {
                 for (int x = 14; x <= 17; x++)
@@ -294,6 +396,7 @@ namespace Praktikum5.FSM
         private Texture2D CreateFirstAidIcon(int s)
         {
             Texture2D tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.hideFlags = HideFlags.DontSave;
             tex.filterMode = FilterMode.Point;
 
             Color clear = Color.clear;
@@ -311,7 +414,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // Top handle
             for (int y = 24; y <= 27; y++)
             {
                 for (int x = 11; x <= 20; x++)
@@ -323,7 +425,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // Main briefcase body
             for (int y = 6; y <= 23; y++)
             {
                 for (int x = 5; x <= 26; x++)
@@ -343,7 +444,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // Side silver latches
             for (int y = 13; y <= 16; y++)
             {
                 tex.SetPixel(5, y, metal);
@@ -352,7 +452,6 @@ namespace Praktikum5.FSM
                 tex.SetPixel(26, y, metal);
             }
 
-            // Bold white medical cross in center
             for (int y = 10; y <= 19; y++)
             {
                 for (int x = 14; x <= 17; x++)
@@ -375,6 +474,7 @@ namespace Praktikum5.FSM
         private Texture2D CreateMedkitIcon(int s)
         {
             Texture2D tex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            tex.hideFlags = HideFlags.DontSave;
             tex.filterMode = FilterMode.Point;
 
             Color clear = Color.clear;
@@ -392,7 +492,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // Top tactical double handle
             for (int y = 24; y <= 28; y++)
             {
                 for (int x = 10; x <= 21; x++)
@@ -404,7 +503,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // Main case body
             for (int y = 5; y <= 23; y++)
             {
                 for (int x = 4; x <= 27; x++)
@@ -424,7 +522,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // Gold reinforced corner brackets
             int[] cx = { 4, 5, 6, 25, 26, 27 };
             int[] cy = { 5, 6, 7, 21, 22, 23 };
             foreach (int px in cx)
@@ -435,7 +532,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // Center gold backing badge
             for (int y = 10; y <= 18; y++)
             {
                 for (int x = 11; x <= 20; x++)
@@ -444,7 +540,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // White medical cross inside the gold badge
             for (int y = 11; y <= 17; y++)
             {
                 for (int x = 14; x <= 17; x++)
@@ -464,11 +559,22 @@ namespace Praktikum5.FSM
             return tex;
         }
 
+        private void EnsureGUIResources()
+        {
+            if (texBorder == null || texModalBorderGold == null || texModalBg == null || texBtnNormal == null || texBorder.width == 0)
+            {
+                InitTextures();
+            }
+
+            if (textStyleCenter == null || victoryTitleStyle == null || statRowStyle == null || btnPrimaryStyle == null || victoryTitleStyle.normal.textColor.a < 0.5f)
+            {
+                InitStyles();
+            }
+        }
+
         private void InitStyles()
         {
-            if (textStyleCenter != null) return;
-
-            textStyleCenter = new GUIStyle
+            textStyleCenter = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
                 fontStyle = FontStyle.Bold,
@@ -476,10 +582,7 @@ namespace Praktikum5.FSM
             };
             textStyleCenter.normal.textColor = Color.white;
 
-            textStyleShadow = new GUIStyle(textStyleCenter);
-            textStyleShadow.normal.textColor = new Color(0f, 0f, 0f, 0.85f);
-
-            badgeTextStyle = new GUIStyle
+            badgeTextStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 12,
                 fontStyle = FontStyle.Bold,
@@ -487,7 +590,7 @@ namespace Praktikum5.FSM
             };
             badgeTextStyle.normal.textColor = Color.white;
 
-            headerTextStyle = new GUIStyle
+            headerTextStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 11,
                 fontStyle = FontStyle.Bold,
@@ -495,15 +598,15 @@ namespace Praktikum5.FSM
             };
             headerTextStyle.normal.textColor = new Color(0.85f, 0.85f, 0.9f, 0.9f);
 
-            slotKeyStyle = new GUIStyle
+            slotKeyStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 11,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
-            slotKeyStyle.normal.textColor = new Color(1.0f, 0.85f, 0.25f, 1f); // Bright Gold
+            slotKeyStyle.normal.textColor = new Color(1.0f, 0.85f, 0.25f, 1f);
 
-            slotCountStyle = new GUIStyle
+            slotCountStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 15,
                 fontStyle = FontStyle.Bold,
@@ -511,7 +614,7 @@ namespace Praktikum5.FSM
             };
             slotCountStyle.normal.textColor = Color.white;
 
-            slotNameStyle = new GUIStyle
+            slotNameStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 10,
                 fontStyle = FontStyle.Bold,
@@ -519,15 +622,15 @@ namespace Praktikum5.FSM
             };
             slotNameStyle.normal.textColor = new Color(0.9f, 0.9f, 0.95f, 0.95f);
 
-            slotFeedbackStyle = new GUIStyle
+            slotFeedbackStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
-            slotFeedbackStyle.normal.textColor = new Color(0.2f, 1.0f, 0.45f, 1f); // Neon Green
+            slotFeedbackStyle.normal.textColor = new Color(0.2f, 1.0f, 0.45f, 1f);
 
-            hintTextStyle = new GUIStyle
+            hintTextStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 10,
                 fontStyle = FontStyle.Normal,
@@ -535,7 +638,7 @@ namespace Praktikum5.FSM
             };
             hintTextStyle.normal.textColor = new Color(0.75f, 0.75f, 0.82f, 0.85f);
 
-            victoryTitleStyle = new GUIStyle
+            victoryTitleStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 24,
                 fontStyle = FontStyle.Bold,
@@ -543,7 +646,7 @@ namespace Praktikum5.FSM
             };
             victoryTitleStyle.normal.textColor = new Color(0.2f, 1.0f, 0.45f, 1f);
 
-            victorySubStyle = new GUIStyle
+            victorySubStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
                 fontStyle = FontStyle.Normal,
@@ -551,25 +654,108 @@ namespace Praktikum5.FSM
             };
             victorySubStyle.normal.textColor = new Color(0.9f, 0.95f, 0.9f, 0.95f);
 
-            victoryStatStyle = new GUIStyle
+            victoryStatStyle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 13,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleLeft
             };
             victoryStatStyle.normal.textColor = Color.white;
+
+            // Modal & Button Styles
+            btnPrimaryStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            btnPrimaryStyle.normal.textColor = Color.white;
+
+            btnSecondaryStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 14,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            btnSecondaryStyle.normal.textColor = new Color(0.9f, 0.92f, 0.95f, 1f);
+
+            modalTitleStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 22,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            modalTitleStyle.normal.textColor = new Color(0.25f, 0.75f, 1.0f);
+
+            modalSubtitleStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Normal,
+                alignment = TextAnchor.MiddleCenter
+            };
+            modalSubtitleStyle.normal.textColor = new Color(0.78f, 0.82f, 0.88f, 0.9f);
+
+            rankBadgeStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 15,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            rankBadgeStyle.normal.textColor = Color.white;
+
+            statRowStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleLeft
+            };
+            statRowStyle.normal.textColor = new Color(0.85f, 0.88f, 0.92f, 1f);
+
+            statValStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleRight
+            };
+            statValStyle.normal.textColor = Color.white;
+
+            toastTextStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            toastTextStyle.normal.textColor = new Color(1.0f, 0.65f, 0.2f, 1f);
         }
 
         private void OnGUI()
         {
-            InitTextures();
-            InitStyles();
+            EnsureGUIResources();
 
-            if (playerController == null || enemyFSM == null)
+            if (playerController == null || enemyFSM == null || cameraController == null)
             {
                 FindReferences();
             }
 
+            var zone = UTS.Environment.GreenSmokeExtractionZone.Instance;
+            bool isExtracted = zone != null && zone.IsExtracted;
+            bool isPaused = cameraController != null && cameraController.IsPaused;
+
+            // 1. Jika game selesai (Ekstraksi Berhasil), gambar Modal Dialog Kemenangan Meriah
+            if (isExtracted)
+            {
+                DrawFestiveExtractionModal();
+                return;
+            }
+
+            // 2. Jika game dijeda (Pause), gambar Modal Dialog Pause Menu
+            if (isPaused)
+            {
+                DrawPauseMenuModal();
+                return;
+            }
+
+            // 3. Gameplay HUD normal (Hanya Repaint)
             if (Event.current.type != EventType.Repaint) return;
 
             DrawPlayerSoulKnightHUD();
@@ -579,11 +765,9 @@ namespace Praktikum5.FSM
                 DrawEnemyOverheadBar();
             }
 
-            // Minecraft Bottom Hotbar Inventory (menggantikan UI pojok kanan atas)
             DrawMinecraftBottomInventory();
-
-            DrawExtractionHUD();
             DrawAimReticle();
+            DrawEvacuationProgressBar();
         }
 
         private void DrawPlayerSoulKnightHUD()
@@ -592,10 +776,8 @@ namespace Praktikum5.FSM
             float startX = playerHudOffset.x;
             float startY = Screen.height - playerHudOffset.y - totalH;
 
-            // Header Container Label
             GUI.Label(new Rect(startX, startY, playerBarWidth, 18f), "PLAYER STATUS", headerTextStyle);
 
-            // 1. Bar HP Player (Soul Knight Style)
             float hpRatio = 1f;
             float curHp = 100f;
             float maxHp = 100f;
@@ -610,7 +792,6 @@ namespace Praktikum5.FSM
             string hpText = $"HP  {curHp:F0} / {maxHp:F0}";
             DrawSoulKnightBar(hpBarRect, hpRatio, texTrackDark, texHpFill, hpText);
 
-            // 2. Bar Stamina Player (Soul Knight Style)
             float staminaRatio = 1f;
             float curStamina = 100f;
             float maxStamina = 100f;
@@ -625,13 +806,11 @@ namespace Praktikum5.FSM
             string staminaText = $"STAMINA  {curStamina:F0} / {maxStamina:F0}";
             DrawSoulKnightBar(staminaBarRect, staminaRatio, texTrackDark, texStaminaFill, staminaText);
 
-            // 3. Status Senter
             bool isFlashlightOn = playerController != null && playerController.Flashlight != null && playerController.Flashlight.IsOn;
             bool isBelt = playerController != null && playerController.Flashlight != null && playerController.Flashlight.IsAttachedToBelt;
             string flMode = isBelt ? "BELT" : "HAND";
             string flStatus = isFlashlightOn ? $"[F] SENTER: MENYALA ({flMode})" : "[F] SENTER: PADAM";
             Rect flRect = new Rect(startX, staminaBarRect.yMax + 5f, playerBarWidth, 18f);
-            GUI.Label(new Rect(flRect.x + 1f, flRect.y + 1f, flRect.width, flRect.height), flStatus, textStyleShadow);
             GUI.Label(flRect, flStatus, isFlashlightOn ? badgeTextStyle : headerTextStyle);
         }
 
@@ -642,7 +821,6 @@ namespace Praktikum5.FSM
 
             Vector3 playerPos = playerController != null ? playerController.transform.position : cam.transform.position;
 
-            // Prioritaskan musuh aktif dari ZombieSwarmAgent
             var nearbyAgents = new List<(EnemyFSM fsm, float dist)>();
             const float maxDist = 22f;
             const int maxDrawn = 3;
@@ -681,7 +859,6 @@ namespace Praktikum5.FSM
 
             Vector3 worldHead = fsm.transform.position + Vector3.up * enemyHeightOffset;
 
-            // Line of Sight check: Bar overhead tidak boleh tembus tembok / partisi
             Vector3 camPos = cam.transform.position;
             Vector3 toHead = worldHead - camPos;
             float dist = toHead.magnitude;
@@ -695,20 +872,16 @@ namespace Praktikum5.FSM
                     if (hit.transform == fsm.transform || hit.transform.IsChildOf(fsm.transform)) continue;
                     if (playerController != null && (hit.transform == playerController.transform || hit.transform.IsChildOf(playerController.transform))) continue;
 
-                    // Terhalang tembok atau rintangan lain
                     return;
                 }
             }
 
             Vector3 screenPos = cam.WorldToScreenPoint(worldHead);
-
-            // Hanya gambar jika objek berada di depan kamera
             if (screenPos.z <= 0.1f) return;
 
             float screenX = screenPos.x;
             float screenY = Screen.height - screenPos.y;
 
-            // Ukuran bar overhead besar (200px x 24px)
             float barW = enemyBarWidth;
             float barH = enemyBarHeight;
             float badgeW = 120f;
@@ -719,13 +892,11 @@ namespace Praktikum5.FSM
             float badgeStartX = screenX - (badgeW * 0.5f);
             float badgeStartY = barStartY - badgeH - 3f;
 
-            // Ambil data status dan HP Enemy
             EnemyState state = fsm.CurrentState;
             float curHp = fsm.CurrentHealth;
             float maxHp = fsm.MaxHealth;
             float hpRatio = maxHp > 0f ? curHp / maxHp : 0f;
 
-            // Tentukan tekstur badge dan warna fill
             Texture2D badgeTex = texBadgePatrol;
             Texture2D fillTex = texEnemyHpFill;
 
@@ -752,17 +923,14 @@ namespace Praktikum5.FSM
                     break;
             }
 
-            // 1. Gambar Badge State di atas bar
             Rect badgeBorderRect = new Rect(badgeStartX, badgeStartY, badgeW, badgeH);
             GUI.DrawTexture(badgeBorderRect, texBorder);
             Rect badgeInnerRect = new Rect(badgeStartX + 2, badgeStartY + 2, badgeW - 4, badgeH - 4);
             GUI.DrawTexture(badgeInnerRect, badgeTex);
 
             string badgeText = state == EnemyState.Patrol ? "[WANDER]" : $"[{state.ToString().ToUpper()}]";
-            GUI.Label(new Rect(badgeBorderRect.x + 1, badgeBorderRect.y + 1, badgeBorderRect.width, badgeBorderRect.height), badgeText, textStyleShadow);
             GUI.Label(badgeBorderRect, badgeText, badgeTextStyle);
 
-            // 2. Gambar Health Bar Enemy (Soul Knight Style)
             Rect enemyBarRect = new Rect(barStartX, barStartY, barW, barH);
             string enemyHpText = state == EnemyState.Dead ? "DEAD (0 / 100)" : $"HP: {curHp:F0} / {maxHp:F0}";
             DrawSoulKnightBar(enemyBarRect, hpRatio, texTrackDark, fillTex, enemyHpText);
@@ -770,14 +938,11 @@ namespace Praktikum5.FSM
 
         private void DrawSoulKnightBar(Rect rect, float fillRatio, Texture2D trackTex, Texture2D fillTex, string label)
         {
-            // Outer Border (Gelap Tebal khas Soul Knight)
             GUI.DrawTexture(rect, texBorder);
 
-            // Inner Recessed Track
             Rect trackRect = new Rect(rect.x + 2.5f, rect.y + 2.5f, rect.width - 5f, rect.height - 5f);
             GUI.DrawTexture(trackRect, trackTex);
 
-            // Colored Fill Bar
             float fillWidth = trackRect.width * Mathf.Clamp01(fillRatio);
             if (fillWidth > 0.5f)
             {
@@ -785,19 +950,12 @@ namespace Praktikum5.FSM
                 GUI.DrawTexture(fillRect, fillTex);
             }
 
-            // Text Label di dalam bar (dengan drop shadow halus)
             if (!string.IsNullOrEmpty(label))
             {
-                Rect textShadowRect = new Rect(rect.x + 1.2f, rect.y + 1.2f, rect.width, rect.height);
-                GUI.Label(textShadowRect, label, textStyleShadow);
                 GUI.Label(rect, label, textStyleCenter);
             }
         }
 
-        /// <summary>
-        /// Menggambar Hotbar Inventaris 3 Slot gaya Minecraft yang meluncur dari bawah saat tombol E ditekan.
-        /// Skor / Value sengaja dihilangkan dari HUD gameplay dan hanya ditampilkan saat game selesai (evakuasi).
-        /// </summary>
         private void DrawMinecraftBottomInventory()
         {
             if (playerInventory == null)
@@ -810,7 +968,6 @@ namespace Praktikum5.FSM
                 }
             }
 
-            // Jika tertutup sepenuhnya dan tidak sedang membuka, tampilkan pill petunjuk kecil di bagian bawah layar
             if (!isInventoryOpen && inventoryAnimProgress <= 0.01f)
             {
                 float hintW = 130f;
@@ -823,17 +980,14 @@ namespace Praktikum5.FSM
                 GUI.DrawTexture(new Rect(hintRect.x + 1.5f, hintRect.y + 1.5f, hintRect.width - 3f, hintRect.height - 3f), texTrackDark);
 
                 string hText = "[E] INVENTORY";
-                GUI.Label(new Rect(hintRect.x + 1f, hintRect.y + 1f, hintRect.width, hintRect.height), hText, textStyleShadow);
                 GUI.Label(hintRect, hText, badgeTextStyle);
                 return;
             }
 
-            // Dimensi Panel Minecraft Hotbar
             float panelW = 310f;
             float panelH = 150f;
             float panelX = (Screen.width - panelW) * 0.5f;
 
-            // Animasi slide-up dari bawah layar (SmoothStep)
             float t = Mathf.SmoothStep(0f, 1f, inventoryAnimProgress);
             float hiddenY = Screen.height + 15f;
             float openY = Screen.height - panelH - 18f;
@@ -841,7 +995,6 @@ namespace Praktikum5.FSM
 
             Rect panelRect = new Rect(panelX, panelY, panelW, panelH);
 
-            // Floating feedback banner saat item digunakan
             if (itemFeedbackTimer > 0f && !string.IsNullOrEmpty(itemFeedbackText))
             {
                 float fbW = 240f;
@@ -852,70 +1005,56 @@ namespace Praktikum5.FSM
 
                 GUI.DrawTexture(fbRect, texBorder);
                 GUI.DrawTexture(new Rect(fbRect.x + 1.5f, fbRect.y + 1.5f, fbRect.width - 3f, fbRect.height - 3f), texTrackDark);
-                GUI.Label(new Rect(fbRect.x + 1f, fbRect.y + 1f, fbRect.width, fbRect.height), itemFeedbackText, textStyleShadow);
                 GUI.Label(fbRect, itemFeedbackText, slotFeedbackStyle);
             }
 
-            // Container Panel Background (Minecraft Stone / Charcoal Frame)
             GUI.DrawTexture(panelRect, texBorder);
             Rect panelInnerRect = new Rect(panelRect.x + 2f, panelRect.y + 2f, panelRect.width - 4f, panelRect.height - 4f);
             GUI.DrawTexture(panelInnerRect, texMinecraftPanelBg);
 
-            // Baris 1: Header Title & Berat Ransel (Skor sengaja tidak ditampilkan)
             float curW = playerInventory != null ? playerInventory.CurrentWeight : 0f;
             float maxW = playerInventory != null ? playerInventory.MaxWeight : 40f;
             float wRatio = playerInventory != null ? playerInventory.WeightRatio : 0f;
 
             Rect titleRect = new Rect(panelInnerRect.x + 10f, panelInnerRect.y + 6f, 130f, 16f);
-            GUI.Label(new Rect(titleRect.x + 1f, titleRect.y + 1f, titleRect.width, titleRect.height), "INVENTORY  [E]", textStyleShadow);
             GUI.Label(titleRect, "INVENTORY  [E]", headerTextStyle);
 
             string weightText = $"BEBAN: {curW:F1} / {maxW:F1} KG";
             GUIStyle weightStyle = new GUIStyle(headerTextStyle) { alignment = TextAnchor.MiddleRight };
             Rect weightLabelRect = new Rect(panelInnerRect.xMax - 140f, panelInnerRect.y + 6f, 130f, 16f);
-            GUI.Label(new Rect(weightLabelRect.x + 1f, weightLabelRect.y + 1f, weightLabelRect.width, weightLabelRect.height), weightText, textStyleShadow);
             GUI.Label(weightLabelRect, weightText, weightStyle);
 
-            // Mini Weight Progress Bar
             Rect weightBarRect = new Rect(panelInnerRect.x + 10f, titleRect.yMax + 4f, panelInnerRect.width - 20f, 6f);
             DrawSoulKnightBar(weightBarRect, wRatio, texBorder, texWeightFill, "");
 
-            // 3 Slot Kotak Gaya Minecraft
             float slotSize = 74f;
             float slotGap = 12f;
             float totalSlotsW = (3f * slotSize) + (2f * slotGap);
             float startSlotX = panelRect.x + (panelW - totalSlotsW) * 0.5f;
             float slotY = weightBarRect.yMax + 8f;
 
-            // Slot 1: Bandage (+15 HP, Key [1])
             int bCount = playerInventory != null ? playerInventory.BandageCount : 0;
             Rect slot1Rect = new Rect(startSlotX, slotY, slotSize, slotSize);
             DrawMinecraftSlot(slot1Rect, 0, "[1]", texIconBandage, bCount, "BANDAGE", "+15 HP");
 
-            // Slot 2: First Aid Kit (+35 HP, Key [2])
             int fCount = playerInventory != null ? playerInventory.FirstAidCount : 0;
             Rect slot2Rect = new Rect(startSlotX + slotSize + slotGap, slotY, slotSize, slotSize);
             DrawMinecraftSlot(slot2Rect, 1, "[2]", texIconFirstAid, fCount, "FIRST AID", "+35 HP");
 
-            // Slot 3: Medkit (+70 HP, Key [3])
             int mCount = playerInventory != null ? playerInventory.MedkitCount : 0;
             Rect slot3Rect = new Rect(startSlotX + (slotSize + slotGap) * 2f, slotY, slotSize, slotSize);
             DrawMinecraftSlot(slot3Rect, 2, "[3]", texIconMedkit, mCount, "MEDKIT", "+70 HP");
 
-            // Footer Subtitle Hint
             string hint = "Tekan [1] Bandage  |  [2] First Aid  |  [3] Medkit";
             Rect footerRect = new Rect(panelInnerRect.x, panelInnerRect.yMax - 18f, panelInnerRect.width, 14f);
-            GUI.Label(new Rect(footerRect.x + 1f, footerRect.y + 1f, footerRect.width, footerRect.height), hint, textStyleShadow);
             GUI.Label(footerRect, hint, hintTextStyle);
         }
 
         private void DrawMinecraftSlot(Rect rect, int slotIndex, string keyBadge, Texture2D iconTex, int count, string itemName, string healLabel)
         {
-            // 1. Gambar latar belakang beveled Minecraft slot (aksen emas jika memiliki item)
             Texture2D slotTex = count > 0 ? texMinecraftSlotGold : texMinecraftSlot;
             GUI.DrawTexture(rect, slotTex);
 
-            // 2. Gambar Ikon Item di tengah slot
             float iconSize = 44f;
             float iconX = rect.x + (rect.width - iconSize) * 0.5f;
             float iconY = rect.y + 8f;
@@ -923,7 +1062,6 @@ namespace Praktikum5.FSM
 
             if (iconTex != null)
             {
-                // Jika jumlah 0, beri efek transparansi sedikit redup
                 Color oldColor = GUI.color;
                 if (count <= 0)
                 {
@@ -933,26 +1071,20 @@ namespace Praktikum5.FSM
                 GUI.color = oldColor;
             }
 
-            // 3. Hotkey Badge di pojok kiri atas slot
             Rect badgeRect = new Rect(rect.x + 4f, rect.y + 4f, 20f, 14f);
             GUI.DrawTexture(badgeRect, texBorder);
-            GUI.Label(new Rect(badgeRect.x + 1f, badgeRect.y + 1f, badgeRect.width, badgeRect.height), keyBadge, textStyleShadow);
             GUI.Label(badgeRect, keyBadge, slotKeyStyle);
 
-            // 4. Stack Count di pojok kanan bawah slot (Minecraft Style: x0, x1, ...)
             string countText = $"x{count}";
             Rect countRect = new Rect(rect.x, rect.y, rect.width - 6f, rect.height - 4f);
-            GUI.Label(new Rect(countRect.x + 1.2f, countRect.y + 1.2f, countRect.width, countRect.height), countText, textStyleShadow);
 
             Color oldTextColor = slotCountStyle.normal.textColor;
             slotCountStyle.normal.textColor = count > 0 ? Color.white : new Color(0.6f, 0.6f, 0.65f, 0.7f);
             GUI.Label(countRect, countText, slotCountStyle);
             slotCountStyle.normal.textColor = oldTextColor;
 
-            // 5. Nama Item & Status Pemulihan di bawah slot
             string subText = $"{itemName} ({healLabel})";
             Rect nameRect = new Rect(rect.x - 12f, rect.yMax + 2f, rect.width + 24f, 14f);
-            GUI.Label(new Rect(nameRect.x + 1f, nameRect.y + 1f, nameRect.width, nameRect.height), subText, textStyleShadow);
             GUI.Label(nameRect, subText, slotNameStyle);
         }
 
@@ -996,8 +1128,18 @@ namespace Praktikum5.FSM
         {
 #if ENABLE_INPUT_SYSTEM
             Keyboard kb = Keyboard.current;
-            return kb != null && (kb.eKey.wasPressedThisFrame || kb.tabKey.wasPressedThisFrame);
+            if (kb != null)
+            {
+                // Jika inventaris terbuka dan pengguna menekan Escape, tutup inventaris
+                if (isInventoryOpen && kb.escapeKey.wasPressedThisFrame)
+                {
+                    return true;
+                }
+                return kb.eKey.wasPressedThisFrame || kb.tabKey.wasPressedThisFrame;
+            }
+            return false;
 #else
+            if (isInventoryOpen && Input.GetKeyDown(KeyCode.Escape)) return true;
             return Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Tab);
 #endif
         }
@@ -1032,12 +1174,14 @@ namespace Praktikum5.FSM
 #endif
         }
 
-        private void DrawExtractionHUD()
+        /// <summary>
+        /// Menggambar progress bar saat bertahan di dalam lingkaran evakuasi asap hijau.
+        /// </summary>
+        private void DrawEvacuationProgressBar()
         {
             var zone = UTS.Environment.GreenSmokeExtractionZone.Instance;
             if (zone == null) return;
 
-            // 1. Evacuation Progress Bar (Saat player berada di dalam zona dan belum selesai evakuasi)
             if (zone.IsPlayerInside && !zone.IsExtracted)
             {
                 float barW = 340f;
@@ -1045,87 +1189,256 @@ namespace Praktikum5.FSM
                 float barX = (Screen.width - barW) * 0.5f;
                 float barY = 28f;
 
-                // Glowing background banner
                 Rect glowRect = new Rect(barX - 10f, barY - 18f, barW + 20f, barH + 34f);
                 GUI.DrawTexture(glowRect, texExtractionGlow);
 
-                // Title label
                 string titleText = "EVAKUASI ZONA ASAP HIJAU";
                 Rect titleRect = new Rect(barX, barY - 18f, barW, 16f);
-                GUI.Label(new Rect(titleRect.x + 1f, titleRect.y + 1f, titleRect.width, titleRect.height), titleText, textStyleShadow);
                 GUI.Label(titleRect, titleText, badgeTextStyle);
 
-                // Progress Bar
                 Rect progRect = new Rect(barX, barY, barW, barH);
                 string progText = $"BERTAHAN: {zone.CurrentHoldTime:F1}s / {zone.RequiredHoldTime:F0}s ({(zone.ProgressRatio * 100f):F0}%)";
                 DrawSoulKnightBar(progRect, zone.ProgressRatio, texTrackDark, texExtractionFill, progText);
 
-                // Warning reminder
                 string noteText = "Tetap berada di dalam lingkaran asap hijau!";
                 Rect noteRect = new Rect(barX, progRect.yMax + 3f, barW, 14f);
-                GUI.Label(new Rect(noteRect.x + 1f, noteRect.y + 1f, noteRect.width, noteRect.height), noteText, textStyleShadow);
                 GUI.Label(noteRect, noteText, badgeTextStyle);
             }
+        }
 
-            // 2. Victory Modal Dialog (Ketika berhasil bertahan 10 detik - Menampilkan Total Nilai / Score)
-            if (zone.IsExtracted)
+        /// <summary>
+        /// Pop-up Dialog Pause Menu Interaktif (Tombol RESUME, RESTART, MAIN MENU).
+        /// </summary>
+        private void DrawPauseMenuModal()
+        {
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), texModalBackdropDark);
+
+            float modalW = 390f;
+            float modalH = 310f;
+            float modalX = (Screen.width - modalW) * 0.5f;
+            float modalY = (Screen.height - modalH) * 0.5f;
+
+            Rect outerRect = new Rect(modalX, modalY, modalW, modalH);
+            Rect innerRect = new Rect(modalX + 3f, modalY + 3f, modalW - 6f, modalH - 6f);
+
+            GUI.DrawTexture(outerRect, texModalBorderCyan);
+            GUI.DrawTexture(innerRect, texModalBg);
+
+            float curY = innerRect.y + 18f;
+            Rect titleRect = new Rect(innerRect.x, curY, innerRect.width, 28f);
+            GUI.Label(titleRect, "GAME PAUSED", modalTitleStyle);
+
+            curY += 28f;
+            Rect subRect = new Rect(innerRect.x, curY, innerRect.width, 18f);
+            GUI.Label(subRect, "Tekan [Esc] atau [P] untuk Lanjut Bermain", modalSubtitleStyle);
+
+            curY += 22f;
+            GUI.DrawTexture(new Rect(innerRect.x + 25f, curY, innerRect.width - 50f, 2f), texModalBorderCyan);
+
+            curY += 18f;
+            float btnW = innerRect.width - 60f;
+            float btnH = 40f;
+            float btnX = innerRect.x + 30f;
+            float spacing = 10f;
+
+            // 1. Tombol RESUME
+            Rect resumeRect = new Rect(btnX, curY, btnW, btnH);
+            if (DrawStyledButton(resumeRect, "RESUME GAME", true))
             {
-                float modalW = 460f;
-                float modalH = 260f;
-                float modalX = (Screen.width - modalW) * 0.5f;
-                float modalY = (Screen.height - modalH) * 0.5f;
+                if (cameraController != null)
+                {
+                    cameraController.SetPause(false);
+                }
+                else
+                {
+                    Time.timeScale = 1f;
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
+                }
+            }
 
-                Rect outerRect = new Rect(modalX, modalY, modalW, modalH);
-                Rect innerRect = new Rect(modalX + 4f, modalY + 4f, modalW - 8f, modalH - 8f);
+            // 2. Tombol RESTART
+            curY += btnH + spacing;
+            Rect restartRect = new Rect(btnX, curY, btnW, btnH);
+            if (DrawStyledButton(restartRect, "RESTART LEVEL", false))
+            {
+                Time.timeScale = 1f;
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
 
-                // Border & background
-                GUI.DrawTexture(outerRect, texBadgeFirstAid); // Green border accent
-                GUI.DrawTexture(innerRect, texVictoryBackdrop);
+            // 3. Tombol MAIN MENU
+            curY += btnH + spacing;
+            Rect menuRect = new Rect(btnX, curY, btnW, btnH);
+            if (DrawStyledButton(menuRect, "MAIN MENU", false))
+            {
+                TriggerMainMenu();
+            }
 
-                // Title
-                Rect titleRect = new Rect(innerRect.x, innerRect.y + 16f, innerRect.width, 32f);
-                GUI.Label(new Rect(titleRect.x + 1f, titleRect.y + 1f, titleRect.width, titleRect.height), "EXTRACTION SUCCESSFUL!", textStyleShadow);
-                GUI.Label(titleRect, "EXTRACTION SUCCESSFUL!", victoryTitleStyle);
+            // Feedback Toast jika Main Menu belum dibuat
+            if (mainMenuFeedbackTimer > 0f)
+            {
+                Rect toastRect = new Rect(innerRect.x + 10f, innerRect.yMax - 22f, innerRect.width - 20f, 18f);
+                GUI.Label(toastRect, mainMenuFeedbackText, toastTextStyle);
+            }
+        }
 
-                // Subtitle
-                Rect subRect = new Rect(innerRect.x, titleRect.yMax + 4f, innerRect.width, 20f);
-                GUI.Label(new Rect(subRect.x + 1f, subRect.y + 1f, subRect.width, subRect.height), "Kamu berhasil bertahan dan dievakuasi dengan helikopter!", textStyleShadow);
-                GUI.Label(subRect, "Kamu berhasil bertahan dan dievakuasi dengan helikopter!", victorySubStyle);
+        /// <summary>
+        /// Pop-up Dialog Kemenangan Meriah (Playtime, Skor Dinamis, Rank Badge, Play Again, Main Menu).
+        /// </summary>
+        private void DrawFestiveExtractionModal()
+        {
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), texModalBackdropDark);
 
-                // Divider line
-                GUI.DrawTexture(new Rect(innerRect.x + 20f, subRect.yMax + 10f, innerRect.width - 40f, 2f), texExtractionFill);
+            float modalW = 540f;
+            float modalH = 440f;
+            float modalX = (Screen.width - modalW) * 0.5f;
+            float modalY = (Screen.height - modalH) * 0.5f;
 
-                // Stats recap (Menampilkan Skor Akhir Hasil Petualangan)
-                int totalVal = playerInventory != null ? playerInventory.TotalValue : 0;
-                float totalCurW = playerInventory != null ? playerInventory.CurrentWeight : 0f;
-                float totalMaxW = playerInventory != null ? playerInventory.MaxWeight : 100f;
-                int bCount = playerInventory != null ? playerInventory.BandageCount : 0;
-                int fCount = playerInventory != null ? playerInventory.FirstAidCount : 0;
-                int mCount = playerInventory != null ? playerInventory.MedkitCount : 0;
+            Rect outerRect = new Rect(modalX, modalY, modalW, modalH);
+            Rect innerRect = new Rect(modalX + 3.5f, modalY + 3.5f, modalW - 7f, modalH - 7f);
 
-                float statY = subRect.yMax + 20f;
-                float statLineH = 22f;
+            // Glowing Gold Border
+            GUI.DrawTexture(outerRect, texModalBorderGold);
+            GUI.DrawTexture(innerRect, texModalBg);
 
-                string valStr = $"TOTAL NILAI RESOURCING : {totalVal} PTS";
-                Rect valR = new Rect(innerRect.x + 30f, statY, innerRect.width - 60f, statLineH);
-                GUI.Label(new Rect(valR.x + 1f, valR.y + 1f, valR.width, valR.height), valStr, textStyleShadow);
-                GUI.Label(valR, valStr, victoryStatStyle);
+            float curY = innerRect.y + 16f;
+            Rect titleRect = new Rect(innerRect.x, curY, innerRect.width, 30f);
+            GUI.Label(titleRect, "MISSION ACCOMPLISHED!", victoryTitleStyle);
 
-                string wStr = $"TOTAL BEBAN DIBAWA     : {totalCurW:F1} / {totalMaxW:F1} KG";
-                Rect wR = new Rect(innerRect.x + 30f, valR.yMax + 4f, innerRect.width - 60f, statLineH);
-                GUI.Label(new Rect(wR.x + 1f, wR.y + 1f, wR.width, wR.height), wStr, textStyleShadow);
-                GUI.Label(wR, wStr, victoryStatStyle);
+            curY += 30f;
+            Rect subRect = new Rect(innerRect.x, curY, innerRect.width, 18f);
+            GUI.Label(subRect, "Helikopter penyelamat telah berhasil mengevakuasimu!", victorySubStyle);
 
-                string itemStr = $"RINCIAN LOOT           : {bCount} Bandage | {fCount} First Aid | {mCount} Medkit";
-                Rect itemR = new Rect(innerRect.x + 30f, wR.yMax + 4f, innerRect.width - 60f, statLineH);
-                GUI.Label(new Rect(itemR.x + 1f, itemR.y + 1f, itemR.width, itemR.height), itemStr, textStyleShadow);
-                GUI.Label(itemR, itemStr, victoryStatStyle);
+            // Rank Badge Box
+            curY += 22f;
+            float rankW = innerRect.width - 60f;
+            float rankH = 34f;
+            float rankX = innerRect.x + 30f;
+            Rect rankRect = new Rect(rankX, curY, rankW, rankH);
+            GUI.DrawTexture(rankRect, texBorder);
+            GUI.DrawTexture(new Rect(rankRect.x + 1.5f, rankRect.y + 1.5f, rankRect.width - 3f, rankRect.height - 3f), texTrackDark);
 
-                // Restart instructions
-                string restartStr = "Tekan [R] untuk Restart / Main Lagi";
-                Rect restR = new Rect(innerRect.x, innerRect.yMax - 36f, innerRect.width, 24f);
-                GUI.Label(new Rect(restR.x + 1f, restR.y + 1f, restR.width, restR.height), restartStr, textStyleShadow);
-                GUI.Label(restR, restartStr, badgeTextStyle);
+            GUIStyle rankStyle = new GUIStyle(rankBadgeStyle) { normal = { textColor = finalRankColor } };
+            GUI.Label(rankRect, finalRank, rankStyle);
+
+            curY += rankH + 10f;
+            GUI.DrawTexture(new Rect(innerRect.x + 25f, curY, innerRect.width - 50f, 2f), texExtractionFill);
+
+            // Stat Breakdown
+            curY += 10f;
+            float statX = innerRect.x + 35f;
+            float statW = innerRect.width - 70f;
+            float lineH = 22f;
+
+            // 1. Playtime
+            int minutes = Mathf.FloorToInt(finalPlaytime / 60f);
+            int seconds = Mathf.FloorToInt(finalPlaytime % 60f);
+            string timeStr = $"{minutes:00}:{seconds:00}";
+            string timeBonusStr = finalSpeedBonus > 0 ? $"+{finalSpeedBonus} PTS Speed" : "0 PTS";
+            DrawStatRow(new Rect(statX, curY, statW, lineH), "WAKTU BERMAIN (PLAYTIME)", timeStr, timeBonusStr);
+
+            // 2. Looting
+            curY += lineH + 3f;
+            int lootVal = playerInventory != null ? playerInventory.TotalValue : 0;
+            int bCount = playerInventory != null ? playerInventory.BandageCount : 0;
+            int fCount = playerInventory != null ? playerInventory.FirstAidCount : 0;
+            int mCount = playerInventory != null ? playerInventory.MedkitCount : 0;
+            string lootDetail = $"{bCount} Bandage | {fCount} First Aid | {mCount} Medkit";
+            DrawStatRow(new Rect(statX, curY, statW, lineH), "TOTAL HASIL LOOTING", $"{lootVal} PTS", lootDetail);
+
+            // 3. Survival Clear Bonus
+            curY += lineH + 3f;
+            DrawStatRow(new Rect(statX, curY, statW, lineH), "SURVIVAL EXTRACTION BONUS", "+1,000 PTS", "Evakuasi Sukses");
+
+            curY += lineH + 6f;
+            GUI.DrawTexture(new Rect(innerRect.x + 25f, curY, innerRect.width - 50f, 1.5f), texBorder);
+
+            // 4. TOTAL SKOR
+            curY += 8f;
+            Rect totalLabelRect = new Rect(statX, curY, 200f, 24f);
+            GUI.Label(totalLabelRect, "TOTAL SKOR AKHIR", victoryStatStyle);
+
+            string finalScoreStr = $"{finalScore:N0} PTS";
+            Rect totalValRect = new Rect(statX + statW - 200f, curY, 200f, 24f);
+            GUIStyle scoreValStyle = new GUIStyle(victoryTitleStyle) { fontSize = 19, alignment = TextAnchor.MiddleRight, normal = { textColor = finalRankColor } };
+            GUI.Label(totalValRect, finalScoreStr, scoreValStyle);
+
+            // Buttons: PLAY AGAIN & MAIN MENU side-by-side
+            curY += 34f;
+            float btnW = (innerRect.width - 70f) * 0.5f;
+            float btnH = 42f;
+            float btn1X = innerRect.x + 30f;
+            float btn2X = btn1X + btnW + 10f;
+
+            Rect playAgainRect = new Rect(btn1X, curY, btnW, btnH);
+            if (DrawStyledButton(playAgainRect, "PLAY AGAIN", true))
+            {
+                Time.timeScale = 1f;
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+
+            Rect mainMenuRect = new Rect(btn2X, curY, btnW, btnH);
+            if (DrawStyledButton(mainMenuRect, "MAIN MENU", false))
+            {
+                TriggerMainMenu();
+            }
+
+            if (mainMenuFeedbackTimer > 0f)
+            {
+                Rect toastRect = new Rect(innerRect.x + 10f, innerRect.yMax - 20f, innerRect.width - 20f, 18f);
+                GUI.Label(toastRect, mainMenuFeedbackText, toastTextStyle);
+            }
+        }
+
+        private void DrawStatRow(Rect rect, string label, string mainVal, string subVal)
+        {
+            float leftW = rect.width * 0.46f;
+            float rightW = rect.width * 0.54f;
+
+            Rect lblRect = new Rect(rect.x, rect.y, leftW, rect.height);
+            GUI.Label(lblRect, label, statRowStyle);
+
+            string combinedRight = $"{mainVal}  ({subVal})";
+            Rect valRect = new Rect(rect.x + leftW, rect.y, rightW, rect.height);
+            GUI.Label(valRect, combinedRight, statValStyle);
+        }
+
+        private bool DrawStyledButton(Rect rect, string label, bool isPrimary)
+        {
+            Vector2 mousePos = Event.current.mousePosition;
+            bool isHovered = rect.Contains(mousePos);
+
+            Texture2D bgTex = isPrimary
+                ? (isHovered ? texBtnGreenHover : texBtnGreenNormal)
+                : (isHovered ? texBtnHover : texBtnNormal);
+
+            GUI.DrawTexture(rect, texBorder);
+            GUI.DrawTexture(new Rect(rect.x + 1.5f, rect.y + 1.5f, rect.width - 3f, rect.height - 3f), bgTex);
+
+            GUIStyle style = isPrimary ? btnPrimaryStyle : btnSecondaryStyle;
+            GUI.Label(rect, label, style);
+
+            if (Event.current.type == EventType.MouseDown && Event.current.button == 0 && isHovered)
+            {
+                Event.current.Use();
+                return true;
+            }
+
+            return false;
+        }
+
+        private void TriggerMainMenu()
+        {
+            if (Application.CanStreamedLevelBeLoaded("MainMenu"))
+            {
+                Time.timeScale = 1f;
+                SceneManager.LoadScene("MainMenu");
+            }
+            else
+            {
+                mainMenuFeedbackTimer = 3.5f;
+                mainMenuFeedbackText = "Scene [MainMenu] belum dibuat oleh rekan tim.";
+                Debug.LogWarning("[FSMGameHUD] Tombol Main Menu: Scene 'MainMenu' belum terdaftar di Build Settings. (Placeholder)");
             }
         }
 
@@ -1136,24 +1449,18 @@ namespace Praktikum5.FSM
             float centerX = Screen.width * 0.5f;
             float centerY = Screen.height * 0.5f;
 
-            // Reticle center dot
             float dotSize = 4f;
             Rect dotRect = new Rect(centerX - dotSize * 0.5f, centerY - dotSize * 0.5f, dotSize, dotSize);
             GUI.DrawTexture(dotRect, texBorder);
             GUI.DrawTexture(new Rect(dotRect.x + 0.5f, dotRect.y + 0.5f, dotRect.width - 1f, dotRect.height - 1f), texBadgeChase);
 
-            // Crosshair tick marks
             float lineLen = 10f;
             float lineGap = 6f;
             float lineThick = 2f;
 
-            // Left
             GUI.DrawTexture(new Rect(centerX - lineGap - lineLen, centerY - lineThick * 0.5f, lineLen, lineThick), texBadgeChase);
-            // Right
             GUI.DrawTexture(new Rect(centerX + lineGap, centerY - lineThick * 0.5f, lineLen, lineThick), texBadgeChase);
-            // Top
             GUI.DrawTexture(new Rect(centerX - lineThick * 0.5f, centerY - lineGap - lineLen, lineThick, lineLen), texBadgeChase);
-            // Bottom
             GUI.DrawTexture(new Rect(centerX - lineThick * 0.5f, centerY + lineGap, lineThick, lineLen), texBadgeChase);
         }
     }

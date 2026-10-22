@@ -51,7 +51,6 @@ namespace Praktikum5.FSM
 
         [Header("Pause & Cursor Settings")]
         [SerializeField] private bool autoLockOnStart = true;
-        [SerializeField] private bool showPauseGUI = true;
 
         private float yaw = 0f;
         private float pitch = 12f;
@@ -148,33 +147,27 @@ namespace Praktikum5.FSM
 
         private void HandlePauseAndCursor()
         {
-            // Tekan Escape untuk Pause & memunculkan kursor
-            if (IsEscapePressed())
+            // Jika zona ekstraksi selesai, biarkan kursor terbuka untuk pop-up kemenangan
+            var zone = UTS.Environment.GreenSmokeExtractionZone.Instance;
+            if (zone != null && zone.IsExtracted)
             {
-                if (!isPaused)
-                {
-                    PauseGame(true);
-                }
-            }
-
-            // Jika sedang pause dan pengguna menekan tombol R, restart level
-            if (isPaused && IsRestartPressed())
-            {
-                Time.timeScale = 1f;
-                UnityEngine.SceneManagement.SceneManager.LoadScene(
-                    UnityEngine.SceneManagement.SceneManager.GetActiveScene().name
-                );
+                SetCursorLock(false);
                 return;
             }
 
-            // Jika sedang pause dan pengguna klik kiri di layar, resume game
-            if (isPaused && IsLeftClickPressed())
+            // Tekan Escape ATAU P untuk Toggle Pause
+            if (IsPauseTogglePressed())
             {
-                PauseGame(false);
+                PauseGame(!isPaused);
             }
         }
 
-        private void PauseGame(bool pause)
+        public void SetPause(bool pause)
+        {
+            PauseGame(pause);
+        }
+
+        public void PauseGame(bool pause)
         {
             isPaused = pause;
             Time.timeScale = pause ? 0f : 1f;
@@ -327,13 +320,13 @@ namespace Praktikum5.FSM
 #endif
         }
 
-        private bool IsEscapePressed()
+        private bool IsPauseTogglePressed()
         {
 #if ENABLE_INPUT_SYSTEM
             Keyboard kb = Keyboard.current;
-            return kb != null && kb.escapeKey.wasPressedThisFrame;
+            return kb != null && (kb.escapeKey.wasPressedThisFrame || kb.pKey.wasPressedThisFrame);
 #else
-            return Input.GetKeyDown(KeyCode.Escape);
+            return Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.P);
 #endif
         }
 
@@ -365,24 +358,6 @@ namespace Praktikum5.FSM
 #else
             return Input.GetKeyDown(KeyCode.R);
 #endif
-        }
-
-        private void OnGUI()
-        {
-            if (!Application.isPlaying || !showPauseGUI || !isPaused) return;
-
-            GUIStyle style = new GUIStyle(GUI.skin.box);
-            style.fontSize = 20;
-            style.fontStyle = FontStyle.Bold;
-            style.alignment = TextAnchor.MiddleCenter;
-            style.normal.textColor = Color.yellow;
-
-            float w = 520f;
-            float h = 110f;
-            float x = (Screen.width - w) * 0.5f;
-            float y = (Screen.height - h) * 0.5f;
-
-            GUI.Box(new Rect(x, y, w, h), "GAME PAUSED\n[Klik Kiri]: Lanjut Bermain (Resume)\n[R]: Restart Level", style);
         }
     }
 }
