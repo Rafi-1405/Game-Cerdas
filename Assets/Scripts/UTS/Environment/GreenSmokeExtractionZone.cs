@@ -21,6 +21,7 @@ namespace UTS.Environment
         [SerializeField] private Color ringColor = new Color(0.15f, 1.0f, 0.45f, 0.95f);
 
         private Transform player;
+        private UTS.Zombies.ZombieHordeManager hordeManager;
         private float currentHoldTime = 0f;
         private bool isPlayerInside = false;
         private bool isExtracted = false;
@@ -47,6 +48,7 @@ namespace UTS.Environment
         private void Start()
         {
             FindPlayer();
+            hordeManager = FindAnyObjectByType<UTS.Zombies.ZombieHordeManager>();
         }
 
         private void Update()
@@ -75,6 +77,13 @@ namespace UTS.Environment
             if (planarDistance <= radius)
             {
                 isPlayerInside = true;
+
+                if (hordeManager != null && hordeManager.ObjectiveTarget != null && !hordeManager.ObjectiveReached)
+                {
+                    currentHoldTime = 0f;
+                    return;
+                }
+
                 currentHoldTime += Time.deltaTime;
 
                 if (currentHoldTime >= requiredHoldTime)

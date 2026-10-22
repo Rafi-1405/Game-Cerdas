@@ -110,6 +110,16 @@ namespace Praktikum5.FSM
 
         private void Update()
         {
+            if (Time.timeScale <= 0f)
+            {
+                currentSpeed = 0f;
+                isMoving = false;
+                isAiming = false;
+                CurrentMovementState = global::PlayerMovementState.Idle;
+                if (flashlight != null) flashlight.SetAiming(false);
+                return;
+            }
+
             if (IsDead)
             {
                 currentSpeed = 0;

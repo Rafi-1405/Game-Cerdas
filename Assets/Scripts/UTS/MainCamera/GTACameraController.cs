@@ -58,6 +58,7 @@ namespace Praktikum5.FSM
         private float currentDistance = 3.2f;
         private bool isPaused = false;
         private bool isAiming = false;
+        private bool pauseInputEnabled = true;
         private Vector3 currentOffset;
         private Camera camComponent;
         private SimplePlayerController playerController;
@@ -110,7 +111,7 @@ namespace Praktikum5.FSM
 
         private void Start()
         {
-            if (Application.isPlaying && autoLockOnStart)
+            if (Application.isPlaying && autoLockOnStart && !isPaused)
             {
                 SetCursorLock(true);
             }
@@ -155,6 +156,8 @@ namespace Praktikum5.FSM
                 return;
             }
 
+            if (!pauseInputEnabled) return;
+
             // Tekan Escape ATAU P untuk Toggle Pause
             if (IsPauseTogglePressed())
             {
@@ -165,6 +168,11 @@ namespace Praktikum5.FSM
         public void SetPause(bool pause)
         {
             PauseGame(pause);
+        }
+
+        public void SetPauseInputEnabled(bool enabled)
+        {
+            pauseInputEnabled = enabled;
         }
 
         public void PauseGame(bool pause)

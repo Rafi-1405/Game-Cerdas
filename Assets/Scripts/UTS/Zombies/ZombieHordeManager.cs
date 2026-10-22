@@ -72,6 +72,8 @@ namespace UTS.Zombies
         public bool IsGameOver => gameOver;
         public bool ObjectiveReached => objectiveReached;
         public bool ExtractionReached => extractionReached;
+        public Transform ObjectiveTarget => objectiveZone;
+        public Transform ExtractionTarget => extractionZone;
         public float PlayerSafeSpawnRadius => playerSafeSpawnRadius;
         public IReadOnlyList<TownSpawnZone> SpawnZones => spawnZones;
         public event Action OnObjectiveReached;
@@ -85,7 +87,19 @@ namespace UTS.Zombies
         private void Awake()
         {
             EnsureDefaultSpawnZones();
+            FindObjectiveIfNeeded();
             EnsureZombiePrefab();
+        }
+
+        private void FindObjectiveIfNeeded()
+        {
+            if (objectiveZone != null) return;
+
+            GameObject objectiveObject = GameObject.Find("Generator control panel");
+            if (objectiveObject != null)
+            {
+                objectiveZone = objectiveObject.transform;
+            }
         }
 
         private void Start()

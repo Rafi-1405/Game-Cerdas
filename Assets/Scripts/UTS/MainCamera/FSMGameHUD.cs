@@ -32,6 +32,9 @@ namespace Praktikum5.FSM
 
         [Header("Inventory Animation & State")]
         [SerializeField] private bool isInventoryOpen = false;
+        private bool mainMenuOpen;
+        private bool controlsOpen;
+        private bool controlsReturnToMainMenu;
         private float inventoryAnimProgress = 0f;
         private float itemFeedbackTimer = 0f;
         private string itemFeedbackText = "";
@@ -44,8 +47,6 @@ namespace Praktikum5.FSM
         private int finalSpeedBonus = 0;
         private string finalRank = "RANK B  ★ SURVIVOR ★";
         private Color finalRankColor = new Color(0.25f, 0.75f, 1.0f);
-        private float mainMenuFeedbackTimer = 0f;
-        private string mainMenuFeedbackText = "";
 
         // Tekstur prosedural untuk styling Soul Knight & Minecraft Hotbar (NonSerialized agar tidak rusak saat hot-reload)
         [System.NonSerialized] private Texture2D texBorder;
@@ -89,6 +90,7 @@ namespace Praktikum5.FSM
         [System.NonSerialized] private Texture2D texBtnGreenHover;
 
         [System.NonSerialized] private UTS.Inventory.PlayerInventory playerInventory;
+        [System.NonSerialized] private ZombieHordeManager hordeManager;
 
         [System.NonSerialized] private GUIStyle textStyleCenter;
         [System.NonSerialized] private GUIStyle badgeTextStyle;
@@ -121,6 +123,9 @@ namespace Praktikum5.FSM
         private void Start()
         {
             FindReferences();
+            mainMenuOpen = true;
+            SetPaused(true);
+            if (cameraController != null) cameraController.SetPauseInputEnabled(false);
         }
 
         private void Update()
@@ -133,8 +138,13 @@ namespace Praktikum5.FSM
 
             if (Application.isPlaying)
             {
+                if (controlsOpen && WasMenuBackPressed())
+                {
+                    CloseControls();
+                }
+
                 // Hitung waktu bermain hanya jika game aktif (tidak pause & belum selesai ekstraksi)
-                if (!isPaused && !isExtracted)
+                if (!isPaused && !isExtracted && !mainMenuOpen && !controlsOpen)
                 {
                     elapsedPlaytime += dt;
                 }
@@ -146,7 +156,7 @@ namespace Praktikum5.FSM
                 }
 
                 // Kontrol gameplay (Inventory Hotbar & Item Use) hanya saat aktif bermain
-                if (!isPaused && !isExtracted)
+                if (!isPaused && !isExtracted && !mainMenuOpen && !controlsOpen)
                 {
                     if (WasInventoryTogglePressed())
                     {
@@ -174,7 +184,6 @@ namespace Praktikum5.FSM
 
             // Timer feedback
             if (itemFeedbackTimer > 0f) itemFeedbackTimer -= dt;
-            if (mainMenuFeedbackTimer > 0f) mainMenuFeedbackTimer -= dt;
         }
 
         private void RecordExtractionCompletion()
@@ -232,6 +241,11 @@ namespace Praktikum5.FSM
             if (cameraController == null)
             {
                 cameraController = FindAnyObjectByType<GTACameraController>();
+            }
+
+            if (hordeManager == null)
+            {
+                hordeManager = FindAnyObjectByType<ZombieHordeManager>();
             }
 
             if (playerInventory == null && playerController != null)
@@ -741,14 +755,24 @@ namespace Praktikum5.FSM
             bool isExtracted = zone != null && zone.IsExtracted;
             bool isPaused = cameraController != null && cameraController.IsPaused;
 
-            // 1. Jika game selesai (Ekstraksi Berhasil), gambar Modal Dialog Kemenangan Meriah
             if (isExtracted)
             {
                 DrawFestiveExtractionModal();
                 return;
             }
 
-            // 2. Jika game dijeda (Pause), gambar Modal Dialog Pause Menu
+            if (mainMenuOpen)
+            {
+                DrawMainMenuModal();
+                return;
+            }
+
+            if (controlsOpen)
+            {
+                DrawControlsModal();
+                return;
+            }
+
             if (isPaused)
             {
                 DrawPauseMenuModal();
@@ -768,6 +792,8 @@ namespace Praktikum5.FSM
             DrawMinecraftBottomInventory();
             DrawAimReticle();
             DrawEvacuationProgressBar();
+            DrawObjectiveMarker();
+            DrawControlHints();
         }
 
         private void DrawPlayerSoulKnightHUD()
@@ -1182,6 +1208,17 @@ namespace Praktikum5.FSM
             var zone = UTS.Environment.GreenSmokeExtractionZone.Instance;
             if (zone == null) return;
 
+            bool objectiveLocked = hordeManager != null && hordeManager.ObjectiveTarget != null
+                && !hordeManager.ObjectiveReached;
+            if (zone.IsPlayerInside && objectiveLocked)
+            {
+                float lockedW = Mathf.Min(440f, Screen.width - 24f);
+                Rect lockedRect = new Rect((Screen.width - lockedW) * 0.5f, 28f, lockedW, 32f);
+                GUI.DrawTexture(lockedRect, texBorder);
+                GUI.Label(lockedRect, "EVAKUASI TERKUNCI  |  SELESAIKAN OBJEKTIF DAHULU", badgeTextStyle);
+                return;
+            }
+
             if (zone.IsPlayerInside && !zone.IsExtracted)
             {
                 float barW = 340f;
@@ -1206,15 +1243,220 @@ namespace Praktikum5.FSM
             }
         }
 
+        private void DrawObjectiveMarker()
+        {
+            if (hordeManager == null) hordeManager = FindAnyObjectByType<ZombieHordeManager>();
+            if (hordeManager == null || playerController == null) return;
+
+            Transform target;
+            string targetName;
+            if (hordeManager.ObjectiveReached)
+            {
+                var extraction = UTS.Environment.GreenSmokeExtractionZone.Instance;
+                target = extraction != null ? extraction.transform : hordeManager.ExtractionTarget;
+                targetName = "EKSTRAKSI";
+            }
+            else
+            {
+                target = hordeManager.ObjectiveTarget;
+                targetName = "OBJEKTIF";
+            }
+
+            Camera cam = Camera.main;
+            if (target == null || cam == null) return;
+
+            Vector3 screenTarget = cam.WorldToScreenPoint(target.position + Vector3.up * 1.2f);
+            Vector2 center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            Vector2 direction = new Vector2(screenTarget.x - center.x, Screen.height - screenTarget.y - center.y);
+            if (screenTarget.z < 0f) direction = -direction;
+            if (direction.sqrMagnitude < 0.001f) direction = Vector2.up;
+
+            float distance = Vector3.Distance(playerController.transform.position, target.position);
+            bool onScreen = screenTarget.z > 0f && screenTarget.x > 24f && screenTarget.x < Screen.width - 24f
+                && screenTarget.y > 24f && screenTarget.y < Screen.height - 24f;
+            Vector2 markerPosition;
+
+            if (onScreen)
+            {
+                markerPosition = new Vector2(screenTarget.x, Screen.height - screenTarget.y);
+            }
+            else
+            {
+                direction.Normalize();
+                float maxX = Mathf.Max(20f, Screen.width * 0.5f - 100f);
+                float maxY = Mathf.Max(20f, Screen.height * 0.5f - 56f);
+                float scaleX = Mathf.Abs(direction.x) > 0.001f ? maxX / Mathf.Abs(direction.x) : float.MaxValue;
+                float scaleY = Mathf.Abs(direction.y) > 0.001f ? maxY / Mathf.Abs(direction.y) : float.MaxValue;
+                markerPosition = center + direction * Mathf.Min(scaleX, scaleY);
+            }
+
+            string arrow = GetDirectionArrow(direction);
+            Rect marker = new Rect(markerPosition.x - 94f, markerPosition.y - 17f, 188f, 34f);
+            marker.x = Mathf.Clamp(marker.x, 8f, Screen.width - marker.width - 8f);
+            marker.y = Mathf.Clamp(marker.y, 8f, Screen.height - marker.height - 8f);
+            GUI.DrawTexture(marker, texBorder);
+            GUI.DrawTexture(new Rect(marker.x + 2f, marker.y + 2f, marker.width - 4f, marker.height - 4f), texTrackDark);
+            GUI.Label(marker, $"{arrow}  {targetName}  {distance:F0} m", badgeTextStyle);
+        }
+
+        private static string GetDirectionArrow(Vector2 direction)
+        {
+            if (Mathf.Abs(direction.x) > Mathf.Abs(direction.y) * 2f) return direction.x > 0f ? ">" : "<";
+            if (Mathf.Abs(direction.y) > Mathf.Abs(direction.x) * 2f) return direction.y > 0f ? "v" : "^";
+            if (direction.x > 0f) return direction.y > 0f ? "\\" : "/";
+            return direction.y > 0f ? "/" : "\\";
+        }
+
+        private void DrawControlHints()
+        {
+            float width = Mathf.Min(410f, Screen.width - 24f);
+            const float height = 66f;
+            Rect panel = new Rect(Screen.width - width - 12f, Screen.height - height - 12f, width, height);
+            GUI.DrawTexture(panel, texBorder);
+            GUI.DrawTexture(new Rect(panel.x + 2f, panel.y + 2f, panel.width - 4f, panel.height - 4f), texTrackDark);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 1f, panel.width - 16f, 21f), "WASD Gerak  |  Shift Lari  |  Ctrl/C Jongkok", hintTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 22f, panel.width - 16f, 21f), "Klik kiri Serang  |  Klik kanan Bidik  |  F Senter", hintTextStyle);
+            GUI.Label(new Rect(panel.x + 8f, panel.y + 43f, panel.width - 16f, 21f), "E/Tab Inventaris  |  1-3 Item  |  Esc/P Jeda", hintTextStyle);
+        }
+
+        private void DrawMainMenuModal()
+        {
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), texModalBackdropDark);
+
+            float modalW = Mathf.Min(520f, Screen.width - 28f);
+            float modalH = Mathf.Min(390f, Screen.height - 24f);
+            Rect modal = new Rect((Screen.width - modalW) * 0.5f, (Screen.height - modalH) * 0.5f, modalW, modalH);
+            GUI.DrawTexture(modal, texModalBorderGold);
+            GUI.DrawTexture(new Rect(modal.x + 3f, modal.y + 3f, modal.width - 6f, modal.height - 6f), texModalBg);
+
+            GUI.Label(new Rect(modal.x + 20f, modal.y + 28f, modal.width - 40f, 42f), "SURVIVAL", victoryTitleStyle);
+            GUI.Label(new Rect(modal.x + 32f, modal.y + 78f, modal.width - 64f, 42f),
+                "Cari perlengkapan, aktifkan objektif, lalu bertahan di zona evakuasi.", modalSubtitleStyle);
+
+            float buttonW = modal.width - 104f;
+            float buttonX = modal.x + (modal.width - buttonW) * 0.5f;
+            float buttonY = modal.y + 146f;
+            const float buttonH = 42f;
+            const float spacing = 12f;
+
+            if (DrawStyledButton(new Rect(buttonX, buttonY, buttonW, buttonH), "MULAI BERMAIN", true))
+            {
+                BeginGame();
+            }
+
+            buttonY += buttonH + spacing;
+            if (DrawStyledButton(new Rect(buttonX, buttonY, buttonW, buttonH), "PETUNJUK KONTROL", false))
+            {
+                OpenControls(true);
+            }
+
+            buttonY += buttonH + spacing;
+            if (DrawStyledButton(new Rect(buttonX, buttonY, buttonW, buttonH), "KELUAR", false))
+            {
+                Time.timeScale = 1f;
+                Application.Quit();
+            }
+        }
+
+        private void DrawControlsModal()
+        {
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), texModalBackdropDark);
+
+            float modalW = Mathf.Min(560f, Screen.width - 24f);
+            float modalH = Mathf.Min(500f, Screen.height - 20f);
+            Rect modal = new Rect((Screen.width - modalW) * 0.5f, (Screen.height - modalH) * 0.5f, modalW, modalH);
+            GUI.DrawTexture(modal, texModalBorderCyan);
+            GUI.DrawTexture(new Rect(modal.x + 3f, modal.y + 3f, modal.width - 6f, modal.height - 6f), texModalBg);
+            GUI.Label(new Rect(modal.x + 20f, modal.y + 20f, modal.width - 40f, 34f), "PETUNJUK KONTROL", modalTitleStyle);
+
+            string[] controls =
+            {
+                "W / A / S / D atau panah     Bergerak",
+                "Shift kiri / kanan          Berlari, menggunakan stamina",
+                "Ctrl atau C                 Jongkok",
+                "Mouse                       Menggerakkan kamera",
+                "Klik kanan                  Membidik",
+                "Klik kiri                   Menyerang zombie",
+                "F                           Menyalakan / mematikan senter",
+                "E atau Tab                  Membuka inventaris",
+                "1 / 2 / 3                   Menggunakan item penyembuh",
+                "Scroll mouse                Mengatur jarak kamera",
+                "Esc atau P                  Membuka / menutup pause"
+            };
+
+            float rowY = modal.y + 74f;
+            for (int i = 0; i < controls.Length; i++)
+            {
+                GUI.Label(new Rect(modal.x + 34f, rowY + i * 27f, modal.width - 68f, 25f), controls[i], statRowStyle);
+            }
+
+            float buttonW = Mathf.Min(220f, modal.width - 64f);
+            Rect backRect = new Rect(modal.center.x - buttonW * 0.5f, modal.yMax - 54f, buttonW, 38f);
+            if (DrawStyledButton(backRect, "KEMBALI", false)) CloseControls();
+            GUI.Label(new Rect(modal.x + 20f, modal.yMax - 27f, modal.width - 40f, 16f), "Esc untuk kembali", modalSubtitleStyle);
+        }
+
+        private void BeginGame()
+        {
+            mainMenuOpen = false;
+            controlsOpen = false;
+            isInventoryOpen = false;
+            if (cameraController != null) cameraController.SetPauseInputEnabled(true);
+            SetPaused(false);
+        }
+
+        private void OpenControls(bool returnToMainMenu)
+        {
+            controlsReturnToMainMenu = returnToMainMenu;
+            controlsOpen = true;
+            if (cameraController != null) cameraController.SetPauseInputEnabled(false);
+        }
+
+        private void CloseControls()
+        {
+            controlsOpen = false;
+            if (controlsReturnToMainMenu)
+            {
+                mainMenuOpen = true;
+            }
+            else if (cameraController != null)
+            {
+                cameraController.SetPauseInputEnabled(true);
+            }
+        }
+
+        private void SetPaused(bool paused)
+        {
+            if (cameraController != null)
+            {
+                cameraController.SetPause(paused);
+                return;
+            }
+
+            Time.timeScale = paused ? 0f : 1f;
+            Cursor.lockState = paused ? CursorLockMode.None : CursorLockMode.Locked;
+            Cursor.visible = paused;
+        }
+
+        private bool WasMenuBackPressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard kb = Keyboard.current;
+            return kb != null && kb.escapeKey.wasPressedThisFrame;
+#else
+            return Input.GetKeyDown(KeyCode.Escape);
+#endif
+        }
+
         /// <summary>
-        /// Pop-up Dialog Pause Menu Interaktif (Tombol RESUME, RESTART, MAIN MENU).
+        /// Pop-up Dialog Pause Menu Interaktif.
         /// </summary>
         private void DrawPauseMenuModal()
         {
             GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), texModalBackdropDark);
 
             float modalW = 390f;
-            float modalH = 310f;
+            float modalH = 360f;
             float modalX = (Screen.width - modalW) * 0.5f;
             float modalY = (Screen.height - modalH) * 0.5f;
 
@@ -1237,27 +1479,23 @@ namespace Praktikum5.FSM
 
             curY += 18f;
             float btnW = innerRect.width - 60f;
-            float btnH = 40f;
+            float btnH = 38f;
             float btnX = innerRect.x + 30f;
-            float spacing = 10f;
+            float spacing = 8f;
 
             // 1. Tombol RESUME
             Rect resumeRect = new Rect(btnX, curY, btnW, btnH);
             if (DrawStyledButton(resumeRect, "RESUME GAME", true))
             {
-                if (cameraController != null)
-                {
-                    cameraController.SetPause(false);
-                }
-                else
-                {
-                    Time.timeScale = 1f;
-                    Cursor.lockState = CursorLockMode.Locked;
-                    Cursor.visible = false;
-                }
+                BeginGame();
             }
 
-            // 2. Tombol RESTART
+            // 2. Tombol KONTROL
+            curY += btnH + spacing;
+            Rect controlsRect = new Rect(btnX, curY, btnW, btnH);
+            if (DrawStyledButton(controlsRect, "CONTROL GUIDE", false)) OpenControls(false);
+
+            // 3. Tombol RESTART
             curY += btnH + spacing;
             Rect restartRect = new Rect(btnX, curY, btnW, btnH);
             if (DrawStyledButton(restartRect, "RESTART LEVEL", false))
@@ -1266,7 +1504,7 @@ namespace Praktikum5.FSM
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             }
 
-            // 3. Tombol MAIN MENU
+            // 4. Tombol MAIN MENU
             curY += btnH + spacing;
             Rect menuRect = new Rect(btnX, curY, btnW, btnH);
             if (DrawStyledButton(menuRect, "MAIN MENU", false))
@@ -1274,12 +1512,6 @@ namespace Praktikum5.FSM
                 TriggerMainMenu();
             }
 
-            // Feedback Toast jika Main Menu belum dibuat
-            if (mainMenuFeedbackTimer > 0f)
-            {
-                Rect toastRect = new Rect(innerRect.x + 10f, innerRect.yMax - 22f, innerRect.width - 20f, 18f);
-                GUI.Label(toastRect, mainMenuFeedbackText, toastTextStyle);
-            }
         }
 
         /// <summary>
@@ -1383,11 +1615,6 @@ namespace Praktikum5.FSM
                 TriggerMainMenu();
             }
 
-            if (mainMenuFeedbackTimer > 0f)
-            {
-                Rect toastRect = new Rect(innerRect.x + 10f, innerRect.yMax - 20f, innerRect.width - 20f, 18f);
-                GUI.Label(toastRect, mainMenuFeedbackText, toastTextStyle);
-            }
         }
 
         private void DrawStatRow(Rect rect, string label, string mainVal, string subVal)
@@ -1429,17 +1656,8 @@ namespace Praktikum5.FSM
 
         private void TriggerMainMenu()
         {
-            if (Application.CanStreamedLevelBeLoaded("MainMenu"))
-            {
-                Time.timeScale = 1f;
-                SceneManager.LoadScene("MainMenu");
-            }
-            else
-            {
-                mainMenuFeedbackTimer = 3.5f;
-                mainMenuFeedbackText = "Scene [MainMenu] belum dibuat oleh rekan tim.";
-                Debug.LogWarning("[FSMGameHUD] Tombol Main Menu: Scene 'MainMenu' belum terdaftar di Build Settings. (Placeholder)");
-            }
+            Time.timeScale = 1f;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
         private void DrawAimReticle()
