@@ -87,6 +87,11 @@ namespace Praktikum9.PCG
 
         #region Unity Callbacks
 
+        private void Awake()
+        {
+            EnsureReferences();
+        }
+
         private void Start()
         {
             Generate();
@@ -123,8 +128,10 @@ namespace Praktikum9.PCG
         /// Mengeksekusi pipeline procedural content generation secara penuh:
         /// Clear -> Initialize Seed -> Spawn Enemies -> Spawn Items -> Diagnostics.
         /// </summary>
+        [ContextMenu("Generate PCG Content")]
         public void Generate()
         {
+            EnsureReferences();
             ClearGeneratedObjects();
             usedPositions.Clear();
             spawnStatistics.Clear();
@@ -338,8 +345,11 @@ namespace Praktikum9.PCG
         /// Menghapus seluruh objek prosedural terdahulu dari generatedRoot.
         /// Kompatibel dengan Runtime dan EditMode.
         /// </summary>
-        private void ClearGeneratedObjects()
+        [ContextMenu("Clear PCG Content")]
+        public void ClearGeneratedObjects()
         {
+            EnsureReferences();
+
             if (generatedRoot == null)
             {
                 return;
@@ -360,47 +370,104 @@ namespace Praktikum9.PCG
             }
         }
 
+        /// <summary>
+        /// Menjamin referensi player dan generatedRoot tidak null.
+        /// </summary>
+        private void EnsureReferences()
+        {
+            if (player == null)
+            {
+                GameObject playerObj = GameObject.FindWithTag("Player");
+                if (playerObj != null)
+                {
+                    player = playerObj.transform;
+                }
+            }
+
+            if (generatedRoot == null)
+            {
+                GameObject rootObj = GameObject.Find("GeneratedObjects");
+                if (rootObj != null)
+                {
+                    generatedRoot = rootObj.transform;
+                }
+                else
+                {
+                    GameObject newRoot = new GameObject("GeneratedObjects");
+                    generatedRoot = newRoot.transform;
+                }
+            }
+        }
+
         #endregion
 
         #region Debug GUI & Gizmos
 
         private void OnGUI()
         {
-            // Panel Utama Debug & Kontrol
-            int panelWidth = 330;
-            int panelHeight = 220 + (spawnStatistics.Count * 18);
+            // Pastikan richText aktif pada GUIStyle standar
+            if (GUI.skin != null)
+            {
+                GUI.skin.label.richText = true;
+                GUI.skin.box.richText = true;
+                GUI.skin.button.richText = true;
+                GUI.skin.toggle.richText = true;
+            }
+
+            int panelWidth = 340;
+            int statsCount = spawnStatistics.Count > 0 ? spawnStatistics.Count : 1;
+            int panelHeight = 255 + (statsCount * 18);
 
             GUI.Box(new Rect(10, 10, panelWidth, panelHeight), "<b>PCG Smart Spawner — Realtime HUD</b>");
 
             int yOffset = 35;
-            GUI.Label(new Rect(20, yOffset, 300, 20), $"<b>Current Seed:</b> {currentSeed} ({(useRandomSeed ? "Random Mode" : "Fixed Mode")})");
+            GUI.Label(new Rect(20, yOffset, 310, 20), $"<b>Current Seed:</b> {currentSeed} ({(useRandomSeed ? "Random Mode" : "Fixed Mode")})");
             yOffset += 22;
-            GUI.Label(new Rect(20, yOffset, 300, 20), $"<b>Enemy Spawned:</b> {successfulEnemySpawns}/{enemyCount}");
+            GUI.Label(new Rect(20, yOffset, 310, 20), $"<b>Enemy Spawned:</b> {successfulEnemySpawns}/{enemyCount}");
             yOffset += 22;
-            GUI.Label(new Rect(20, yOffset, 300, 20), $"<b>Item Spawned:</b> {successfulItemSpawns}/{itemCount}");
+            GUI.Label(new Rect(20, yOffset, 310, 20), $"<b>Item Spawned:</b> {successfulItemSpawns}/{itemCount}");
             yOffset += 22;
-            GUI.Label(new Rect(20, yOffset, 300, 20), $"<b>Rejected Candidates:</b> <color=orange>{rejectedPositions}</color>");
+            GUI.Label(new Rect(20, yOffset, 310, 20), $"<b>Rejected Candidates:</b> <color=orange>{rejectedPositions}</color>");
             yOffset += 24;
 
+            // Toggle Mode Seed
+            useRandomSeed = GUI.Toggle(new Rect(20, yOffset, 300, 20), useRandomSeed, " <b>Use Random Seed per Regen</b>");
+            yOffset += 22;
+
             // Modifikasi 2: Statistik Distribusi Kuota Riil
-            GUI.Label(new Rect(20, yOffset, 300, 20), "<b>--- Realtime Spawn Breakdown ---</b>");
+            GUI.Label(new Rect(20, yOffset, 310, 20), "<b>--- Realtime Spawn Breakdown ---</b>");
             yOffset += 20;
 
-            foreach (var kvp in spawnStatistics)
+            if (spawnStatistics.Count > 0)
             {
-                GUI.Label(new Rect(25, yOffset, 290, 18), $"• {kvp.Key}: {kvp.Value}");
+                foreach (var kvp in spawnStatistics)
+                {
+                    GUI.Label(new Rect(25, yOffset, 300, 18), $"• {kvp.Key}: <b>{kvp.Value}</b>");
+                    yOffset += 18;
+                }
+            }
+            else
+            {
+                GUI.Label(new Rect(25, yOffset, 300, 18), "<i>(Belum ada entitas di-spawn)</i>");
                 yOffset += 18;
             }
 
-            yOffset += 8;
+            yOffset += 10;
 
             // Modifikasi 3: Tombol Regenerate UI
-            if (GUI.Button(new Rect(20, yOffset, 170, 32), "<b>Regenerate (UI)</b>"))
+            if (GUI.Button(new Rect(20, yOffset, 145, 32), "<b>Regenerate</b>"))
             {
                 Generate();
             }
 
-            GUI.Label(new Rect(200, yOffset + 6, 120, 25), "<i>Shortcut: [R]</i>");
+            if (GUI.Button(new Rect(175, yOffset, 145, 32), "<b>New Seed</b>"))
+            {
+                useRandomSeed = true;
+                Generate();
+            }
+
+            yOffset += 36;
+            GUI.Label(new Rect(20, yOffset, 300, 20), "<i>Key shortcut: [R] to regenerate</i>");
         }
 
         private void OnDrawGizmosSelected()

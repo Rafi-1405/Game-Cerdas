@@ -24,8 +24,17 @@ namespace Praktikum9.Editor
         {
             EditorApplication.delayCall += () =>
             {
+                AddSceneToBuildSettings(SCENE_PATH);
+
                 if (!EditorPrefs.GetBool(SETUP_PREF_KEY, false))
                 {
+                    // Jangan timpa scene jika file scene sudah tersedia di disk
+                    if (File.Exists(SCENE_PATH))
+                    {
+                        EditorPrefs.SetBool(SETUP_PREF_KEY, true);
+                        return;
+                    }
+
                     Debug.Log("[PCGSetupAutomation] Triggering automatic initial setup for Praktikum 9...");
                     ExecuteSetup();
                     EditorPrefs.SetBool(SETUP_PREF_KEY, true);
@@ -37,6 +46,12 @@ namespace Praktikum9.Editor
         public static void ExecuteSetup()
         {
             Debug.Log("[PCGSetupAutomation] === Memulai Setup Praktikum 9 ===");
+
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                Debug.LogWarning("[PCGSetupAutomation] Setup dibatalkan oleh pengguna.");
+                return;
+            }
 
             // 1. Pastikan folder-folder target tersedia
             EnsureDirectoryExists(MAT_DIR);
@@ -165,9 +180,10 @@ namespace Praktikum9.Editor
 
             spawnerSO.ApplyModifiedProperties();
 
-            // 12. Simpan Scene ke Disk
+            // 12. Simpan Scene ke Disk dan Buka di Editor
             EditorSceneManager.SaveScene(scene, SCENE_PATH);
-            Debug.Log($"[PCGSetupAutomation] Scene berhasil disimpan ke: {SCENE_PATH}");
+            EditorSceneManager.OpenScene(SCENE_PATH);
+            Debug.Log($"[PCGSetupAutomation] Scene berhasil disimpan dan dibuka: {SCENE_PATH}");
 
             // 13. Tambahkan ke EditorBuildSettings jika belum terdaftar
             AddSceneToBuildSettings(SCENE_PATH);
