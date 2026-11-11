@@ -33,8 +33,23 @@ namespace DungeonGenerator.Entities
         private Vector3 _velocity;
         private float _bobTimer;
         private Vector3 _originalVisualLocalPos;
+        [SerializeField] private bool _isFrozen = false;
 
         public bool IsMoving { get; private set; }
+        public bool IsFrozen => _isFrozen;
+
+        /// <summary>
+        /// Freezes or unfreezes player locomotion for free fly camera navigation.
+        /// </summary>
+        public void SetFrozen(bool frozen)
+        {
+            _isFrozen = frozen;
+            if (_isFrozen)
+            {
+                _velocity = Vector3.zero;
+                IsMoving = false;
+            }
+        }
 
         private void Awake()
         {
@@ -59,6 +74,12 @@ namespace DungeonGenerator.Entities
 
         private void Update()
         {
+            if (_isFrozen)
+            {
+                IsMoving = false;
+                return;
+            }
+
             HandleMovementInput();
             ApplyGravity();
             ApplyVisualBobbing();

@@ -50,6 +50,7 @@ namespace DungeonGenerator.Visuals
         private Material _playerVisorMaterial;
 
         public GameObject PlayerInstance { get; private set; }
+        public PlayerMovement PlayerMovementInstance => PlayerInstance != null ? PlayerInstance.GetComponent<PlayerMovement>() : null;
         public GameObject GoalInstance { get; private set; }
         public List<GameObject> EnemyInstances { get; private set; } = new List<GameObject>();
         public List<GameObject> ItemInstances { get; private set; } = new List<GameObject>();

@@ -43,6 +43,8 @@ namespace DungeonGenerator.Visuals
         public DungeonPlacementData CurrentPlacements { get; private set; }
         public ValidationReport CurrentValidationReport { get; private set; }
         public DungeonCameraController CameraController => _cameraController;
+        public DungeonSceneBuilder SceneBuilder => _sceneBuilder;
+        public PlayerMovement PlayerMovement => _sceneBuilder != null ? _sceneBuilder.PlayerMovementInstance : null;
 
         public bool IsGoalReached { get; private set; }
         public int CollectedItemsCount { get; private set; }

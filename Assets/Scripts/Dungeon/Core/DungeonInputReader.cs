@@ -245,6 +245,25 @@ namespace DungeonGenerator.Core
         }
 
         /// <summary>
+        /// Detects navigation mode toggle button press (G key or Gamepad West button).
+        /// Toggles between Free Fly View (character frozen) and Character View (character control).
+        /// </summary>
+        public static bool WasNavModeTogglePressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            Keyboard kb = Keyboard.current;
+            if (kb != null && kb.gKey.wasPressedThisFrame) return true;
+
+            Gamepad pad = Gamepad.current;
+            if (pad != null && pad.buttonWest.wasPressedThisFrame) return true;
+
+            return false;
+#else
+            return Input.GetKeyDown(KeyCode.G);
+#endif
+        }
+
+        /// <summary>
         /// Detects minimap radar toggle button press (M key or Gamepad Select button).
         /// </summary>
         public static bool WasMinimapTogglePressed()

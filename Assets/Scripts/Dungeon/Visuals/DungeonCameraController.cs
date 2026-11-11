@@ -1,12 +1,13 @@
 using DungeonGenerator.Core;
+using DungeonGenerator.Entities;
 using DungeonGenerator.UI;
 using UnityEngine;
 
 namespace DungeonGenerator.Visuals
 {
     /// <summary>
-    /// Multi-mode camera controller supporting Isometric Top-Down, Third-Person, Overview,
-    /// and Unity Editor-style Scene View free navigation (Flythrough, Look, Pan, Orbit, Zoom).
+    /// Multi-mode camera controller supporting Character View (Isometric, Third-Person, Overview)
+    /// and Free Fly View with full Scene View-style navigation (G key toggle).
     /// </summary>
     public class DungeonCameraController : MonoBehaviour
     {
@@ -48,6 +49,7 @@ namespace DungeonGenerator.Visuals
         #endregion
 
         [SerializeField] private CameraViewMode _currentMode = CameraViewMode.IsometricTopDown;
+        [SerializeField] private CameraViewMode _characterFollowMode = CameraViewMode.IsometricTopDown;
         [SerializeField] private Transform _target;
 
         private float _currentZoom = 1.0f;
@@ -62,6 +64,7 @@ namespace DungeonGenerator.Visuals
         private bool _isCursorLocked = false;
 
         public CameraViewMode CurrentMode => _currentMode;
+        public bool IsInFreeFlyMode => _currentMode == CameraViewMode.FreeFlyEditor;
         public bool IsFreeFlyActive => _currentMode == CameraViewMode.FreeFlyEditor || DungeonInputReader.IsRightMouseButtonHeld();
 
         public void SetTarget(Transform target)
@@ -79,10 +82,64 @@ namespace DungeonGenerator.Visuals
             _overviewPosition = new Vector3(center.x, height, center.z);
         }
 
+        /// <summary>
+        /// Toggles between Free Fly View (character frozen) and Character View (character control) via G key.
+        /// </summary>
+        public void ToggleNavigationStyle()
+        {
+            SetNavigationStyle(!IsInFreeFlyMode);
+        }
+
+        /// <summary>
+        /// Switches navigation style explicitly.
+        /// </summary>
+        public void SetNavigationStyle(bool freeFly)
+        {
+            PlayerMovement pm = GetPlayerMovement();
+
+            if (freeFly)
+            {
+                if (_currentMode != CameraViewMode.FreeFlyEditor)
+                {
+                    _characterFollowMode = _currentMode;
+                }
+
+                SetCameraMode(CameraViewMode.FreeFlyEditor);
+
+                if (pm != null)
+                {
+                    pm.SetFrozen(true);
+                }
+            }
+            else
+            {
+                UnlockCursor();
+                SetCameraMode(_characterFollowMode);
+
+                if (pm != null)
+                {
+                    pm.SetFrozen(false);
+                }
+
+                FocusOnTarget();
+            }
+        }
+
+        /// <summary>
+        /// Cycles through character follow camera perspectives (C key).
+        /// </summary>
         public void CycleCameraMode()
         {
-            int next = ((int)_currentMode + 1) % 4;
-            SetCameraMode((CameraViewMode)next);
+            if (_currentMode == CameraViewMode.FreeFlyEditor)
+            {
+                SetNavigationStyle(false);
+            }
+            else
+            {
+                int next = ((int)_currentMode + 1) % 3;
+                _characterFollowMode = (CameraViewMode)next;
+                SetCameraMode(_characterFollowMode);
+            }
         }
 
         public void SetCameraMode(CameraViewMode mode)
@@ -110,6 +167,22 @@ namespace DungeonGenerator.Visuals
             transform.rotation = rot;
         }
 
+        private PlayerMovement GetPlayerMovement()
+        {
+            if (_target != null)
+            {
+                PlayerMovement pm = _target.GetComponent<PlayerMovement>();
+                if (pm != null) return pm;
+            }
+
+            if (DungeonManager.Instance != null && DungeonManager.Instance.PlayerMovement != null)
+            {
+                return DungeonManager.Instance.PlayerMovement;
+            }
+
+            return FindAnyObjectByType<PlayerMovement>();
+        }
+
         private void OnDisable()
         {
             UnlockCursor();
@@ -117,7 +190,13 @@ namespace DungeonGenerator.Visuals
 
         private void Update()
         {
-            // Cycle camera mode with C key
+            // Toggle navigation style with G key (Free Fly View <-> Character View)
+            if (DungeonInputReader.WasNavModeTogglePressed())
+            {
+                ToggleNavigationStyle();
+            }
+
+            // Cycle camera follow mode with C key
             if (DungeonInputReader.WasCameraTogglePressed())
             {
                 CycleCameraMode();
@@ -129,7 +208,7 @@ namespace DungeonGenerator.Visuals
                 FocusOnTarget();
             }
 
-            // Handle Scene View Editor mouse controls
+            // Handle mouse and fly controls
             HandleMouseNavigation();
         }
 
@@ -163,92 +242,90 @@ namespace DungeonGenerator.Visuals
                 return;
             }
 
-            // 1. Scene View Flythrough Mode (Hold Right Mouse Button)
-            if (DungeonInputReader.IsRightMouseButtonHeld())
+            // ==========================================
+            // FREE FLY NAVIGATION (when in FreeFlyEditor)
+            // ==========================================
+            if (_currentMode == CameraViewMode.FreeFlyEditor)
             {
-                if (!_isCursorLocked)
+                // 1. WASDQE Fly movement (character is frozen, so keys fly camera directly)
+                Vector3 flyInput = DungeonInputReader.GetFlyMovementVector();
+                if (flyInput.sqrMagnitude > 0.001f)
                 {
-                    LockCursor();
-                    if (_currentMode != CameraViewMode.FreeFlyEditor)
+                    float speed = DungeonInputReader.IsShiftKeyHeld() ? CAMERA_CONFIG.FLY_FAST_SPEED : _currentFlySpeed;
+                    Vector3 moveDelta = (transform.forward * flyInput.z) + (transform.right * flyInput.x) + (Vector3.up * flyInput.y);
+                    transform.position += moveDelta * (speed * Time.deltaTime);
+                }
+
+                // 2. Mouse Look (Hold Right Mouse Button to rotate view)
+                if (DungeonInputReader.IsRightMouseButtonHeld())
+                {
+                    if (!_isCursorLocked)
                     {
-                        SetCameraMode(CameraViewMode.FreeFlyEditor);
+                        LockCursor();
+                    }
+
+                    Vector2 mouseDelta = DungeonInputReader.GetMouseDelta();
+                    _yaw += mouseDelta.x * CAMERA_CONFIG.MOUSE_LOOK_SENSITIVITY;
+                    _pitch -= mouseDelta.y * CAMERA_CONFIG.MOUSE_LOOK_SENSITIVITY;
+                    _pitch = Mathf.Clamp(_pitch, CAMERA_CONFIG.PITCH_MIN, CAMERA_CONFIG.PITCH_MAX);
+                    transform.rotation = Quaternion.Euler(_pitch, _yaw, 0.0f);
+
+                    // Adjust flight speed with scroll wheel while holding RMB
+                    float speedScroll = DungeonInputReader.GetMouseScrollDelta();
+                    if (Mathf.Abs(speedScroll) > 0.001f)
+                    {
+                        _currentFlySpeed = Mathf.Clamp(_currentFlySpeed + (speedScroll * 8.0f), CAMERA_CONFIG.FLY_MIN_SPEED, CAMERA_CONFIG.FLY_MAX_SPEED);
                     }
                 }
-
-                // Mouse look: change camera direction (yaw & pitch)
-                Vector2 mouseDelta = DungeonInputReader.GetMouseDelta();
-                _yaw += mouseDelta.x * CAMERA_CONFIG.MOUSE_LOOK_SENSITIVITY;
-                _pitch -= mouseDelta.y * CAMERA_CONFIG.MOUSE_LOOK_SENSITIVITY;
-                _pitch = Mathf.Clamp(_pitch, CAMERA_CONFIG.PITCH_MIN, CAMERA_CONFIG.PITCH_MAX);
-                transform.rotation = Quaternion.Euler(_pitch, _yaw, 0.0f);
-
-                // WASDQE Flythrough movement
-                Vector3 flyInput = DungeonInputReader.GetFlyMovementVector();
-                float speed = DungeonInputReader.IsShiftKeyHeld() ? CAMERA_CONFIG.FLY_FAST_SPEED : _currentFlySpeed;
-                Vector3 moveDelta = (transform.forward * flyInput.z) + (transform.right * flyInput.x) + (Vector3.up * flyInput.y);
-                transform.position += moveDelta * (speed * Time.deltaTime);
-
-                // Adjust flight speed with scroll wheel while holding RMB
-                float speedScroll = DungeonInputReader.GetMouseScrollDelta();
-                if (Mathf.Abs(speedScroll) > 0.001f)
+                else if (_isCursorLocked)
                 {
-                    _currentFlySpeed = Mathf.Clamp(_currentFlySpeed + (speedScroll * 8.0f), CAMERA_CONFIG.FLY_MIN_SPEED, CAMERA_CONFIG.FLY_MAX_SPEED);
-                }
-            }
-            else if (_isCursorLocked)
-            {
-                UnlockCursor();
-            }
-
-            // 2. Pan Mode (Hold Middle Mouse Button or Alt + Middle Mouse Button)
-            if (DungeonInputReader.IsMiddleMouseButtonHeld())
-            {
-                if (_currentMode != CameraViewMode.FreeFlyEditor)
-                {
-                    SetCameraMode(CameraViewMode.FreeFlyEditor);
+                    UnlockCursor();
                 }
 
-                Vector2 panDelta = DungeonInputReader.GetMouseDelta();
-                Vector3 pan = (-transform.right * (panDelta.x * CAMERA_CONFIG.MOUSE_PAN_SENSITIVITY)) +
-                              (-transform.up * (panDelta.y * CAMERA_CONFIG.MOUSE_PAN_SENSITIVITY));
-                transform.position += pan;
-                _orbitPivot += pan;
-            }
-
-            // 3. Orbit Mode (Hold Alt + Left Mouse Button)
-            if (DungeonInputReader.IsAltKeyHeld() && DungeonInputReader.IsLeftMouseButtonHeld())
-            {
-                if (_currentMode != CameraViewMode.FreeFlyEditor)
+                // 3. Pan Mode (Hold Middle Mouse Button)
+                if (DungeonInputReader.IsMiddleMouseButtonHeld())
                 {
-                    SetCameraMode(CameraViewMode.FreeFlyEditor);
+                    Vector2 panDelta = DungeonInputReader.GetMouseDelta();
+                    Vector3 pan = (-transform.right * (panDelta.x * CAMERA_CONFIG.MOUSE_PAN_SENSITIVITY)) +
+                                  (-transform.up * (panDelta.y * CAMERA_CONFIG.MOUSE_PAN_SENSITIVITY));
+                    transform.position += pan;
+                    _orbitPivot += pan;
                 }
 
-                Vector2 orbitDelta = DungeonInputReader.GetMouseDelta();
-                _yaw += orbitDelta.x * CAMERA_CONFIG.MOUSE_ORBIT_SENSITIVITY;
-                _pitch -= orbitDelta.y * CAMERA_CONFIG.MOUSE_ORBIT_SENSITIVITY;
-                _pitch = Mathf.Clamp(_pitch, CAMERA_CONFIG.PITCH_MIN, CAMERA_CONFIG.PITCH_MAX);
-
-                Quaternion rot = Quaternion.Euler(_pitch, _yaw, 0.0f);
-                transform.position = _orbitPivot - (rot * Vector3.forward * _orbitDistance);
-                transform.rotation = rot;
-            }
-
-            // 4. Zoom / Dolly (Mouse Scroll Wheel when not holding RMB)
-            if (!DungeonInputReader.IsRightMouseButtonHeld())
-            {
-                float scroll = DungeonInputReader.GetMouseScrollDelta();
-                if (Mathf.Abs(scroll) > 0.001f)
+                // 4. Orbit Mode (Hold Alt + Left Mouse Button)
+                if (DungeonInputReader.IsAltKeyHeld() && DungeonInputReader.IsLeftMouseButtonHeld())
                 {
-                    if (_currentMode == CameraViewMode.FreeFlyEditor)
+                    Vector2 orbitDelta = DungeonInputReader.GetMouseDelta();
+                    _yaw += orbitDelta.x * CAMERA_CONFIG.MOUSE_ORBIT_SENSITIVITY;
+                    _pitch -= orbitDelta.y * CAMERA_CONFIG.MOUSE_ORBIT_SENSITIVITY;
+                    _pitch = Mathf.Clamp(_pitch, CAMERA_CONFIG.PITCH_MIN, CAMERA_CONFIG.PITCH_MAX);
+
+                    Quaternion rot = Quaternion.Euler(_pitch, _yaw, 0.0f);
+                    transform.position = _orbitPivot - (rot * Vector3.forward * _orbitDistance);
+                    transform.rotation = rot;
+                }
+
+                // 5. Dolly / Zoom (Mouse Scroll Wheel)
+                if (!DungeonInputReader.IsRightMouseButtonHeld())
+                {
+                    float scroll = DungeonInputReader.GetMouseScrollDelta();
+                    if (Mathf.Abs(scroll) > 0.001f)
                     {
-                        // Dolly camera forward/backward along view vector
                         transform.position += transform.forward * (scroll * CAMERA_CONFIG.SCROLL_ZOOM_STEP);
                         _orbitDistance = Mathf.Max(2.0f, _orbitDistance - (scroll * CAMERA_CONFIG.SCROLL_ZOOM_STEP));
                     }
-                    else
-                    {
-                        _currentZoom = Mathf.Clamp(_currentZoom - (scroll * CAMERA_CONFIG.ZOOM_SPEED), CAMERA_CONFIG.MIN_ZOOM, CAMERA_CONFIG.MAX_ZOOM);
-                    }
+                }
+            }
+            // ==========================================
+            // CHARACTER VIEW NAVIGATION (Player Control)
+            // ==========================================
+            else
+            {
+                // In Character View, mouse scroll adjusts follow zoom level
+                float scroll = DungeonInputReader.GetMouseScrollDelta();
+                if (Mathf.Abs(scroll) > 0.001f)
+                {
+                    _currentZoom = Mathf.Clamp(_currentZoom - (scroll * CAMERA_CONFIG.ZOOM_SPEED), CAMERA_CONFIG.MIN_ZOOM, CAMERA_CONFIG.MAX_ZOOM);
                 }
             }
         }

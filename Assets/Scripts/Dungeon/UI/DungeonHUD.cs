@@ -226,7 +226,12 @@ namespace DungeonGenerator.UI
             {
                 activeHudBounds = new Rect(HUD_CONFIG.SCREEN_MARGIN, HUD_CONFIG.SCREEN_MARGIN, _panelWidth, _panelHeight);
             }
-            IsPointerOverHUD = _isResizing || activeHudBounds.Contains(mouseGui);
+
+            float bannerWidth = 480.0f;
+            float bannerX = ((Screen.width / _uiScale) - bannerWidth) * 0.5f;
+            Rect bannerBounds = new Rect(bannerX, 10.0f, bannerWidth, 32.0f);
+
+            IsPointerOverHUD = _isResizing || activeHudBounds.Contains(mouseGui) || bannerBounds.Contains(mouseGui);
 
             if (_isPanelVisible)
             {
@@ -244,6 +249,7 @@ namespace DungeonGenerator.UI
                 DrawShowButton();
             }
 
+            DrawNavigationBanner();
             DrawVictoryModal();
 
             // Restore GUI Matrix
@@ -522,7 +528,7 @@ namespace DungeonGenerator.UI
 
         private void DrawSectionCamera()
         {
-            if (GUILayout.Button((_foldoutCamera ? "▼ " : "► ") + "4. Camera View & Scene Navigation", _foldoutButtonStyle))
+            if (GUILayout.Button((_foldoutCamera ? "▼ " : "► ") + "4. Camera View & Navigation", _foldoutButtonStyle))
             {
                 _foldoutCamera = !_foldoutCamera;
             }
@@ -532,9 +538,28 @@ namespace DungeonGenerator.UI
             GUILayout.BeginVertical(GUI.skin.box);
 
             var cam = _manager != null ? _manager.CameraController : null;
-            string activeModeName = cam != null ? cam.CurrentMode.ToString() : "None";
-            GUILayout.Label($"<b>Active Mode:</b> {activeModeName}", _boldStyle);
+            bool isFreeFly = cam != null && cam.IsInFreeFlyMode;
 
+            // Navigation Style Primary Toggle Button (G Key)
+            string navBtnText = isFreeFly
+                ? "🎮 Switch to Character View (G Key)"
+                : "✈ Switch to Free Fly View (G Key)";
+
+            Color originalColor = GUI.color;
+            GUI.color = isFreeFly ? HUD_CONFIG.COLOR_GOLD : HUD_CONFIG.COLOR_PASS;
+            if (GUILayout.Button(navBtnText, _buttonStyle, GUILayout.Height(32)))
+            {
+                cam?.ToggleNavigationStyle();
+            }
+            GUI.color = originalColor;
+
+            string statusText = isFreeFly
+                ? "<color=#f39c12><b>Free Fly View</b> (Player Frozen)</color>"
+                : "<color=#2ecc71><b>Character View</b> (Player Active)</color>";
+            GUILayout.Label($"<b>Active Navigation:</b> {statusText}", _bodyStyle);
+
+            GUILayout.Space(6);
+            GUILayout.Label("<b>Follow Perspectives (C Key to cycle):</b>", _boldStyle);
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Isometric", _buttonStyle))
             {
@@ -544,16 +569,9 @@ namespace DungeonGenerator.UI
             {
                 cam?.SetCameraMode(CameraViewMode.ThirdPersonFollow);
             }
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal();
             if (GUILayout.Button("Overview", _buttonStyle))
             {
                 cam?.SetCameraMode(CameraViewMode.Overview);
-            }
-            if (GUILayout.Button("Scene View (Free)", _buttonStyle))
-            {
-                cam?.SetCameraMode(CameraViewMode.FreeFlyEditor);
             }
             GUILayout.EndHorizontal();
 
@@ -562,14 +580,24 @@ namespace DungeonGenerator.UI
                 cam?.FocusOnTarget();
             }
 
-            GUILayout.Space(4);
-            GUILayout.Label("<b>Scene View Controls:</b>", _headerStyle);
-            GUILayout.Label("• <b>Hold RMB + Mouse</b>: Rotate / Look Direction", _bodyStyle);
-            GUILayout.Label("• <b>Hold RMB + WASDQE</b>: Fly Freely Through Level", _bodyStyle);
-            GUILayout.Label("• <b>Middle Mouse Drag</b>: Pan Camera View", _bodyStyle);
-            GUILayout.Label("• <b>Alt + Left Mouse Drag</b>: Orbit Around Target", _bodyStyle);
-            GUILayout.Label("• <b>Mouse Scroll Wheel</b>: Zoom / Dolly In and Out", _bodyStyle);
-            GUILayout.Label("• <b>Shift (Hold)</b>: Fast Flight Speed (Sprint)", _bodyStyle);
+            GUILayout.Space(6);
+            GUILayout.Label("<b>Active Controls:</b>", _headerStyle);
+            if (isFreeFly)
+            {
+                GUILayout.Label("• <b>WASDQE</b>: Fly camera freely across the dungeon", _bodyStyle);
+                GUILayout.Label("• <b>Hold RMB + Mouse</b>: Rotate view / Look direction", _bodyStyle);
+                GUILayout.Label("• <b>Shift (Hold)</b>: Fast sprint flight speed", _bodyStyle);
+                GUILayout.Label("• <b>Middle Mouse Drag</b>: Pan camera view", _bodyStyle);
+                GUILayout.Label("• <b>Alt + Left Mouse Drag</b>: Orbit around target", _bodyStyle);
+                GUILayout.Label("• <b>Mouse Scroll Wheel</b>: Dolly / Zoom in & out", _bodyStyle);
+            }
+            else
+            {
+                GUILayout.Label("• <b>WASD / Arrow Keys</b>: Move character to goal", _bodyStyle);
+                GUILayout.Label("• <b>C Key</b>: Cycle follow camera perspective", _bodyStyle);
+                GUILayout.Label("• <b>Mouse Scroll Wheel</b>: Zoom in and out on player", _bodyStyle);
+                GUILayout.Label("• <b>G Key</b>: Freeze player and enter Free Fly", _bodyStyle);
+            }
 
             GUILayout.EndVertical();
         }
@@ -614,8 +642,10 @@ namespace DungeonGenerator.UI
 
             GUILayout.BeginVertical(GUI.skin.box);
 
-            GUILayout.Label("• <b>WASD / Arrow Keys</b>: Move Player", _bodyStyle);
-            GUILayout.Label($"• <b>C Key</b>: Cycle Camera Mode ({_manager?.CameraController?.CurrentMode})", _bodyStyle);
+            GUILayout.Label("• <b>G Key</b>: Toggle Navigation (Free Fly ↔ Character Control)", _boldStyle);
+            GUILayout.Label("• <b>WASD / Arrow Keys</b>: Move Player (Character View)", _bodyStyle);
+            GUILayout.Label("• <b>WASDQE</b>: Fly Camera (Free Fly View)", _bodyStyle);
+            GUILayout.Label($"• <b>C Key</b>: Cycle Camera Perspective ({_manager?.CameraController?.CurrentMode})", _bodyStyle);
             GUILayout.Label("• <b>F Key</b>: Focus Camera on Player", _bodyStyle);
             GUILayout.Label("• <b>M Key</b>: Toggle Minimap Radar", _bodyStyle);
             GUILayout.Label("• <b>F1 Key</b>: Toggle Controls Panel", _bodyStyle);
@@ -626,6 +656,33 @@ namespace DungeonGenerator.UI
             GUILayout.Label($"<b>Session Timer:</b> {_manager?.PlayTimer:F1}s", _boldStyle);
 
             GUILayout.EndVertical();
+        }
+
+        private void DrawNavigationBanner()
+        {
+            if (_manager == null || _manager.CameraController == null) return;
+
+            bool isFreeFly = _manager.CameraController.IsInFreeFlyMode;
+            float bannerWidth = 480.0f;
+            float bannerHeight = 32.0f;
+            float bannerX = ((Screen.width / _uiScale) - bannerWidth) * 0.5f;
+            float bannerY = 10.0f;
+
+            Rect bannerRect = new Rect(bannerX, bannerY, bannerWidth, bannerHeight);
+
+            Color originalColor = GUI.color;
+            GUI.color = isFreeFly ? new Color(1.0f, 0.72f, 0.20f, 0.95f) : new Color(0.20f, 0.85f, 0.45f, 0.95f);
+
+            string bannerText = isFreeFly
+                ? "✈ FREE FLY (Player Frozen) | Press [G] to Control Player"
+                : "🎮 CHARACTER VIEW (Player Active) | Press [G] for Free Fly";
+
+            if (GUI.Button(bannerRect, bannerText, _buttonStyle))
+            {
+                _manager.CameraController.ToggleNavigationStyle();
+            }
+
+            GUI.color = originalColor;
         }
 
         private void DrawResizeHandle(Rect windowRect)

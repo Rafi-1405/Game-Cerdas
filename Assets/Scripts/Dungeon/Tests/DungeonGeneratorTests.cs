@@ -205,5 +205,27 @@ namespace DungeonGenerator.Tests
             Assert.Greater(DungeonInputReader.INPUT_CONFIG.ANALOG_DEADZONE, 0.0f);
             Assert.Greater(DungeonInputReader.INPUT_CONFIG.SCROLL_SENSITIVITY, 0.0f);
         }
+
+        [Test]
+        public void Test_PlayerMovement_FreezeState()
+        {
+            // Arrange
+            GameObject playerObj = new GameObject("TestPlayer");
+            PlayerMovement pm = playerObj.AddComponent<PlayerMovement>();
+
+            // Assert default state
+            Assert.IsFalse(pm.IsFrozen, "Player must not be frozen by default.");
+
+            // Act: Freeze player
+            pm.SetFrozen(true);
+            Assert.IsTrue(pm.IsFrozen, "Player must be frozen when SetFrozen(true) is invoked.");
+
+            // Act: Unfreeze player
+            pm.SetFrozen(false);
+            Assert.IsFalse(pm.IsFrozen, "Player must be unfrozen when SetFrozen(false) is invoked.");
+
+            // Cleanup
+            Object.DestroyImmediate(playerObj);
+        }
     }
 }
