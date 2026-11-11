@@ -47,6 +47,8 @@ namespace DungeonGenerator.UI
         [SerializeField] private bool _isPanelVisible = true;
         [SerializeField] private bool _isMinimized = false;
 
+        public static bool IsPointerOverHUD { get; private set; }
+
         [Header("Live Sizing")]
         [SerializeField] private float _panelWidth = HUD_CONFIG.DEFAULT_PANEL_WIDTH;
         [SerializeField] private float _panelHeight = HUD_CONFIG.DEFAULT_PANEL_HEIGHT;
@@ -57,6 +59,7 @@ namespace DungeonGenerator.UI
         private bool _foldoutParams = true;
         private bool _foldoutValidation = true;
         private bool _foldoutGuide = false;
+        private bool _foldoutCamera = true;
         private bool _foldoutAppearance = false;
         private bool _foldoutShortcuts = false;
 
@@ -208,6 +211,23 @@ namespace DungeonGenerator.UI
                 GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(_uiScale, _uiScale, 1.0f));
             }
 
+            // Track whether mouse pointer is over the HUD
+            Vector2 mouseGui = Event.current.mousePosition;
+            Rect activeHudBounds;
+            if (!_isPanelVisible)
+            {
+                activeHudBounds = new Rect(HUD_CONFIG.SCREEN_MARGIN, HUD_CONFIG.SCREEN_MARGIN, 180, 42);
+            }
+            else if (_isMinimized)
+            {
+                activeHudBounds = new Rect(HUD_CONFIG.SCREEN_MARGIN, HUD_CONFIG.SCREEN_MARGIN, 340, 50);
+            }
+            else
+            {
+                activeHudBounds = new Rect(HUD_CONFIG.SCREEN_MARGIN, HUD_CONFIG.SCREEN_MARGIN, _panelWidth, _panelHeight);
+            }
+            IsPointerOverHUD = _isResizing || activeHudBounds.Contains(mouseGui);
+
             if (_isPanelVisible)
             {
                 if (_isMinimized)
@@ -331,12 +351,17 @@ namespace DungeonGenerator.UI
 
             GUILayout.Space(6);
 
-            // Section 4: Display & Window Size
+            // Section 4: Camera View & Scene Navigation
+            DrawSectionCamera();
+
+            GUILayout.Space(6);
+
+            // Section 5: Display & Window Size
             DrawSectionAppearance();
 
             GUILayout.Space(6);
 
-            // Section 5: Shortcuts & Help
+            // Section 6: Shortcuts & Help
             DrawSectionShortcuts();
 
             GUILayout.EndScrollView();
@@ -352,6 +377,7 @@ namespace DungeonGenerator.UI
             _foldoutParams = state;
             _foldoutValidation = state;
             _foldoutGuide = state;
+            _foldoutCamera = state;
             _foldoutAppearance = state;
             _foldoutShortcuts = state;
         }
@@ -494,9 +520,63 @@ namespace DungeonGenerator.UI
             GUILayout.EndVertical();
         }
 
+        private void DrawSectionCamera()
+        {
+            if (GUILayout.Button((_foldoutCamera ? "▼ " : "► ") + "4. Camera View & Scene Navigation", _foldoutButtonStyle))
+            {
+                _foldoutCamera = !_foldoutCamera;
+            }
+
+            if (!_foldoutCamera) return;
+
+            GUILayout.BeginVertical(GUI.skin.box);
+
+            var cam = _manager != null ? _manager.CameraController : null;
+            string activeModeName = cam != null ? cam.CurrentMode.ToString() : "None";
+            GUILayout.Label($"<b>Active Mode:</b> {activeModeName}", _boldStyle);
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Isometric", _buttonStyle))
+            {
+                cam?.SetCameraMode(CameraViewMode.IsometricTopDown);
+            }
+            if (GUILayout.Button("Third Person", _buttonStyle))
+            {
+                cam?.SetCameraMode(CameraViewMode.ThirdPersonFollow);
+            }
+            GUILayout.EndHorizontal();
+
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("Overview", _buttonStyle))
+            {
+                cam?.SetCameraMode(CameraViewMode.Overview);
+            }
+            if (GUILayout.Button("Scene View (Free)", _buttonStyle))
+            {
+                cam?.SetCameraMode(CameraViewMode.FreeFlyEditor);
+            }
+            GUILayout.EndHorizontal();
+
+            if (GUILayout.Button("🎯 Focus Player (F Key)", _buttonStyle))
+            {
+                cam?.FocusOnTarget();
+            }
+
+            GUILayout.Space(4);
+            GUILayout.Label("<b>Scene View Controls:</b>", _headerStyle);
+            GUILayout.Label("• <b>Hold RMB + Mouse</b>: Rotate / Look Direction", _bodyStyle);
+            GUILayout.Label("• <b>Hold RMB + WASDQE</b>: Fly Freely Through Level", _bodyStyle);
+            GUILayout.Label("• <b>Middle Mouse Drag</b>: Pan Camera View", _bodyStyle);
+            GUILayout.Label("• <b>Alt + Left Mouse Drag</b>: Orbit Around Target", _bodyStyle);
+            GUILayout.Label("• <b>Mouse Scroll Wheel</b>: Zoom / Dolly In and Out", _bodyStyle);
+            GUILayout.Label("• <b>Shift (Hold)</b>: Fast Flight Speed (Sprint)", _bodyStyle);
+
+            GUILayout.EndVertical();
+        }
+
         private void DrawSectionAppearance()
         {
-            if (GUILayout.Button((_foldoutAppearance ? "▼ " : "► ") + "4. Window Sizing & UI Scale", _foldoutButtonStyle))
+            if (GUILayout.Button((_foldoutAppearance ? "▼ " : "► ") + "5. Window Sizing & UI Scale", _foldoutButtonStyle))
             {
                 _foldoutAppearance = !_foldoutAppearance;
             }
@@ -525,7 +605,7 @@ namespace DungeonGenerator.UI
 
         private void DrawSectionShortcuts()
         {
-            if (GUILayout.Button((_foldoutShortcuts ? "▼ " : "► ") + "5. Controls & Shortcuts", _foldoutButtonStyle))
+            if (GUILayout.Button((_foldoutShortcuts ? "▼ " : "► ") + "6. Controls & Session Status", _foldoutButtonStyle))
             {
                 _foldoutShortcuts = !_foldoutShortcuts;
             }
@@ -535,14 +615,15 @@ namespace DungeonGenerator.UI
             GUILayout.BeginVertical(GUI.skin.box);
 
             GUILayout.Label("• <b>WASD / Arrow Keys</b>: Move Player", _bodyStyle);
-            GUILayout.Label($"• <b>C Key</b>: Camera Mode ({_manager.CameraController?.CurrentMode})", _bodyStyle);
+            GUILayout.Label($"• <b>C Key</b>: Cycle Camera Mode ({_manager?.CameraController?.CurrentMode})", _bodyStyle);
+            GUILayout.Label("• <b>F Key</b>: Focus Camera on Player", _bodyStyle);
             GUILayout.Label("• <b>M Key</b>: Toggle Minimap Radar", _bodyStyle);
             GUILayout.Label("• <b>F1 Key</b>: Toggle Controls Panel", _bodyStyle);
             GUILayout.Label("• <b>Mouse Wheel</b>: Camera Zoom", _bodyStyle);
 
             GUILayout.Space(6);
-            GUILayout.Label($"<b>Items Collected:</b> {_manager.CollectedItemsCount} / {_manager.TotalItemsCount}", _boldStyle);
-            GUILayout.Label($"<b>Session Timer:</b> {_manager.PlayTimer:F1}s", _boldStyle);
+            GUILayout.Label($"<b>Items Collected:</b> {_manager?.CollectedItemsCount} / {_manager?.TotalItemsCount}", _boldStyle);
+            GUILayout.Label($"<b>Session Timer:</b> {_manager?.PlayTimer:F1}s", _boldStyle);
 
             GUILayout.EndVertical();
         }

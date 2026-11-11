@@ -19,7 +19,8 @@ namespace DungeonGenerator.Core
     {
         IsometricTopDown = 0,
         ThirdPersonFollow = 1,
-        Overview = 2
+        Overview = 2,
+        FreeFlyEditor = 3
     }
 
     /// <summary>

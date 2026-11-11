@@ -187,5 +187,23 @@ namespace DungeonGenerator.Tests
             // Assert
             Assert.Greater(gridWide.WalkableCells.Count, gridNarrow.WalkableCells.Count, "Wider corridor must produce more floor cells.");
         }
+
+        [Test]
+        public void Test_CameraViewMode_ContainsFreeFlyEditor()
+        {
+            // Verify that all 4 camera modes are properly defined and accessible
+            Assert.AreEqual(0, (int)CameraViewMode.IsometricTopDown);
+            Assert.AreEqual(1, (int)CameraViewMode.ThirdPersonFollow);
+            Assert.AreEqual(2, (int)CameraViewMode.Overview);
+            Assert.AreEqual(3, (int)CameraViewMode.FreeFlyEditor);
+        }
+
+        [Test]
+        public void Test_InputReader_DeadzoneAndClamping()
+        {
+            // Verify deadzone constant and scroll sensitivity
+            Assert.Greater(DungeonInputReader.INPUT_CONFIG.ANALOG_DEADZONE, 0.0f);
+            Assert.Greater(DungeonInputReader.INPUT_CONFIG.SCROLL_SENSITIVITY, 0.0f);
+        }
     }
 }

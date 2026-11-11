@@ -66,6 +66,13 @@ namespace DungeonGenerator.Entities
 
         private void HandleMovementInput()
         {
+            // Do not move character when user is using Scene View free fly camera (holding Right Mouse Button)
+            if (DungeonInputReader.IsRightMouseButtonHeld())
+            {
+                IsMoving = false;
+                return;
+            }
+
             Vector2 moveInput = DungeonInputReader.GetMovementVector();
             Vector3 direction = new Vector3(moveInput.x, 0.0f, moveInput.y);
 
