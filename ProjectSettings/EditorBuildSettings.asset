@@ -6,14 +6,8 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/UTS.unity
-    guid: 6cef6eba65f858546b18d8fe1a3f871b
-  - enabled: 0
-    path: Assets/Scenes/NPCDetector.unity
-    guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 1
-    path: Assets/Scenes/Praktikum3_Steering.unity
-    guid: 4e5b2e0b5a7477a4bae018ce78ff7407
+    path: Assets/Scenes/Praktikum10_ProceduralDungeon.unity
+    guid: 9256cdab28391fe43903142ae4ea3b58
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 1b1c20d82303e4b5781c3ef50ac1449f, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
