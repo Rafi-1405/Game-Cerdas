@@ -4,11 +4,18 @@ using UnityEngine;
 using UnityEditor;
 #endif
 
+public enum PlayerMovementState
+{
+    Idle,
+    Sneak,
+    Walk,
+    Run
+}
+
 public class NPCSensor : MonoBehaviour
 {
     [Header("Target")]
     [SerializeField] private Transform player;
-    private PlayerController playerController;
     private SimplePlayerController simplePlayerController;
 
     [Header("Visual Sensor (Mata)")]
@@ -39,7 +46,6 @@ public class NPCSensor : MonoBehaviour
 
         if (player != null)
         {
-            playerController = player.GetComponent<PlayerController>();
             simplePlayerController = player.GetComponent<SimplePlayerController>();
         }
     }
@@ -80,11 +86,7 @@ public class NPCSensor : MonoBehaviour
         }
 
         PlayerMovementState state;
-        if (playerController != null)
-        {
-            state = playerController.CurrentState;
-        }
-        else if (simplePlayerController != null)
+        if (simplePlayerController != null)
         {
             state = simplePlayerController.CurrentMovementState;
         }
