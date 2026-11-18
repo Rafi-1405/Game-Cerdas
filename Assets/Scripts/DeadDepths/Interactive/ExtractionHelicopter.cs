@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using DeadDepths.Audio;
 using DeadDepths.Core;
+using DeadDepths.Player;
 using UTS.Audio;
 
 namespace DeadDepths.Interactive
@@ -63,6 +64,9 @@ namespace DeadDepths.Interactive
                 FindPlayer();
                 if (playerTransform == null) return;
             }
+
+            var playerCtrl = playerTransform.GetComponent<DeadDepthsPlayerController>();
+            if (playerCtrl != null && playerCtrl.IsDead) return;
 
             float dist = Vector3.Distance(transform.position, playerTransform.position);
 

@@ -40,15 +40,37 @@ namespace DeadDepths.Player
         private Vector3 currentVelocity;
         private float shakeIntensity = 0f;
         private float shakeDuration = 0f;
+        private bool hasSnappedToTarget = false;
 
         private void Awake()
         {
             if (Instance == null) Instance = this;
         }
 
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
         public void SetTarget(Transform newTarget)
         {
             target = newTarget;
+            hasSnappedToTarget = false;
+        }
+
+        public void SnapToTarget(Transform newTarget = null)
+        {
+            if (newTarget != null)
+            {
+                target = newTarget;
+            }
+            if (target == null) return;
+
+            Quaternion isoRotation = Quaternion.Euler(camConfig.PitchAngle, camConfig.YawAngle, 0f);
+            Vector3 focusPoint = target.position + camConfig.TargetOffset;
+            transform.position = focusPoint - (isoRotation * Vector3.forward * camConfig.Distance);
+            transform.rotation = isoRotation;
+            hasSnappedToTarget = true;
         }
 
         public void TriggerShake(float intensity = 0.25f, float duration = 0.2f)
@@ -66,6 +88,12 @@ namespace DeadDepths.Player
                 if (target == null) return;
             }
 
+            if (!hasSnappedToTarget)
+            {
+                SnapToTarget(target);
+                return;
+            }
+
             // Calculate isometric rotation
             Quaternion isoRotation = Quaternion.Euler(camConfig.PitchAngle, camConfig.YawAngle, 0f);
 
@@ -77,12 +105,21 @@ namespace DeadDepths.Player
             if (shakeDuration > 0f)
             {
                 shakeDuration -= Time.unscaledDeltaTime;
-                Vector3 shakeOffset = UnityEngine.Random.insideUnitSphere * shakeIntensity;
-                desiredPosition += shakeOffset;
-                shakeIntensity = Mathf.Lerp(shakeIntensity, 0f, Time.unscaledDeltaTime * 8f);
+                if (shakeDuration <= 0f)
+                {
+                    shakeDuration = 0f;
+                    shakeIntensity = 0f;
+                }
+                else
+                {
+                    Vector3 shakeOffset = UnityEngine.Random.insideUnitSphere * shakeIntensity;
+                    desiredPosition += shakeOffset;
+                    shakeIntensity = Mathf.Lerp(shakeIntensity, 0f, Time.unscaledDeltaTime * 8f);
+                }
             }
 
-            transform.position = Vector3.Lerp(transform.position, desiredPosition, Time.deltaTime * camConfig.FollowDamping);
+            float dampFactor = 1f - Mathf.Exp(-camConfig.FollowDamping * Time.deltaTime);
+            transform.position = Vector3.Lerp(transform.position, desiredPosition, dampFactor);
             transform.rotation = isoRotation;
         }
     }

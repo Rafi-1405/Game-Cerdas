@@ -3,6 +3,7 @@ using UnityEngine;
 using DeadDepths.Audio;
 using DeadDepths.Interactive;
 using DeadDepths.Player;
+using DeadDepths.UI;
 using UTS.Audio;
 
 namespace DeadDepths.AI
@@ -31,9 +32,11 @@ namespace DeadDepths.AI
         private Vector3 moveDirection;
         private float spawnTime;
         private bool isLaunched = false;
+        private Transform ownerRoot;
 
-        public void Launch(Vector3 targetWorldPosition)
+        public void Launch(Vector3 targetWorldPosition, Transform owner = null)
         {
+            ownerRoot = owner;
             moveDirection = (targetWorldPosition - transform.position).normalized;
             if (moveDirection.sqrMagnitude < 0.001f) moveDirection = transform.forward;
             transform.rotation = Quaternion.LookRotation(moveDirection);
@@ -44,15 +47,42 @@ namespace DeadDepths.AI
         private void Update()
         {
             if (!isLaunched) return;
+            if (Time.timeScale <= 0f || (CompletionScreenUI.Instance != null && CompletionScreenUI.Instance.IsVisible))
+            {
+                return;
+            }
 
             float moveDist = projConfig.Speed * Time.deltaTime;
             Vector3 step = moveDirection * moveDist;
 
-            // Spherecast to check collision before moving
-            if (Physics.SphereCast(transform.position, projConfig.Radius, moveDirection, out RaycastHit hit, moveDist))
+            // Spherecast ignoring triggers (e.g. MuddyPatch) and owner zombie
+            RaycastHit[] hits = Physics.SphereCastAll(
+                transform.position,
+                projConfig.Radius,
+                moveDirection,
+                moveDist,
+                ~0,
+                QueryTriggerInteraction.Ignore);
+
+            if (hits != null && hits.Length > 0)
             {
-                OnHit(hit.collider, hit.point);
-                return;
+                Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+                foreach (var hit in hits)
+                {
+                    if (hit.collider == null) continue;
+                    if (ownerRoot != null && (hit.collider.transform == ownerRoot || hit.collider.transform.IsChildOf(ownerRoot)))
+                    {
+                        continue;
+                    }
+                    // Ignore other zombies so spit passes through allies cleanly
+                    if (hit.collider.GetComponentInParent<ZombieController>() != null)
+                    {
+                        continue;
+                    }
+
+                    OnHit(hit.collider, hit.point);
+                    return;
+                }
             }
 
             transform.position += step;
@@ -86,7 +116,7 @@ namespace DeadDepths.AI
                 return;
             }
 
-            // 3. Hit ground or boundary
+            // 3. Hit ground, structure wall, or boundary
             DestroyProjectile();
         }
 

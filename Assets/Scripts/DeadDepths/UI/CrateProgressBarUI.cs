@@ -28,19 +28,34 @@ namespace DeadDepths.UI
 
         public static CrateProgressBarUI Instance { get; private set; }
 
-        private float currentProgress = 0f;
-        private bool isVisible = false;
-        private Transform targetActor;
-        private Camera activeCamera;
+        [NonSerialized] private float currentProgress = 0f;
+        [NonSerialized] private bool isVisible = false;
+        [NonSerialized] private Transform targetActor;
+        [NonSerialized] private Camera activeCamera;
 
-        private Texture2D texBg;
-        private Texture2D texFill;
-        private Texture2D texBorder;
+        [NonSerialized] private Texture2D texBg;
+        [NonSerialized] private Texture2D texFill;
+        [NonSerialized] private Texture2D texBorder;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            Instance = null;
+        }
 
         private void Awake()
         {
             if (Instance == null) Instance = this;
+            currentProgress = 0f;
+            isVisible = false;
+            targetActor = null;
+            activeCamera = null;
             InitializeTextures();
+        }
+
+        private void OnEnable()
+        {
+            EnsureTextures();
         }
 
         private void Start()
@@ -50,18 +65,44 @@ namespace DeadDepths.UI
 
         private void InitializeTextures()
         {
+            DestroyTextures();
             texBg = CreateSolidTexture(barConfig.BackgroundColor);
             texFill = CreateSolidTexture(barConfig.FillColor);
             texBorder = CreateSolidTexture(barConfig.BorderColor);
         }
 
+        private void EnsureTextures()
+        {
+            if (texBg == null) texBg = CreateSolidTexture(barConfig.BackgroundColor);
+            if (texFill == null) texFill = CreateSolidTexture(barConfig.FillColor);
+            if (texBorder == null) texBorder = CreateSolidTexture(barConfig.BorderColor);
+        }
+
         private Texture2D CreateSolidTexture(Color color)
         {
             Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            tex.hideFlags = HideFlags.HideAndDontSave;
             Color[] pixels = new Color[4] { color, color, color, color };
             tex.SetPixels(pixels);
             tex.Apply();
             return tex;
+        }
+
+        private void DestroyTextures()
+        {
+            DestroyTexture(ref texBg);
+            DestroyTexture(ref texFill);
+            DestroyTexture(ref texBorder);
+        }
+
+        private static void DestroyTexture(ref Texture2D tex)
+        {
+            if (tex != null)
+            {
+                if (Application.isPlaying) Destroy(tex);
+                else DestroyImmediate(tex);
+                tex = null;
+            }
         }
 
         public void Show(Transform actor)
@@ -89,6 +130,8 @@ namespace DeadDepths.UI
             if (activeCamera == null) activeCamera = Camera.main;
             if (activeCamera == null) return;
 
+            EnsureTextures();
+
             Vector3 worldPos = targetActor.position + barConfig.OverheadOffset;
             Vector3 screenPos = activeCamera.WorldToScreenPoint(worldPos);
             if (screenPos.z <= 0f) return;
@@ -112,9 +155,11 @@ namespace DeadDepths.UI
 
         private void OnDestroy()
         {
-            if (texBg != null) Destroy(texBg);
-            if (texFill != null) Destroy(texFill);
-            if (texBorder != null) Destroy(texBorder);
+            if (Instance == this) Instance = null;
+            isVisible = false;
+            currentProgress = 0f;
+            targetActor = null;
+            DestroyTextures();
         }
     }
 }

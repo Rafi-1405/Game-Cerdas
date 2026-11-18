@@ -53,6 +53,11 @@ namespace DeadDepths.Core
             }
         }
 
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
         /// <summary>
         /// Resets all tracking metrics for a new level.
         /// </summary>

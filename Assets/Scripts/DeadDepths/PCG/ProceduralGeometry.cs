@@ -248,9 +248,10 @@ namespace DeadDepths.PCG
 
             for (int i = 1; i <= segments; i++)
             {
+                // Clockwise from above (+Y normal) in Unity's left-handed XZ plane
                 tri.Add(0);
-                tri.Add(i);
                 tri.Add(i + 1);
+                tri.Add(i);
             }
 
             mesh.SetVertices(v);

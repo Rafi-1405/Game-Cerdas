@@ -42,18 +42,39 @@ namespace DeadDepths.UI
             public float Alpha;
         }
 
-        private readonly List<ActiveNotification> activeList = new List<ActiveNotification>();
-        private Transform playerTransform;
-        private Camera activeCamera;
+        [NonSerialized] private readonly List<ActiveNotification> activeList = new List<ActiveNotification>();
+        [NonSerialized] private Transform playerTransform;
+        [NonSerialized] private Camera activeCamera;
 
-        private Texture2D texBg;
-        private Texture2D texBorder;
-        private GUIStyle notifyStyle;
+        [NonSerialized] private Texture2D texBg;
+        [NonSerialized] private Texture2D texBorder;
+        [NonSerialized] private GUIStyle notifyStyle;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            Instance = null;
+        }
 
         private void Awake()
         {
             if (Instance == null) Instance = this;
+            activeList.Clear();
+            playerTransform = null;
+            activeCamera = null;
+            ResetStyles();
             InitializeTextures();
+        }
+
+        private void OnEnable()
+        {
+            ResetStyles();
+            EnsureTextures();
+        }
+
+        private void OnDisable()
+        {
+            ResetStyles();
         }
 
         private void Start()
@@ -64,13 +85,45 @@ namespace DeadDepths.UI
 
         private void InitializeTextures()
         {
-            texBg = new Texture2D(2, 2);
-            texBg.SetPixels(new Color[] { notifyConfig.BackgroundColor, notifyConfig.BackgroundColor, notifyConfig.BackgroundColor, notifyConfig.BackgroundColor });
-            texBg.Apply();
+            DestroyTextures();
+            texBg = CreateSolidTexture(notifyConfig.BackgroundColor);
+            texBorder = CreateSolidTexture(notifyConfig.BorderColor);
+        }
 
-            texBorder = new Texture2D(2, 2);
-            texBorder.SetPixels(new Color[] { notifyConfig.BorderColor, notifyConfig.BorderColor, notifyConfig.BorderColor, notifyConfig.BorderColor });
-            texBorder.Apply();
+        private void EnsureTextures()
+        {
+            if (texBg == null) texBg = CreateSolidTexture(notifyConfig.BackgroundColor);
+            if (texBorder == null) texBorder = CreateSolidTexture(notifyConfig.BorderColor);
+        }
+
+        private Texture2D CreateSolidTexture(Color color)
+        {
+            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            tex.hideFlags = HideFlags.HideAndDontSave;
+            tex.SetPixels(new Color[] { color, color, color, color });
+            tex.Apply();
+            return tex;
+        }
+
+        private void DestroyTextures()
+        {
+            DestroyTexture(ref texBg);
+            DestroyTexture(ref texBorder);
+        }
+
+        private static void DestroyTexture(ref Texture2D tex)
+        {
+            if (tex != null)
+            {
+                if (Application.isPlaying) Destroy(tex);
+                else DestroyImmediate(tex);
+                tex = null;
+            }
+        }
+
+        private void ResetStyles()
+        {
+            notifyStyle = null;
         }
 
         private void FindPlayer()
@@ -163,6 +216,8 @@ namespace DeadDepths.UI
             if (activeCamera == null) activeCamera = Camera.main;
             if (activeCamera == null) return;
 
+            EnsureTextures();
+
             if (notifyStyle == null)
             {
                 notifyStyle = new GUIStyle(GUI.skin.label)
@@ -205,8 +260,10 @@ namespace DeadDepths.UI
 
         private void OnDestroy()
         {
-            if (texBg != null) Destroy(texBg);
-            if (texBorder != null) Destroy(texBorder);
+            if (Instance == this) Instance = null;
+            activeList.Clear();
+            ResetStyles();
+            DestroyTextures();
         }
     }
 }

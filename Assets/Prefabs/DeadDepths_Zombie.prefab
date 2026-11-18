@@ -48,7 +48,7 @@ NavMeshAgent:
   m_Speed: 3.2
   m_Acceleration: 8
   avoidancePriority: 50
-  m_AngularSpeed: 120
+  m_AngularSpeed: 360
   m_StoppingDistance: 1.2
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
@@ -99,8 +99,11 @@ MonoBehaviour:
     VisionRange: 16
     VisionAngle: 110
     AttackRange: 2
+    PatrolRadius: 8
+    PatrolWaitTime: 2
     MeleeDamage: 18
     MeleeCooldown: 1.4
+    MeleeHitDelay: 0.35
     SpitterAttackRadius: 10
     SpitterPreparationDuration: 1
     SpitterRecoveryDuration: 3
@@ -166,6 +169,10 @@ PrefabInstance:
       propertyPath: m_Controller
       value: 
       objectReference: {fileID: 9100000, guid: c006d492d56b8744085d9e6ff1ad6d5f, type: 2}
+    - target: {fileID: 5866666021909216657, guid: ac3331bc9981ac74cb92db263d4ffe9a, type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

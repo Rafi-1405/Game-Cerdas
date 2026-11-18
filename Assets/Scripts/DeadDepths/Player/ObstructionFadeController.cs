@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using DeadDepths.AI;
+using DeadDepths.Interactive;
 
 namespace DeadDepths.Player
 {
@@ -61,14 +63,18 @@ namespace DeadDepths.Player
             Vector3 dir = targetPos - camPos;
             float dist = dir.magnitude;
 
-            // 1. Raycast / SphereCast to detect obstructions
-            RaycastHit[] hits = Physics.SphereCastAll(camPos, fadeConfig.SphereCastRadius, dir.normalized, dist, fadeConfig.ObstructionLayers);
+            // 1. Raycast / SphereCast to detect obstructions (ignore triggers & actors so tints/ground are preserved)
+            RaycastHit[] hits = Physics.SphereCastAll(camPos, fadeConfig.SphereCastRadius, dir.normalized, dist, fadeConfig.ObstructionLayers, QueryTriggerInteraction.Ignore);
             HashSet<Renderer> currentHits = new HashSet<Renderer>();
 
             foreach (var hit in hits)
             {
                 if (hit.collider == null) continue;
                 if (hit.collider.transform.IsChildOf(playerTarget) || hit.collider.transform == playerTarget) continue;
+                if (hit.collider.gameObject.name == "PlayableGround") continue;
+                if (hit.collider.GetComponentInParent<ZombieController>() != null) continue;
+                if (hit.collider.GetComponentInParent<SuppliesCrate>() != null) continue;
+                if (hit.collider.GetComponentInParent<BlockingObject>() != null) continue;
 
                 var rends = hit.collider.GetComponentsInChildren<Renderer>();
                 foreach (var r in rends)
@@ -86,6 +92,12 @@ namespace DeadDepths.Player
             foreach (var kvp in trackedRenderers)
             {
                 var state = kvp.Value;
+                if (state.Renderer == null)
+                {
+                    toRemoveList.Add(kvp.Key);
+                    continue;
+                }
+
                 bool isCurrentlyObstructing = currentHits.Contains(state.Renderer);
 
                 state.TargetAlpha = isCurrentlyObstructing ? fadeConfig.FadedAlpha : 1.0f;

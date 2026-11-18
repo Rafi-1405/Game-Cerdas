@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using DeadDepths.Audio;
+using DeadDepths.Core;
+using DeadDepths.Player;
 using UTS.Audio;
 
 namespace DeadDepths.Interactive
@@ -22,7 +24,7 @@ namespace DeadDepths.Interactive
     }
 
     /// <summary>
-    /// Represents an interactable supplies crate placed inside structures.
+    /// Represents an interactable supplies crate placed inside structures or clusters.
     /// ASD-STE100: This container gives items to the player after opening progress finishes.
     /// Follows Section 3.2 of the specification.
     /// </summary>
@@ -36,10 +38,16 @@ namespace DeadDepths.Interactive
             public float OpenDuration = 2.0f;
 
             [Tooltip("Maximum interaction distance from the player.")]
-            public float InteractionDistance = 2.2f;
+            public float InteractionDistance = 2.4f;
 
             [Tooltip("Color of the crate indicator glow.")]
             public Color OutlineColor = new Color(1f, 0.85f, 0.2f, 1f);
+
+            [Tooltip("Heal amount granted per Medkit.")]
+            public float MedkitHealAmount = 40f;
+
+            [Tooltip("Heal amount granted per Bandage.")]
+            public float BandageHealAmount = 15f;
         }
         #endregion
 
@@ -51,6 +59,7 @@ namespace DeadDepths.Interactive
         public bool IsInteracting { get; private set; } = false;
 
         private List<CrateLootItem> lootContents = new List<CrateLootItem>();
+        public IReadOnlyList<CrateLootItem> LootContents => lootContents;
         private Transform interactingPlayer;
 
         public event Action<float> OnProgressUpdated;
@@ -124,19 +133,61 @@ namespace DeadDepths.Interactive
                 lid.localRotation = Quaternion.Euler(-55f, 0f, 0f);
             }
 
+            // Visually dim opened crate
+            var rend = GetComponentInChildren<Renderer>();
+            if (rend != null)
+            {
+                var pb = new MaterialPropertyBlock();
+                rend.GetPropertyBlock(pb);
+                pb.SetColor("_BaseColor", new Color(0.25f, 0.22f, 0.18f));
+                pb.SetColor("_Color", new Color(0.25f, 0.22f, 0.18f));
+                rend.SetPropertyBlock(pb);
+            }
+
             OnCrateOpened?.Invoke();
 
-            // Grant items to player via UI notification manager and inventory
+            DeadDepthsPlayerController playerCtrl = interactingPlayer != null
+                ? interactingPlayer.GetComponentInParent<DeadDepthsPlayerController>()
+                : DeadDepthsPlayerController.Instance;
+
+            // Grant items to player: apply healing + UI notifications + DDA resource tracking
             if (lootContents != null && lootContents.Count > 0)
             {
                 var notificationMgr = UI.ItemNotificationManager.Instance;
+                float totalHeal = 0f;
+
                 foreach (var item in lootContents)
                 {
                     if (notificationMgr != null)
                     {
                         notificationMgr.PostNotification(item.ItemName, item.Quantity);
                     }
+
+                    if (item.IsHealing)
+                    {
+                        float perUnit = item.ItemName.IndexOf("Medkit", StringComparison.OrdinalIgnoreCase) >= 0
+                            ? crateConfig.MedkitHealAmount
+                            : crateConfig.BandageHealAmount;
+                        totalHeal += perUnit * Mathf.Max(1, item.Quantity);
+                    }
                 }
+
+                if (totalHeal > 0f)
+                {
+                    if (playerCtrl != null)
+                    {
+                        playerCtrl.Heal(totalHeal);
+                    }
+                    if (PlayerPerformanceTracker.Instance != null)
+                    {
+                        PlayerPerformanceTracker.Instance.RecordResourceConsumed(1f);
+                    }
+                }
+            }
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.RecordCrateOpened();
             }
         }
     }

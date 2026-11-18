@@ -84,6 +84,11 @@ namespace DeadDepths.Core
             }
         }
 
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
         /// <summary>
         /// Updates the difficulty profile for the next level based on the evaluated score.
         /// </summary>

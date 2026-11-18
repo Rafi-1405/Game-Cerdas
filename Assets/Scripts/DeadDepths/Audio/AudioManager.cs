@@ -44,6 +44,11 @@ namespace DeadDepths.Audio
             }
         }
 
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
         private void InitializeSources()
         {
             sfxSource2D = gameObject.AddComponent<AudioSource>();

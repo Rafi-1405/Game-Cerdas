@@ -20,14 +20,11 @@ MonoBehaviour:
     rid: 2072478616707137536
   m_ActivePlatformGuid: 
   m_AdditionalPlatformBuildSettings: []
-  m_OverrideGlobalSceneList: 1
+  m_OverrideGlobalSceneList: 0
   m_Scenes:
-  - m_enabled: 0
-    m_path: Assets/Scenes/Praktikum4_NavMesh.unity
-    m_guid: c4020000000000000000000000000001
   - m_enabled: 1
-    m_path: Assets/Scenes/Praktikum5_FSM.unity
-    m_guid: c5010000000000000000000000000001
+    m_path: Assets/Scenes/DeadDepths.unity
+    m_guid: 167774f46ae9d8e4fb977d3729acd138
   m_HasScriptingDefines: 0
   m_ScriptingDefines: []
   m_PlayerSettingsYaml:

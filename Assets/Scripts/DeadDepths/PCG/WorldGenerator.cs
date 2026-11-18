@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 using DeadDepths.AI;
 using DeadDepths.Core;
 using DeadDepths.Interactive;
@@ -9,9 +10,9 @@ using DeadDepths.Player;
 namespace DeadDepths.PCG
 {
     /// <summary>
-    /// Master procedural generator that coordinates the 13 generation steps in Section 7.1.
-    /// ASD-STE100: This module creates the continuous outdoor world and all map entities.
-    /// Follows Section 7 of the specification.
+    /// Master procedural generator that creates an interconnected multi-cluster world
+    /// with corridors, forest boundaries, structures, loot crates, obstacles, NavMesh, and zombies.
+    /// ASD-STE100: This module creates the cluster-based outdoor world and all map entities.
     /// </summary>
     public class WorldGenerator : MonoBehaviour
     {
@@ -40,9 +41,46 @@ namespace DeadDepths.PCG
         private Transform worldRoot;
         private NavMeshRuntimeBaker navBaker;
 
+        private readonly List<ClusterInfo> clusters = new List<ClusterInfo>();
+        private readonly List<CorridorEdge> corridors = new List<CorridorEdge>();
+
         public Vector3 PlayerSpawnPosition { get; private set; }
         public Vector3 ExtractionPosition { get; private set; }
         public int TotalZombiesSpawned { get; private set; }
+        public Transform WorldRoot => worldRoot;
+
+        // PCG Metadata for Debug Mode & Automated Verification
+        public int LastSeed { get; private set; }
+        public int GridWidth => mapConfig.GridWidth;
+        public int GridHeight => mapConfig.GridHeight;
+        public IReadOnlyList<ClusterInfo> Clusters => clusters;
+        public IReadOnlyList<CorridorEdge> Corridors => corridors;
+        public int StartClusterId { get; private set; } = -1;
+        public int EvacuationClusterId { get; private set; } = -1;
+        public int TotalTreesSpawned { get; private set; }
+        public int TotalStructuresSpawned { get; private set; }
+        public int TotalWallsSpawned { get; private set; }
+        public int TotalBlockersSpawned { get; private set; }
+        public int BreakableBlockersSpawned { get; private set; }
+        public int TotalCratesSpawned { get; private set; }
+        public int TotalMudPatchesSpawned { get; private set; }
+        public bool ConnectivityValid { get; private set; }
+
+        public CellType GetCell(int x, int y)
+        {
+            if (grid == null || x < 0 || x >= mapConfig.GridWidth || y < 0 || y >= mapConfig.GridHeight)
+                return CellType.TreeBoundary;
+            return grid[x, y];
+        }
+
+        public Vector2Int WorldToCell(Vector3 worldPos)
+        {
+            int gx = Mathf.RoundToInt(worldPos.x / Mathf.Max(0.01f, mapConfig.CellSize));
+            int gy = Mathf.RoundToInt(worldPos.z / Mathf.Max(0.01f, mapConfig.CellSize));
+            return new Vector2Int(
+                Mathf.Clamp(gx, 0, mapConfig.GridWidth - 1),
+                Mathf.Clamp(gy, 0, mapConfig.GridHeight - 1));
+        }
 
         private void Awake()
         {
@@ -50,6 +88,11 @@ namespace DeadDepths.PCG
             navBaker = GetComponent<NavMeshRuntimeBaker>();
             if (navBaker == null) navBaker = gameObject.AddComponent<NavMeshRuntimeBaker>();
             InitializeDefaultMaterials();
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
         }
 
         private void InitializeDefaultMaterials()
@@ -92,21 +135,48 @@ namespace DeadDepths.PCG
         }
 
         /// <summary>
-        /// Executes the full multi-stage procedural generation pipeline.
+        /// Executes the full multi-stage cluster-based procedural generation pipeline.
         /// </summary>
         public void GenerateWorld(int levelNumber, DifficultyController.LevelDifficultyProfile ddaProfile)
         {
-            // Clean up previous world objects
+            if (navBaker == null) navBaker = GetComponent<NavMeshRuntimeBaker>();
+            InitializeDefaultMaterials();
+
+            if (ddaProfile == null)
+            {
+                ddaProfile = new DifficultyController.LevelDifficultyProfile();
+            }
+
+            // Clean up previous world objects immediately from physics/NavMesh before baking new world
             if (worldRoot != null)
             {
-                Destroy(worldRoot.gameObject);
+                worldRoot.gameObject.SetActive(false);
+                if (Application.isPlaying) Destroy(worldRoot.gameObject);
+                else DestroyImmediate(worldRoot.gameObject);
             }
 
             worldRoot = new GameObject($"GeneratedWorld_Level_{levelNumber}").transform;
 
-            // 1. Initialize Seed & Grid
-            int seed = mapConfig.UseRandomSeed ? UnityEngine.Random.Range(1000, 999999) : mapConfig.Seed + levelNumber;
-            UnityEngine.Random.InitState(seed);
+            // Reset counters
+            clusters.Clear();
+            corridors.Clear();
+            StartClusterId = -1;
+            EvacuationClusterId = -1;
+            TotalTreesSpawned = 0;
+            TotalStructuresSpawned = 0;
+            TotalWallsSpawned = 0;
+            TotalBlockersSpawned = 0;
+            BreakableBlockersSpawned = 0;
+            TotalCratesSpawned = 0;
+            TotalMudPatchesSpawned = 0;
+            TotalZombiesSpawned = 0;
+            ConnectivityValid = false;
+
+            // 1. Initialize Seed & Forest Grid (all TreeBoundary initially)
+            LastSeed = mapConfig.UseRandomSeed
+                ? UnityEngine.Random.Range(1000, 999999)
+                : mapConfig.Seed + levelNumber * 101;
+            UnityEngine.Random.InitState(LastSeed);
 
             int w = mapConfig.GridWidth;
             int h = mapConfig.GridHeight;
@@ -116,62 +186,333 @@ namespace DeadDepths.PCG
             {
                 for (int y = 0; y < h; y++)
                 {
-                    grid[x, y] = CellType.WalkableGround;
+                    grid[x, y] = CellType.TreeBoundary;
                 }
             }
 
             // 2. Playable Ground Surface
             CreateTerrainGround(w, h);
 
-            // 3. Dense Outer Tree Boundary
-            CreateTreeBoundary(w, h);
+            // 3. Generate 4-6 Random Clusters & Carve Corridors between them
+            GenerateClustersAndCorridors(w, h);
 
-            // 4. Muddy Patches
-            CreateMudPatches(w, h);
-
-            // 5. Reserved Player Start & Extraction Zone
-            Vector2Int startCell = new Vector2Int(mapConfig.BoundaryTreeThickness + 4, mapConfig.BoundaryTreeThickness + 4);
-            Vector2Int extractionCell = new Vector2Int(w - mapConfig.BoundaryTreeThickness - 6, h - mapConfig.BoundaryTreeThickness - 6);
-
-            ReserveArea(startCell, 4, CellType.PlayerStart);
-            ReserveArea(extractionCell, 5, CellType.ExtractionZone);
+            // 4. Assign Start Cluster & Farthest Evacuation Cluster
+            AssignStartAndEvacuationClusters(out Vector2Int startCell, out Vector2Int extractionCell);
+            ReserveArea(startCell, 3, CellType.PlayerStart);
+            ReserveArea(extractionCell, 4, CellType.ExtractionZone);
 
             PlayerSpawnPosition = CellToWorld(startCell.x, startCell.y);
             ExtractionPosition = CellToWorld(extractionCell.x, extractionCell.y);
 
-            // 6. Abandoned Structures
+            // 5. Muddy Patches inside Clusters (kept clear of Start & Extraction pads)
+            CreateMudPatches(w, h, startCell, extractionCell);
+
+            // 6. Abandoned Structures & Supplies Crates inside Clusters
             List<Vector2Int> structureDoorways = new List<Vector2Int>();
             List<Vector2Int> crateCells = new List<Vector2Int>();
             CreateAbandonedStructures(w, h, structureDoorways, crateCells);
 
-            // 7. Blocking Objects
-            CreateBlockingObjects(w, h, ddaProfile.BlockingObjectsCount);
-
-            // 8. Supplies Crates (placed inside structures)
-            SpawnSuppliesCrates(crateCells, ddaProfile);
-
-            // 9. Extraction Safe Zone & Helicopter
-            CreateExtractionHelicopter(ExtractionPosition);
-
-            // 10. Validate World Connectivity
-            bool isValid = WorldValidator.ValidateConnectivity(grid, w, h, startCell, extractionCell, structureDoorways);
-            if (!isValid)
+            // Guarantee at least 3 crates even if tight clusters couldn't fit full cabins
+            if (crateCells.Count < 3)
             {
-                Debug.LogWarning("[WorldGenerator] World connectivity validation warning. Clearing straight path.");
-                ClearStraightCorridor(startCell, extractionCell);
+                PlaceFallbackCratesInClusters(crateCells, 3);
             }
 
-            // 11. NavMesh Baking
+            // 7. Blocking Objects inside Cluster Interiors (keeping corridors passable)
+            CreateBlockingObjects(w, h, ddaProfile.BlockingObjectsCount);
+
+            // 8. Validate World Connectivity BEFORE instantiating trees/crates
+            List<Vector2Int> criticalPoints = new List<Vector2Int>(structureDoorways);
+            criticalPoints.AddRange(crateCells);
+            ConnectivityValid = WorldValidator.ValidateConnectivity(grid, w, h, startCell, extractionCell, criticalPoints);
+            if (!ConnectivityValid)
+            {
+                Debug.LogWarning("[WorldGenerator] Connectivity check failed; carving direct fallback corridor.");
+                CarveCorridor(startCell, extractionCell, Mathf.Max(1, mapConfig.CorridorHalfWidth));
+                ConnectivityValid = WorldValidator.ValidateConnectivity(grid, w, h, startCell, extractionCell, criticalPoints);
+            }
+
+            // 9. Spawn Forest Tree Boundary framing all clusters & corridors
+            CreateClusterTreeForest(w, h);
+
+            // 10. Spawn Supplies Crates
+            SpawnSuppliesCrates(crateCells, ddaProfile);
+
+            // 11. Extraction Safe Zone & Helicopter in Evacuation Cluster
+            CreateExtractionHelicopter(ExtractionPosition);
+
+            // 12. NavMesh Baking
+            Physics.SyncTransforms();
             if (navBaker != null)
             {
                 navBaker.BuildNavMesh();
             }
 
-            // 12. Spawn Player
+            // 13. Spawn / Reset Player
             SpawnPlayerActor(PlayerSpawnPosition);
 
-            // 13. Spawn Zombie Groups
-            SpawnZombies(w, h, startCell, ddaProfile);
+            // 14. Spawn Zombie Groups across non-start clusters
+            SpawnZombies(w, h, startCell, extractionCell, ddaProfile);
+
+            Debug.Log($"[WorldGenerator] Level {levelNumber} generated | Seed={LastSeed} | Clusters={clusters.Count} | Corridors={corridors.Count} | Trees={TotalTreesSpawned} | Walls={TotalWallsSpawned} | Blockers={TotalBlockersSpawned} | Crates={TotalCratesSpawned} | Zombies={TotalZombiesSpawned} | Connected={ConnectivityValid}");
+        }
+
+        private void GenerateClustersAndCorridors(int w, int h)
+        {
+            int minC = Mathf.Clamp(mapConfig.MinClusters, 3, 8);
+            int maxC = Mathf.Clamp(mapConfig.MaxClusters, minC, 10);
+            int targetCount = UnityEngine.Random.Range(minC, maxC + 1);
+
+            int thickness = mapConfig.BoundaryTreeThickness;
+            int minR = Mathf.Max(4, mapConfig.ClusterMinRadius);
+            int maxR = Mathf.Max(minR, mapConfig.ClusterMaxRadius);
+            int margin = thickness + maxR + 1;
+
+            // Place distinct clusters via rejection sampling
+            for (int i = 0; i < targetCount; i++)
+            {
+                int rx = UnityEngine.Random.Range(minR, maxR + 1);
+                int ry = UnityEngine.Random.Range(minR, maxR + 1);
+                Vector2Int chosenCenter = Vector2Int.zero;
+                bool found = false;
+
+                for (int attempt = 0; attempt < 80; attempt++)
+                {
+                    int cx = UnityEngine.Random.Range(margin, Mathf.Max(margin + 1, w - margin));
+                    int cy = UnityEngine.Random.Range(margin, Mathf.Max(margin + 1, h - margin));
+                    Vector2Int candidate = new Vector2Int(cx, cy);
+
+                    bool tooClose = false;
+                    float minDistRequired = attempt < 50 ? 15f : 11f;
+                    foreach (var other in clusters)
+                    {
+                        float avgRad = (rx + ry + other.RadiusX + other.RadiusY) * 0.25f;
+                        float req = Mathf.Max(minDistRequired, avgRad * 1.65f);
+                        if (Vector2Int.Distance(candidate, other.Center) < req)
+                        {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+
+                    if (!tooClose)
+                    {
+                        chosenCenter = candidate;
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    // Deterministic spread fallback so we always get at least 4 clusters
+                    float angle = (i / (float)targetCount) * Mathf.PI * 2f + UnityEngine.Random.Range(-0.25f, 0.25f);
+                    float spreadX = (w * 0.5f - margin) * 0.75f;
+                    float spreadY = (h * 0.5f - margin) * 0.75f;
+                    chosenCenter = new Vector2Int(
+                        Mathf.Clamp(Mathf.RoundToInt(w * 0.5f + Mathf.Cos(angle) * spreadX), margin, w - margin - 1),
+                        Mathf.Clamp(Mathf.RoundToInt(h * 0.5f + Mathf.Sin(angle) * spreadY), margin, h - margin - 1));
+                }
+
+                var cluster = new ClusterInfo
+                {
+                    Id = i,
+                    Center = chosenCenter,
+                    RadiusX = rx,
+                    RadiusY = ry,
+                    NoisePhase = UnityEngine.Random.Range(0f, Mathf.PI * 2f),
+                    Role = ClusterRole.Normal
+                };
+                clusters.Add(cluster);
+                CarveOrganicCluster(cluster, w, h, thickness);
+            }
+
+            // Connect all clusters via Prim's Minimum Spanning Tree
+            if (clusters.Count > 1)
+            {
+                bool[] inTree = new bool[clusters.Count];
+                inTree[0] = true;
+                int edgesAdded = 0;
+
+                while (edgesAdded < clusters.Count - 1)
+                {
+                    float bestDist = float.MaxValue;
+                    int bestFrom = -1;
+                    int bestTo = -1;
+
+                    for (int a = 0; a < clusters.Count; a++)
+                    {
+                        if (!inTree[a]) continue;
+                        for (int b = 0; b < clusters.Count; b++)
+                        {
+                            if (inTree[b]) continue;
+                            float d = Vector2Int.Distance(clusters[a].Center, clusters[b].Center);
+                            if (d < bestDist)
+                            {
+                                bestDist = d;
+                                bestFrom = a;
+                                bestTo = b;
+                            }
+                        }
+                    }
+
+                    if (bestFrom >= 0 && bestTo >= 0)
+                    {
+                        inTree[bestTo] = true;
+                        corridors.Add(new CorridorEdge(bestFrom, bestTo));
+                        CarveCorridor(clusters[bestFrom].Center, clusters[bestTo].Center, mapConfig.CorridorHalfWidth);
+                        edgesAdded++;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                // Add optional loop corridor(s) for alternate routes
+                for (int e = 0; e < mapConfig.ExtraLoopCorridors && clusters.Count >= 4; e++)
+                {
+                    int a = UnityEngine.Random.Range(0, clusters.Count);
+                    int b = (a + UnityEngine.Random.Range(2, clusters.Count)) % clusters.Count;
+                    if (a != b && !HasCorridorEdge(a, b))
+                    {
+                        corridors.Add(new CorridorEdge(a, b));
+                        CarveCorridor(clusters[a].Center, clusters[b].Center, mapConfig.CorridorHalfWidth);
+                    }
+                }
+            }
+        }
+
+        private bool HasCorridorEdge(int a, int b)
+        {
+            foreach (var edge in corridors)
+            {
+                if ((edge.FromClusterId == a && edge.ToClusterId == b) ||
+                    (edge.FromClusterId == b && edge.ToClusterId == a))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void CarveOrganicCluster(ClusterInfo cluster, int w, int h, int thickness)
+        {
+            int pad = 2;
+            for (int x = cluster.Center.x - cluster.RadiusX - pad; x <= cluster.Center.x + cluster.RadiusX + pad; x++)
+            {
+                for (int y = cluster.Center.y - cluster.RadiusY - pad; y <= cluster.Center.y + cluster.RadiusY + pad; y++)
+                {
+                    if (x < thickness || x >= w - thickness || y < thickness || y >= h - thickness)
+                        continue;
+
+                    float dx = (x - cluster.Center.x) / (float)Mathf.Max(1, cluster.RadiusX);
+                    float dy = (y - cluster.Center.y) / (float)Mathf.Max(1, cluster.RadiusY);
+                    float normDist = Mathf.Sqrt(dx * dx + dy * dy);
+                    float angle = Mathf.Atan2(dy, dx);
+                    float organicEdge = 1.0f + 0.14f * Mathf.Sin(angle * 3f + cluster.NoisePhase) + 0.08f * Mathf.Cos(angle * 5f);
+
+                    if (normDist <= organicEdge)
+                    {
+                        grid[x, y] = CellType.WalkableGround;
+                    }
+                }
+            }
+        }
+
+        private void CarveCorridor(Vector2Int from, Vector2Int to, int halfWidth)
+        {
+            int thickness = mapConfig.BoundaryTreeThickness;
+            int w = mapConfig.GridWidth;
+            int h = mapConfig.GridHeight;
+
+            // L-shaped or diagonal corridor with slight organic dogleg
+            bool horizontalFirst = UnityEngine.Random.value < 0.5f;
+            Vector2Int elbow = horizontalFirst ? new Vector2Int(to.x, from.y) : new Vector2Int(from.x, to.y);
+
+            CarveSegment(from, elbow, halfWidth, thickness, w, h);
+            CarveSegment(elbow, to, halfWidth, thickness, w, h);
+        }
+
+        private void CarveSegment(Vector2Int a, Vector2Int b, int halfWidth, int thickness, int w, int h)
+        {
+            int steps = Mathf.Max(Mathf.Abs(b.x - a.x), Mathf.Abs(b.y - a.y));
+            if (steps == 0)
+            {
+                CarveBrush(a.x, a.y, halfWidth, thickness, w, h);
+                return;
+            }
+
+            for (int s = 0; s <= steps; s++)
+            {
+                float t = s / (float)steps;
+                int cx = Mathf.RoundToInt(Mathf.Lerp(a.x, b.x, t));
+                int cy = Mathf.RoundToInt(Mathf.Lerp(a.y, b.y, t));
+                CarveBrush(cx, cy, halfWidth, thickness, w, h);
+            }
+        }
+
+        private void CarveBrush(int cx, int cy, int halfWidth, int thickness, int w, int h)
+        {
+            for (int ox = -halfWidth; ox <= halfWidth; ox++)
+            {
+                for (int oy = -halfWidth; oy <= halfWidth; oy++)
+                {
+                    int gx = cx + ox;
+                    int gy = cy + oy;
+                    if (gx >= thickness && gx < w - thickness && gy >= thickness && gy < h - thickness)
+                    {
+                        if (grid[gx, gy] == CellType.TreeBoundary)
+                        {
+                            grid[gx, gy] = CellType.WalkableGround;
+                        }
+                    }
+                }
+            }
+        }
+
+        private void AssignStartAndEvacuationClusters(out Vector2Int startCell, out Vector2Int extractionCell)
+        {
+            if (clusters.Count == 0)
+            {
+                startCell = new Vector2Int(8, 8);
+                extractionCell = new Vector2Int(mapConfig.GridWidth - 10, mapConfig.GridHeight - 10);
+                return;
+            }
+
+            if (clusters.Count == 1)
+            {
+                clusters[0].Role = ClusterRole.Start;
+                StartClusterId = 0;
+                EvacuationClusterId = 0;
+                startCell = clusters[0].Center;
+                extractionCell = clusters[0].Center;
+                return;
+            }
+
+            // Pick a random Start cluster, then find the farthest cluster as Evacuation Zone
+            int bestStart = UnityEngine.Random.Range(0, clusters.Count);
+            int bestEvac = 0;
+            float maxDist = -1f;
+
+            for (int i = 0; i < clusters.Count; i++)
+            {
+                if (i == bestStart) continue;
+                float d = Vector2Int.Distance(clusters[bestStart].Center, clusters[i].Center);
+                if (d > maxDist)
+                {
+                    maxDist = d;
+                    bestEvac = i;
+                }
+            }
+
+            clusters[bestStart].Role = ClusterRole.Start;
+            clusters[bestEvac].Role = ClusterRole.Evacuation;
+            StartClusterId = clusters[bestStart].Id;
+            EvacuationClusterId = clusters[bestEvac].Id;
+
+            startCell = clusters[bestStart].Center;
+            extractionCell = clusters[bestEvac].Center;
         }
 
         private void CreateTerrainGround(int w, int h)
@@ -187,7 +528,6 @@ namespace DeadDepths.PCG
             var mr = ground.AddComponent<MeshRenderer>();
             mr.sharedMaterial = groundMaterial;
 
-            // Generate plane mesh
             Mesh plane = new Mesh { name = "GroundMesh" };
             plane.vertices = new Vector3[]
             {
@@ -207,65 +547,102 @@ namespace DeadDepths.PCG
             boxCol.center = new Vector3(0f, -0.1f, 0f);
         }
 
-        private void CreateTreeBoundary(int w, int h)
+        private void CreateClusterTreeForest(int w, int h)
         {
             GameObject boundaryGroup = new GameObject("TreeBoundary");
             boundaryGroup.transform.SetParent(worldRoot, false);
 
             Mesh treeMesh = ProceduralGeometry.CreateTreeMesh();
-
             int thickness = mapConfig.BoundaryTreeThickness;
+
+            // Precompute whether a TreeBoundary cell borders walkable space (within radius 3) or is outer map rim
             for (int x = 0; x < w; x++)
             {
                 for (int y = 0; y < h; y++)
                 {
-                    if (x < thickness || x >= w - thickness || y < thickness || y >= h - thickness)
+                    if (grid[x, y] != CellType.TreeBoundary) continue;
+
+                    bool isOuterRim = (x < 2 || x >= w - 2 || y < 2 || y >= h - 2);
+                    bool nearWalkable = false;
+
+                    if (!isOuterRim)
                     {
-                        grid[x, y] = CellType.TreeBoundary;
-
-                        // Spawn tree instances with natural jitter
-                        Vector3 basePos = CellToWorld(x, y);
-                        Vector3 jitter = new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0f, UnityEngine.Random.Range(-0.4f, 0.4f));
-
-                        GameObject tree = new GameObject($"BoundaryTree_{x}_{y}");
-                        tree.transform.SetParent(boundaryGroup.transform, false);
-                        tree.transform.position = basePos + jitter;
-                        tree.transform.rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
-
-                        float scale = UnityEngine.Random.Range(0.85f, 1.35f);
-                        tree.transform.localScale = Vector3.one * scale;
-
-                        var mf = tree.AddComponent<MeshFilter>();
-                        mf.sharedMesh = treeMesh;
-                        var mr = tree.AddComponent<MeshRenderer>();
-                        mr.sharedMaterials = new Material[] { leafMaterial };
-
-                        var col = tree.AddComponent<CapsuleCollider>();
-                        col.radius = 0.55f;
-                        col.height = 5.0f;
-                        col.center = new Vector3(0f, 2.5f, 0f);
+                        for (int ox = -3; ox <= 3 && !nearWalkable; ox++)
+                        {
+                            for (int oy = -3; oy <= 3; oy++)
+                            {
+                                int nx = x + ox;
+                                int ny = y + oy;
+                                if (nx >= 0 && nx < w && ny >= 0 && ny < h && grid[nx, ny] != CellType.TreeBoundary)
+                                {
+                                    nearWalkable = true;
+                                    break;
+                                }
+                            }
+                        }
                     }
+
+                    // Fill deep forest sparsely for overhead camera aesthetics while keeping a solid 3-cell wall around every cluster
+                    bool sparseDeepTree = !isOuterRim && !nearWalkable && ((x + y) % 3 == 0 && (x * 7 + y * 13) % 5 == 0);
+                    if (!isOuterRim && !nearWalkable && !sparseDeepTree) continue;
+
+                    Vector3 basePos = CellToWorld(x, y);
+                    Vector3 jitter = new Vector3(UnityEngine.Random.Range(-0.4f, 0.4f), 0f, UnityEngine.Random.Range(-0.4f, 0.4f));
+
+                    GameObject tree = new GameObject($"BoundaryTree_{x}_{y}");
+                    tree.transform.SetParent(boundaryGroup.transform, false);
+                    tree.transform.position = basePos + jitter;
+                    tree.transform.rotation = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f);
+
+                    float scale = UnityEngine.Random.Range(0.85f, 1.35f);
+                    tree.transform.localScale = Vector3.one * scale;
+
+                    var mf = tree.AddComponent<MeshFilter>();
+                    mf.sharedMesh = treeMesh;
+                    var mr = tree.AddComponent<MeshRenderer>();
+                    mr.sharedMaterials = new Material[] { leafMaterial };
+
+                    var col = tree.AddComponent<CapsuleCollider>();
+                    col.radius = 0.65f;
+                    col.height = 5.0f;
+                    col.center = new Vector3(0f, 2.5f, 0f);
+
+                    TotalTreesSpawned++;
                 }
             }
         }
 
-        private void CreateMudPatches(int w, int h)
+        private void CreateMudPatches(int w, int h, Vector2Int startCell, Vector2Int extractionCell)
         {
             GameObject mudGroup = new GameObject("MuddyPatches");
             mudGroup.transform.SetParent(worldRoot, false);
 
-            for (int i = 0; i < mapConfig.MudPatchCount; i++)
+            int placed = 0;
+            for (int attempt = 0; attempt < mapConfig.MudPatchCount * 10 && placed < mapConfig.MudPatchCount; attempt++)
             {
-                int cx = UnityEngine.Random.Range(mapConfig.BoundaryTreeThickness + 8, w - mapConfig.BoundaryTreeThickness - 8);
-                int cy = UnityEngine.Random.Range(mapConfig.BoundaryTreeThickness + 8, h - mapConfig.BoundaryTreeThickness - 8);
-                int radius = UnityEngine.Random.Range(mapConfig.MudPatchMinRadius, mapConfig.MudPatchMaxRadius);
+                if (clusters.Count == 0) break;
+                var cluster = clusters[UnityEngine.Random.Range(0, clusters.Count)];
+                if (cluster.Role == ClusterRole.Start) continue;
 
+                int ox = UnityEngine.Random.Range(-cluster.RadiusX / 2, cluster.RadiusX / 2 + 1);
+                int oy = UnityEngine.Random.Range(-cluster.RadiusY / 2, cluster.RadiusY / 2 + 1);
+                int cx = Mathf.Clamp(cluster.Center.x + ox, 4, w - 5);
+                int cy = Mathf.Clamp(cluster.Center.y + oy, 4, h - 5);
+
+                if (grid[cx, cy] != CellType.WalkableGround) continue;
+
+                int radius = UnityEngine.Random.Range(mapConfig.MudPatchMinRadius, mapConfig.MudPatchMaxRadius + 1);
+                if (Vector2Int.Distance(new Vector2Int(cx, cy), startCell) < radius + 4f ||
+                    Vector2Int.Distance(new Vector2Int(cx, cy), extractionCell) < radius + 4f)
+                {
+                    continue;
+                }
                 float worldRadX = radius * mapConfig.CellSize;
                 float worldRadZ = radius * mapConfig.CellSize;
 
                 Vector3 centerPos = CellToWorld(cx, cy);
 
-                GameObject patchObj = new GameObject($"MudPatch_{i}");
+                GameObject patchObj = new GameObject($"MudPatch_{placed}");
                 patchObj.transform.SetParent(mudGroup.transform, false);
                 patchObj.transform.position = centerPos;
 
@@ -281,7 +658,6 @@ namespace DeadDepths.PCG
 
                 patchObj.AddComponent<MuddyPatch>();
 
-                // Mark cells in grid
                 for (int gx = cx - radius; gx <= cx + radius; gx++)
                 {
                     for (int gy = cy - radius; gy <= cy + radius; gy++)
@@ -298,6 +674,9 @@ namespace DeadDepths.PCG
                         }
                     }
                 }
+
+                placed++;
+                TotalMudPatchesSpawned++;
             }
         }
 
@@ -306,35 +685,64 @@ namespace DeadDepths.PCG
             GameObject structGroup = new GameObject("AbandonedStructures");
             structGroup.transform.SetParent(worldRoot, false);
 
-            for (int i = 0; i < mapConfig.AbandonedStructureCount; i++)
+            // Prefer placing structures inside Normal clusters first, then any non-Start/non-Evac space
+            List<ClusterInfo> candidateClusters = new List<ClusterInfo>();
+            foreach (var c in clusters)
             {
+                if (c.Role == ClusterRole.Normal) candidateClusters.Add(c);
+            }
+            if (candidateClusters.Count == 0) candidateClusters.AddRange(clusters);
+
+            int maxAttempts = mapConfig.AbandonedStructureCount * 15;
+            for (int attempt = 0; attempt < maxAttempts && TotalStructuresSpawned < mapConfig.AbandonedStructureCount; attempt++)
+            {
+                var cluster = candidateClusters[attempt % candidateClusters.Count];
                 int sw = UnityEngine.Random.Range(mapConfig.StructureMinWidth, mapConfig.StructureMaxWidth);
                 int sh = UnityEngine.Random.Range(mapConfig.StructureMinHeight, mapConfig.StructureMaxHeight);
 
-                int sx = UnityEngine.Random.Range(mapConfig.BoundaryTreeThickness + 4, w - mapConfig.BoundaryTreeThickness - sw - 4);
-                int sy = UnityEngine.Random.Range(mapConfig.BoundaryTreeThickness + 4, h - mapConfig.BoundaryTreeThickness - sh - 4);
+                int sx = cluster.Center.x + UnityEngine.Random.Range(-cluster.RadiusX + 1, Mathf.Max(-cluster.RadiusX + 2, cluster.RadiusX - sw));
+                int sy = cluster.Center.y + UnityEngine.Random.Range(-cluster.RadiusY + 1, Mathf.Max(-cluster.RadiusY + 2, cluster.RadiusY - sh));
 
-                // Check for collisions with reserved start or extraction
-                bool overlaps = false;
-                for (int x = sx - 1; x <= sx + sw + 1; x++)
+                if (sx < mapConfig.BoundaryTreeThickness + 1 || sy < mapConfig.BoundaryTreeThickness + 1 ||
+                    sx + sw >= w - mapConfig.BoundaryTreeThickness - 1 || sy + sh >= h - mapConfig.BoundaryTreeThickness - 1)
+                {
+                    continue;
+                }
+
+                // Ensure entire structure sits on walkable cluster ground with 1-cell clearance ring
+                // so a cabin never blocks a cluster corridor!
+                bool validSpot = true;
+                for (int x = sx - 1; x <= sx + sw + 1 && validSpot; x++)
                 {
                     for (int y = sy - 1; y <= sy + sh + 1; y++)
                     {
-                        if (grid[x, y] == CellType.PlayerStart || grid[x, y] == CellType.ExtractionZone || grid[x, y] == CellType.StructureWall)
+                        CellType cell = grid[x, y];
+                        if (cell == CellType.TreeBoundary ||
+                            cell == CellType.PlayerStart ||
+                            cell == CellType.ExtractionZone ||
+                            cell == CellType.StructureWall ||
+                            cell == CellType.StructureFloor ||
+                            cell == CellType.StructureDoorway)
                         {
-                            overlaps = true;
+                            validSpot = false;
                             break;
                         }
                     }
-                    if (overlaps) break;
                 }
-                if (overlaps) continue;
+                if (!validSpot) continue;
 
-                // Build structure walls with door cutout
-                int doorSide = UnityEngine.Random.Range(0, 4); // 0=South, 1=North, 2=West, 3=East
-                int doorPos = doorSide == 0 || doorSide == 1 ? sx + (sw / 2) : sy + (sh / 2);
+                // Choose doorway side facing toward cluster center
+                Vector2 structCenter = new Vector2(sx + sw * 0.5f, sy + sh * 0.5f);
+                Vector2 toClusterCenter = (Vector2)cluster.Center - structCenter;
+                int doorSide;
+                if (Mathf.Abs(toClusterCenter.y) >= Mathf.Abs(toClusterCenter.x))
+                    doorSide = toClusterCenter.y >= 0 ? 1 : 0; // 1=North, 0=South
+                else
+                    doorSide = toClusterCenter.x >= 0 ? 3 : 2; // 3=East, 2=West
 
-                GameObject cabin = new GameObject($"Structure_{i}");
+                int doorPos = (doorSide == 0 || doorSide == 1) ? sx + (sw / 2) : sy + (sh / 2);
+
+                GameObject cabin = new GameObject($"Structure_{TotalStructuresSpawned}");
                 cabin.transform.SetParent(structGroup.transform, false);
 
                 for (int x = sx; x <= sx + sw; x++)
@@ -358,6 +766,7 @@ namespace DeadDepths.PCG
                             {
                                 grid[x, y] = CellType.StructureWall;
                                 BuildWallBlock(cabin.transform, CellToWorld(x, y));
+                                TotalWallsSpawned++;
                             }
                         }
                         else
@@ -381,6 +790,37 @@ namespace DeadDepths.PCG
                         }
                     }
                 }
+
+                TotalStructuresSpawned++;
+            }
+        }
+
+        private void PlaceFallbackCratesInClusters(List<Vector2Int> crateCells, int targetCount)
+        {
+            foreach (var c in clusters)
+            {
+                if (crateCells.Count >= targetCount) break;
+                if (c.Role == ClusterRole.Start) continue;
+
+                int rx = Mathf.Max(2, c.RadiusX - 1);
+                int ry = Mathf.Max(2, c.RadiusY - 1);
+                for (int ox = -rx; ox <= rx && crateCells.Count < targetCount; ox += 2)
+                {
+                    for (int oy = -ry; oy <= ry && crateCells.Count < targetCount; oy += 2)
+                    {
+                        int gx = c.Center.x + ox;
+                        int gy = c.Center.y + oy;
+                        if (gx >= 0 && gx < mapConfig.GridWidth && gy >= 0 && gy < mapConfig.GridHeight)
+                        {
+                            if (grid[gx, gy] == CellType.WalkableGround)
+                            {
+                                grid[gx, gy] = CellType.SuppliesCrate;
+                                crateCells.Add(new Vector2Int(gx, gy));
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -394,8 +834,6 @@ namespace DeadDepths.PCG
 
             var mr = wall.GetComponent<Renderer>();
             mr.sharedMaterial = wallMaterial;
-
-            // Obstruction see-through will fade these walls when obstructing the camera
             wall.layer = LayerMask.NameToLayer("Default");
         }
 
@@ -404,40 +842,74 @@ namespace DeadDepths.PCG
             GameObject blockerGroup = new GameObject("BlockingObjects");
             blockerGroup.transform.SetParent(worldRoot, false);
 
-            for (int i = 0; i < count; i++)
+            int maxAttempts = count * 10;
+            for (int attempt = 0; attempt < maxAttempts && TotalBlockersSpawned < count; attempt++)
             {
-                int bx = UnityEngine.Random.Range(mapConfig.BoundaryTreeThickness + 2, w - mapConfig.BoundaryTreeThickness - 2);
-                int by = UnityEngine.Random.Range(mapConfig.BoundaryTreeThickness + 2, h - mapConfig.BoundaryTreeThickness - 2);
+                if (clusters.Count == 0) break;
+                var cluster = clusters[UnityEngine.Random.Range(0, clusters.Count)];
 
-                if (grid[bx, by] == CellType.WalkableGround || grid[bx, by] == CellType.MudPatch)
+                int bx = cluster.Center.x + UnityEngine.Random.Range(-cluster.RadiusX + 1, cluster.RadiusX);
+                int by = cluster.Center.y + UnityEngine.Random.Range(-cluster.RadiusY + 1, cluster.RadiusY);
+
+                if (bx <= mapConfig.BoundaryTreeThickness || bx >= w - mapConfig.BoundaryTreeThickness - 1 ||
+                    by <= mapConfig.BoundaryTreeThickness || by >= h - mapConfig.BoundaryTreeThickness - 1)
+                    continue;
+
+                if (grid[bx, by] != CellType.WalkableGround && grid[bx, by] != CellType.MudPatch)
+                    continue;
+
+                // Ensure blocker has open space around it so corridors/doorways are never clogged
+                if (!HasOpenWalkableNeighbors(bx, by, w, h)) continue;
+
+                grid[bx, by] = CellType.BlockingObject;
+
+                bool isBreakable = UnityEngine.Random.value < 0.65f;
+                Vector3 worldPos = CellToWorld(bx, by);
+
+                GameObject blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                blocker.name = isBreakable ? "Breakable_Barricade" : "Unbreakable_Pillar";
+                blocker.transform.SetParent(blockerGroup.transform, false);
+
+                if (isBreakable)
                 {
-                    grid[bx, by] = CellType.BlockingObject;
+                    blocker.transform.position = worldPos + new Vector3(0f, 0.75f, 0f);
+                    blocker.transform.localScale = new Vector3(1.5f, 1.5f, 1.5f);
+                    BreakableBlockersSpawned++;
+                }
+                else
+                {
+                    blocker.transform.position = worldPos + new Vector3(0f, 1.5f, 0f);
+                    blocker.transform.localScale = new Vector3(1.4f, 3.0f, 1.4f);
+                }
 
-                    bool isBreakable = UnityEngine.Random.value < 0.65f;
-                    Vector3 worldPos = CellToWorld(bx, by);
+                var mr = blocker.GetComponent<Renderer>();
+                mr.sharedMaterial = blockerMaterial;
 
-                    GameObject blocker = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    blocker.name = isBreakable ? "Breakable_Barricade" : "Unbreakable_Pillar";
-                    blocker.transform.SetParent(blockerGroup.transform, false);
+                var comp = blocker.AddComponent<BlockingObject>();
+                comp.BlockerConfig.IsBreakable = isBreakable;
+                TotalBlockersSpawned++;
+            }
+        }
 
-                    if (isBreakable)
-                    {
-                        blocker.transform.position = worldPos + new Vector3(0f, 0.75f, 0f);
-                        blocker.transform.localScale = new Vector3(1.5f, 1.5f, 1.5f);
-                    }
-                    else
-                    {
-                        blocker.transform.position = worldPos + new Vector3(0f, 1.5f, 0f);
-                        blocker.transform.localScale = new Vector3(1.4f, 3.0f, 1.4f);
-                    }
-
-                    var mr = blocker.GetComponent<Renderer>();
-                    mr.sharedMaterial = blockerMaterial;
-
-                    var comp = blocker.AddComponent<BlockingObject>();
-                    comp.BlockerConfig.IsBreakable = isBreakable;
+        private bool HasOpenWalkableNeighbors(int x, int y, int w, int h)
+        {
+            int walkableNeighbors = 0;
+            for (int ox = -1; ox <= 1; ox++)
+            {
+                for (int oy = -1; oy <= 1; oy++)
+                {
+                    if (ox == 0 && oy == 0) continue;
+                    int nx = x + ox;
+                    int ny = y + oy;
+                    if (nx < 0 || nx >= w || ny < 0 || ny >= h) return false;
+                    CellType t = grid[nx, ny];
+                    if (t == CellType.StructureDoorway || t == CellType.PlayerStart || t == CellType.ExtractionZone)
+                        return false;
+                    if (t == CellType.WalkableGround || t == CellType.MudPatch)
+                        walkableNeighbors++;
                 }
             }
+            return walkableNeighbors >= 6;
         }
 
         private void SpawnSuppliesCrates(List<Vector2Int> crateCells, DifficultyController.LevelDifficultyProfile ddaProfile)
@@ -446,7 +918,6 @@ namespace DeadDepths.PCG
             crateGroup.transform.SetParent(worldRoot, false);
 
             Mesh crateMesh = ProceduralGeometry.CreateCrateMesh();
-
             int healingSuppliesRemaining = ddaProfile.HealingSuppliesCount;
 
             foreach (var cell in crateCells)
@@ -468,7 +939,6 @@ namespace DeadDepths.PCG
 
                 var crateComp = crateObj.AddComponent<SuppliesCrate>();
 
-                // Configure DDA loot
                 List<CrateLootItem> loot = new List<CrateLootItem>();
 
                 if (healingSuppliesRemaining > 0)
@@ -481,7 +951,6 @@ namespace DeadDepths.PCG
                     loot.Add(new CrateLootItem("Bandage", 2, true));
                 }
 
-                // Weapons & Resources based on LootQualityFactor
                 if (UnityEngine.Random.value < ddaProfile.LootQualityFactor)
                 {
                     loot.Add(new CrateLootItem("Rifle Ammo", UnityEngine.Random.Range(15, 30)));
@@ -493,6 +962,7 @@ namespace DeadDepths.PCG
 
                 loot.Add(new CrateLootItem("Scrap Metal", UnityEngine.Random.Range(2, 6)));
                 crateComp.ConfigureLoot(loot);
+                TotalCratesSpawned++;
             }
         }
 
@@ -515,7 +985,7 @@ namespace DeadDepths.PCG
             GameObject flare = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             flare.name = "GreenSmokeCanister";
             flare.transform.SetParent(heliObj.transform, false);
-            flare.transform.position = pos + new Vector3(3.5f, 0.3f, 0f);
+            flare.transform.localPosition = new Vector3(3.5f, 0.3f, 0f);
             flare.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
             var flareRend = flare.GetComponent<Renderer>();
             flareRend.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
@@ -539,48 +1009,78 @@ namespace DeadDepths.PCG
                 var cc = existing.GetComponent<CharacterController>();
                 if (cc != null) cc.enabled = false;
                 existing.transform.position = pos + Vector3.up * 0.1f;
-                if (cc != null) cc.enabled = true;
+                existing.transform.rotation = Quaternion.identity;
+                Physics.SyncTransforms();
+
+                var playerCtrl = existing.GetComponent<DeadDepthsPlayerController>();
+                if (playerCtrl != null)
+                {
+                    playerCtrl.ResetStateForLevel();
+                }
+                else if (cc != null)
+                {
+                    cc.enabled = true;
+                }
+
+                if (IsometricCameraController.Instance != null)
+                {
+                    IsometricCameraController.Instance.SnapToTarget(existing.transform);
+                }
                 return;
             }
 
+            GameObject spawned;
             if (playerPrefab != null)
             {
-                Instantiate(playerPrefab, pos + Vector3.up * 0.1f, Quaternion.identity);
+                spawned = Instantiate(playerPrefab, pos + Vector3.up * 0.1f, Quaternion.identity);
             }
             else
             {
-                // Fallback: Create player root with CharacterController & DeadDepthsPlayerController
-                GameObject p = new GameObject("Player");
-                p.tag = "Player";
-                p.transform.position = pos + Vector3.up * 0.1f;
+                spawned = new GameObject("Player");
+                spawned.tag = "Player";
+                spawned.transform.position = pos + Vector3.up * 0.1f;
 
-                var cc = p.AddComponent<CharacterController>();
+                var cc = spawned.AddComponent<CharacterController>();
                 cc.height = 1.8f;
                 cc.center = new Vector3(0f, 0.9f, 0f);
                 cc.radius = 0.4f;
 
-                p.AddComponent<DeadDepthsPlayerController>();
+                spawned.AddComponent<DeadDepthsPlayerController>();
 
-                // Load PlayerChar model from CharacterUpgrade
-                var playerModelPrefab = Resources.Load<GameObject>("PlayerChar") ??
-                                        FindModelAsset("PlayerChar");
+                var playerModelPrefab = Resources.Load<GameObject>("PlayerChar") ?? FindModelAsset("PlayerChar");
                 if (playerModelPrefab != null)
                 {
-                    var visual = Instantiate(playerModelPrefab, p.transform);
+                    var visual = Instantiate(playerModelPrefab, spawned.transform);
                     visual.transform.localPosition = Vector3.zero;
                     visual.transform.localRotation = Quaternion.identity;
+                    var visualAnim = visual.GetComponentInChildren<Animator>();
+                    if (visualAnim != null) visualAnim.applyRootMotion = false;
                 }
                 else
                 {
                     var capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                    capsule.transform.SetParent(p.transform, false);
+                    capsule.transform.SetParent(spawned.transform, false);
                     capsule.transform.localPosition = new Vector3(0f, 0.9f, 0f);
-                    Destroy(capsule.GetComponent<Collider>());
+                    if (Application.isPlaying) Destroy(capsule.GetComponent<Collider>());
+                    else DestroyImmediate(capsule.GetComponent<Collider>());
                 }
+            }
+
+            Physics.SyncTransforms();
+
+            var spawnedCtrl = spawned.GetComponent<DeadDepthsPlayerController>();
+            if (spawnedCtrl != null)
+            {
+                spawnedCtrl.ResetStateForLevel();
+            }
+
+            if (IsometricCameraController.Instance != null)
+            {
+                IsometricCameraController.Instance.SnapToTarget(spawned.transform);
             }
         }
 
-        private void SpawnZombies(int w, int h, Vector2Int startCell, DifficultyController.LevelDifficultyProfile ddaProfile)
+        private void SpawnZombies(int w, int h, Vector2Int startCell, Vector2Int extractionCell, DifficultyController.LevelDifficultyProfile ddaProfile)
         {
             GameObject hordeGroup = new GameObject("ZombieHorde");
             hordeGroup.transform.SetParent(worldRoot, false);
@@ -595,15 +1095,37 @@ namespace DeadDepths.PCG
             {
                 walkers = Mathf.RoundToInt(ddaProfile.TotalZombies * ddaProfile.WalkerProportion);
                 spitters = Mathf.RoundToInt(ddaProfile.TotalZombies * ddaProfile.SpitterProportion);
-                chargers = ddaProfile.TotalZombies - walkers - spitters;
+                chargers = Mathf.Max(1, ddaProfile.TotalZombies - walkers - spitters);
             }
-            TotalZombiesSpawned = walkers + spitters + chargers;
 
-            SpawnArchetypeGroup(hordeGroup.transform, ZombieArchetype.Walker, walkers, w, h, startCell);
-            SpawnArchetypeGroup(hordeGroup.transform, ZombieArchetype.Spitter, spitters, w, h, startCell);
-            SpawnArchetypeGroup(hordeGroup.transform, ZombieArchetype.Charger, chargers, w, h, startCell);
+            // Collect valid walkable cells outside the PlayerStart safety radius
+            List<Vector2Int> validCells = new List<Vector2Int>();
+            for (int x = mapConfig.BoundaryTreeThickness; x < w - mapConfig.BoundaryTreeThickness; x++)
+            {
+                for (int y = mapConfig.BoundaryTreeThickness; y < h - mapConfig.BoundaryTreeThickness; y++)
+                {
+                    CellType c = grid[x, y];
+                    if (c != CellType.WalkableGround && c != CellType.MudPatch) continue;
+                    if (Vector2Int.Distance(new Vector2Int(x, y), startCell) < 8f) continue;
+                    if (Vector2Int.Distance(new Vector2Int(x, y), extractionCell) < 3f) continue;
+                    validCells.Add(new Vector2Int(x, y));
+                }
+            }
 
-            // Register total spawned with performance tracker
+            // Fisher-Yates shuffle
+            for (int i = validCells.Count - 1; i > 0; i--)
+            {
+                int j = UnityEngine.Random.Range(0, i + 1);
+                Vector2Int tmp = validCells[i];
+                validCells[i] = validCells[j];
+                validCells[j] = tmp;
+            }
+
+            int cursor = 0;
+            cursor = SpawnArchetypeGroup(hordeGroup.transform, ZombieArchetype.Walker, walkers, validCells, cursor);
+            cursor = SpawnArchetypeGroup(hordeGroup.transform, ZombieArchetype.Spitter, spitters, validCells, cursor);
+            SpawnArchetypeGroup(hordeGroup.transform, ZombieArchetype.Charger, chargers, validCells, cursor);
+
             if (PlayerPerformanceTracker.Instance != null)
             {
                 var player = DeadDepthsPlayerController.Instance;
@@ -613,23 +1135,26 @@ namespace DeadDepths.PCG
             }
         }
 
-        private void SpawnArchetypeGroup(Transform parent, ZombieArchetype arch, int count, int w, int h, Vector2Int startCell)
+        private int SpawnArchetypeGroup(Transform parent, ZombieArchetype arch, int count, List<Vector2Int> validCells, int cellCursor)
         {
+            if (validCells.Count == 0) return cellCursor;
+
             for (int i = 0; i < count; i++)
             {
-                int zx = UnityEngine.Random.Range(mapConfig.BoundaryTreeThickness + 3, w - mapConfig.BoundaryTreeThickness - 3);
-                int zy = UnityEngine.Random.Range(mapConfig.BoundaryTreeThickness + 3, h - mapConfig.BoundaryTreeThickness - 3);
+                Vector2Int cell = validCells[cellCursor % validCells.Count];
+                cellCursor++;
 
-                // Avoid player spawn zone (minimum 12m distance)
-                if (Vector2Int.Distance(new Vector2Int(zx, zy), startCell) < 8) continue;
-                if (grid[zx, zy] == CellType.TreeBoundary || grid[zx, zy] == CellType.StructureWall) continue;
+                Vector3 spawnPos = CellToWorld(cell.x, cell.y);
+                if (NavMesh.SamplePosition(spawnPos, out NavMeshHit navHit, 3.0f, NavMesh.AllAreas))
+                {
+                    spawnPos = navHit.position;
+                }
 
-                Vector3 spawnPos = CellToWorld(zx, zy) + Vector3.up * 0.1f;
-
-                GameObject zObj = null;
+                GameObject zObj;
                 if (zombiePrefab != null)
                 {
                     zObj = Instantiate(zombiePrefab, spawnPos, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f), parent);
+                    zObj.name = $"Zombie_{arch}_{i}";
                 }
                 else
                 {
@@ -645,35 +1170,23 @@ namespace DeadDepths.PCG
                     capsule.transform.SetParent(zObj.transform, false);
                     capsule.transform.localPosition = new Vector3(0f, 0.9f, 0f);
                     capsule.transform.localScale = new Vector3(0.85f, 0.9f, 0.85f);
-
-                    var rend = capsule.GetComponent<Renderer>();
-                    if (rend != null)
-                    {
-                        Color c = Color.gray;
-                        if (arch == ZombieArchetype.Spitter) c = new Color(0.2f, 0.9f, 0.4f);
-                        else if (arch == ZombieArchetype.Charger) c = new Color(0.85f, 0.25f, 0.2f);
-                        rend.material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard")) { color = c };
-                    }
                 }
 
-                // Add or configure ZombieController
+                var spawnedAgent = zObj.GetComponent<NavMeshAgent>();
+                if (spawnedAgent != null && spawnedAgent.enabled)
+                {
+                    spawnedAgent.Warp(spawnPos);
+                }
+
                 var ctrl = zObj.GetComponent<ZombieController>();
                 if (ctrl == null) ctrl = zObj.AddComponent<ZombieController>();
-                // Set archetype reflection/field
-                SetZombieArchetype(ctrl, arch);
 
-                if (arch == ZombieArchetype.Charger)
-                {
-                    var teleg = zObj.GetComponentInChildren<ChargerTelegraph>();
-                    if (teleg == null) zObj.AddComponent<ChargerTelegraph>();
-                }
+                // Explicitly initialize archetype stats, scale, and visual tint AFTER instantiation
+                ctrl.InitializeArchetype(arch);
+                TotalZombiesSpawned++;
             }
-        }
 
-        private void SetZombieArchetype(ZombieController ctrl, ZombieArchetype arch)
-        {
-            var field = typeof(ZombieController).GetField("archetype", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (field != null) field.SetValue(ctrl, arch);
+            return cellCursor;
         }
 
         private GameObject FindModelAsset(string modelName)
@@ -687,29 +1200,11 @@ namespace DeadDepths.PCG
             {
                 for (int y = center.y - radius; y <= center.y + radius; y++)
                 {
-                    if (x >= 0 && x < mapConfig.GridWidth && y >= 0 && y < mapConfig.GridHeight)
+                    if (x >= mapConfig.BoundaryTreeThickness && x < mapConfig.GridWidth - mapConfig.BoundaryTreeThickness &&
+                        y >= mapConfig.BoundaryTreeThickness && y < mapConfig.GridHeight - mapConfig.BoundaryTreeThickness)
                     {
                         grid[x, y] = type;
                     }
-                }
-            }
-        }
-
-        private void ClearStraightCorridor(Vector2Int from, Vector2Int to)
-        {
-            int cx = from.x;
-            int cy = from.y;
-            while (cx != to.x || cy != to.y)
-            {
-                if (cx < to.x) cx++;
-                else if (cx > to.x) cx--;
-
-                if (cy < to.y) cy++;
-                else if (cy > to.y) cy--;
-
-                if (grid[cx, cy] == CellType.StructureWall || grid[cx, cy] == CellType.TreeBoundary)
-                {
-                    grid[cx, cy] = CellType.WalkableGround;
                 }
             }
         }

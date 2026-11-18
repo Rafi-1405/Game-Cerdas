@@ -106,6 +106,7 @@ namespace DeadDepths.Editor
             uiGo.AddComponent<CrateProgressBarUI>();
             uiGo.AddComponent<ItemNotificationManager>();
             uiGo.AddComponent<CompletionScreenUI>();
+            uiGo.AddComponent<DeadDepthsDebugMode>();
 
             // 7. Save Scene
             EditorSceneManager.SaveScene(scene, scenePath);
@@ -119,6 +120,28 @@ namespace DeadDepths.Editor
             EditorBuildSettings.scenes = newScenes;
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+        }
+
+        [MenuItem("DeadDepths/Build Windows Standalone")]
+        public static void BuildWindowsStandalone()
+        {
+            string buildDir = "Builds";
+            if (!Directory.Exists(buildDir)) Directory.CreateDirectory(buildDir);
+
+            var options = new BuildPlayerOptions
+            {
+                scenes = new[] { "Assets/Scenes/DeadDepths.unity" },
+                locationPathName = Path.Combine(buildDir, "DeadDepths.exe"),
+                target = BuildTarget.StandaloneWindows64,
+                options = BuildOptions.None
+            };
+
+            var report = BuildPipeline.BuildPlayer(options);
+            Debug.Log($"[DeadDepths] Windows build result: {report.summary.result} | Errors: {report.summary.totalErrors} | Size: {report.summary.totalSize} bytes");
+            if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
+            {
+                EditorApplication.Exit(1);
+            }
         }
 
         private static GameObject CreateOrUpdatePlayerPrefab()
@@ -149,6 +172,7 @@ namespace DeadDepths.Editor
                 if (anim == null) anim = model.AddComponent<Animator>();
                 var animCtrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/CharacterUpgrade/Controllers/Player.controller");
                 if (animCtrl != null) anim.runtimeAnimatorController = animCtrl;
+                anim.applyRootMotion = false;
             }
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
@@ -169,6 +193,7 @@ namespace DeadDepths.Editor
             agent.height = 1.8f;
             agent.radius = 0.45f;
             agent.speed = 3.2f;
+            agent.angularSpeed = 360f;
             agent.stoppingDistance = 1.2f;
 
             var col = root.AddComponent<CapsuleCollider>();
@@ -190,6 +215,7 @@ namespace DeadDepths.Editor
                 if (anim == null) anim = model.AddComponent<Animator>();
                 var animCtrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/CharacterUpgrade/Controllers/Zombie.controller");
                 if (animCtrl != null) anim.runtimeAnimatorController = animCtrl;
+                anim.applyRootMotion = false;
             }
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);

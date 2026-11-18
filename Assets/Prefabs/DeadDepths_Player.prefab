@@ -77,14 +77,17 @@ MonoBehaviour:
     CrouchSpeed: 2.5
     RotationSpeed: 14
     Gravity: -15
+    GodModeWalkSpeed: 22
+    GodModeRunSpeed: 32
     MaxStamina: 100
     StaminaDrainRate: 22
     StaminaRegenRate: 18
     MaxHealth: 100
-    PunchRange: 1.8
+    PunchRange: 2
     PunchDamage: 25
     PunchCooldown: 0.5
-    PunchArcAngle: 100
+    PunchHitDelay: 0.16
+    PunchArcAngle: 110
     InteractionScanRadius: 2.4
 --- !u!1001 &3839987248099092729
 PrefabInstance:
@@ -150,6 +153,10 @@ PrefabInstance:
       propertyPath: m_Controller
       value: 
       objectReference: {fileID: 9100000, guid: bbd329864aee0bf41b34deebd133e549, type: 2}
+    - target: {fileID: 5866666021909216657, guid: 103dfe0bb432608469ebbf113d582182, type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

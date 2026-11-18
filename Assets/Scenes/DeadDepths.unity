@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &79880483
+--- !u!1 &505824792
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,128 +127,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 79880488}
-  - component: {fileID: 79880487}
-  - component: {fileID: 79880486}
-  - component: {fileID: 79880485}
-  - component: {fileID: 79880484}
-  m_Layer: 0
-  m_Name: UIManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &79880484
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 79880483}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 04244902a30cd264a88c770ecefaa331, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.CompletionScreenUI
-  screenConfig:
-    DimBackdropColor: {r: 0.04, g: 0.05, b: 0.08, a: 0.88}
-    TextColor: {r: 0.92, g: 0.96, b: 1, a: 1}
-    ButtonColor: {r: 0.18, g: 0.65, b: 0.35, a: 1}
-    ButtonHoverColor: {r: 0.24, g: 0.82, b: 0.44, a: 1}
-    TitleFontSize: 28
-    ButtonFontSize: 18
-    ButtonWidth: 200
-    ButtonHeight: 48
---- !u!114 &79880485
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 79880483}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fee4a4de02a227e459c8c2dfe40025d2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.ItemNotificationManager
-  notifyConfig:
-    BaseOverheadOffset: {x: 0, y: 2.5, z: 0}
-    RowHeight: 24
-    BoxWidth: 160
-    MaxVisibleNotifications: 3
-    DisplayDuration: 3.5
-    FadeDuration: 0.5
-    BackgroundColor: {r: 0.06, g: 0.08, b: 0.12, a: 0.82}
-    BorderColor: {r: 0.2, g: 0.75, b: 0.4, a: 0.9}
-    TextColor: {r: 0.95, g: 0.98, b: 1, a: 1}
---- !u!114 &79880486
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 79880483}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eef3ce9bd6379574eb772d2bd5dfb4ef, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.CrateProgressBarUI
-  barConfig:
-    OverheadOffset: {x: 0, y: 2.2, z: 0}
-    Width: 140
-    Height: 12
-    BackgroundColor: {r: 0.08, g: 0.08, b: 0.12, a: 0.65}
-    FillColor: {r: 1, g: 1, b: 1, a: 1}
-    BorderColor: {r: 0.25, g: 0.25, b: 0.35, a: 0.85}
---- !u!114 &79880487
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 79880483}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: acc77a272420b7349ae09d47a3118783, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.DeadDepthsHUD
-  hudConfig:
-    HudOffset: {x: 25, y: 25}
-    BarWidth: 220
-    BarHeight: 18
-    BarSpacing: 6
-    HealthFillColor: {r: 0.85, g: 0.22, b: 0.22, a: 1}
-    StaminaFillColor: {r: 0.24, g: 0.65, b: 0.95, a: 1}
-    TrackColor: {r: 0.08, g: 0.1, b: 0.14, a: 0.85}
-    BorderColor: {r: 0.22, g: 0.25, b: 0.32, a: 0.95}
-    TextColor: {r: 0.92, g: 0.95, b: 1, a: 1}
-    PromptColor: {r: 1, g: 0.88, b: 0.35, a: 1}
---- !u!4 &79880488
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 79880483}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &83539624
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 83539626}
-  - component: {fileID: 83539625}
+  - component: {fileID: 505824794}
+  - component: {fileID: 505824793}
   m_Layer: 0
   m_Name: AudioManager
   m_TagString: Untagged
@@ -256,13 +136,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &83539625
+--- !u!114 &505824793
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 83539624}
+  m_GameObject: {fileID: 505824792}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 618c83ad93b3b3b4a8169bcb83df44e6, type: 3}
@@ -274,13 +154,13 @@ MonoBehaviour:
     AmbientVolume: 0.5
     EnableProceduralToneFallback: 1
   soundLibrary: {fileID: 11400000, guid: 39c39e6647c92e14db21df4fbda423d2, type: 2}
---- !u!4 &83539626
+--- !u!4 &505824794
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 83539624}
+  m_GameObject: {fileID: 505824792}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -289,7 +169,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &262177989
+--- !u!1 &694754036
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -297,12 +177,12 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 262177995}
-  - component: {fileID: 262177994}
-  - component: {fileID: 262177993}
-  - component: {fileID: 262177992}
-  - component: {fileID: 262177991}
-  - component: {fileID: 262177990}
+  - component: {fileID: 694754042}
+  - component: {fileID: 694754041}
+  - component: {fileID: 694754040}
+  - component: {fileID: 694754039}
+  - component: {fileID: 694754038}
+  - component: {fileID: 694754037}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -310,45 +190,51 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &262177990
+--- !u!114 &694754037
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 262177989}
+  m_GameObject: {fileID: 694754036}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9f6cad3c431906743b54be58908a5df7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.PCG.NavMeshRuntimeBaker
---- !u!114 &262177991
+--- !u!114 &694754038
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 262177989}
+  m_GameObject: {fileID: 694754036}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 275590c295953f54bab31992bfbd6165, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.PCG.WorldGenerator
   mapConfig:
-    GridWidth: 60
-    GridHeight: 60
+    GridWidth: 64
+    GridHeight: 64
     CellSize: 2
     Seed: 1337
     UseRandomSeed: 1
+    MinClusters: 4
+    MaxClusters: 6
+    ClusterMinRadius: 6
+    ClusterMaxRadius: 9
+    CorridorHalfWidth: 1
+    ExtraLoopCorridors: 1
     BoundaryTreeThickness: 3
-    MudPatchCount: 8
-    MudPatchMinRadius: 3
-    MudPatchMaxRadius: 6
+    MudPatchCount: 6
+    MudPatchMinRadius: 2
+    MudPatchMaxRadius: 4
     AbandonedStructureCount: 4
     StructureMinWidth: 5
-    StructureMaxWidth: 8
+    StructureMaxWidth: 7
     StructureMinHeight: 5
-    StructureMaxHeight: 8
+    StructureMaxHeight: 7
     CratesPerStructure: 2
     SafeZoneRadius: 7
   groundMaterial: {fileID: 2100000, guid: da86e0e9da248f44685781dc53d77c8f, type: 2}
@@ -361,13 +247,13 @@ MonoBehaviour:
   blockerMaterial: {fileID: 0}
   zombiePrefab: {fileID: 3286201853158874056, guid: 0991f0026dc6fe64a91899d06d6b92f7, type: 3}
   playerPrefab: {fileID: 5082783380368665309, guid: 7856c36666a65e7479adef3bf514645d, type: 3}
---- !u!114 &262177992
+--- !u!114 &694754039
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 262177989}
+  m_GameObject: {fileID: 694754036}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2dc1ea028e386f0498a1610743400d2c, type: 3}
@@ -377,13 +263,13 @@ MonoBehaviour:
     TargetCompletionTime: 180
     DamageThreshold: 100
     ResourceBudget: 5
---- !u!114 &262177993
+--- !u!114 &694754040
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 262177989}
+  m_GameObject: {fileID: 694754036}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe8e6028f4893dd4ea8206422fb257f5, type: 3}
@@ -414,13 +300,13 @@ MonoBehaviour:
       LootQualityFactor: 0.3
       HealingSuppliesCount: 3
       BlockingObjectsCount: 32
---- !u!114 &262177994
+--- !u!114 &694754041
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 262177989}
+  m_GameObject: {fileID: 694754036}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4c4ce8dedf9017c48adc3d36224e0171, type: 3}
@@ -429,13 +315,18 @@ MonoBehaviour:
   managerConfig:
     StartingLevel: 1
     AutoGenerateOnStart: 1
---- !u!4 &262177995
+    WalkerKillScore: 100
+    SpitterKillScore: 150
+    ChargerKillScore: 250
+    CrateOpenScore: 150
+    LevelClearBaseBonus: 500
+--- !u!4 &694754042
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 262177989}
+  m_GameObject: {fileID: 694754036}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -444,7 +335,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1782659943
+--- !u!1 &1653430821
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -452,12 +343,154 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1782659949}
-  - component: {fileID: 1782659948}
-  - component: {fileID: 1782659947}
-  - component: {fileID: 1782659946}
-  - component: {fileID: 1782659945}
-  - component: {fileID: 1782659944}
+  - component: {fileID: 1653430827}
+  - component: {fileID: 1653430826}
+  - component: {fileID: 1653430825}
+  - component: {fileID: 1653430824}
+  - component: {fileID: 1653430823}
+  - component: {fileID: 1653430822}
+  m_Layer: 0
+  m_Name: UIManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1653430822
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1653430821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0ef7c5dbe381eb49ad11df84e77f194, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.DeadDepthsDebugMode
+  isDebugVisible: 0
+  showAiWorldOverlay: 1
+  showMapResourcePanel: 1
+  showAiPanel: 1
+--- !u!114 &1653430823
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1653430821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 04244902a30cd264a88c770ecefaa331, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.CompletionScreenUI
+  screenConfig:
+    DimBackdropColor: {r: 0.04, g: 0.05, b: 0.08, a: 0.9}
+    PanelColor: {r: 0.09, g: 0.11, b: 0.16, a: 0.96}
+    PanelBorderColor: {r: 0.24, g: 0.72, b: 0.44, a: 0.95}
+    TextColor: {r: 0.92, g: 0.96, b: 1, a: 1}
+    AccentColor: {r: 0.35, g: 0.92, b: 0.55, a: 1}
+    ButtonColor: {r: 0.18, g: 0.65, b: 0.35, a: 1}
+    ButtonHoverColor: {r: 0.24, g: 0.82, b: 0.44, a: 1}
+    SecondaryButtonColor: {r: 0.28, g: 0.32, b: 0.4, a: 1}
+    SecondaryButtonHoverColor: {r: 0.38, g: 0.44, b: 0.54, a: 1}
+    TitleFontSize: 24
+    ButtonFontSize: 16
+    ButtonWidth: 210
+    ButtonHeight: 44
+--- !u!114 &1653430824
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1653430821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fee4a4de02a227e459c8c2dfe40025d2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.ItemNotificationManager
+  notifyConfig:
+    BaseOverheadOffset: {x: 0, y: 2.5, z: 0}
+    RowHeight: 24
+    BoxWidth: 160
+    MaxVisibleNotifications: 3
+    DisplayDuration: 3.5
+    FadeDuration: 0.5
+    BackgroundColor: {r: 0.06, g: 0.08, b: 0.12, a: 0.82}
+    BorderColor: {r: 0.2, g: 0.75, b: 0.4, a: 0.9}
+    TextColor: {r: 0.95, g: 0.98, b: 1, a: 1}
+--- !u!114 &1653430825
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1653430821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eef3ce9bd6379574eb772d2bd5dfb4ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.CrateProgressBarUI
+  barConfig:
+    OverheadOffset: {x: 0, y: 2.2, z: 0}
+    Width: 140
+    Height: 12
+    BackgroundColor: {r: 0.08, g: 0.08, b: 0.12, a: 0.65}
+    FillColor: {r: 1, g: 1, b: 1, a: 1}
+    BorderColor: {r: 0.25, g: 0.25, b: 0.35, a: 0.85}
+--- !u!114 &1653430826
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1653430821}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: acc77a272420b7349ae09d47a3118783, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.DeadDepthsHUD
+  hudConfig:
+    HudOffset: {x: 25, y: 25}
+    BarWidth: 220
+    BarHeight: 18
+    BarSpacing: 6
+    HealthFillColor: {r: 0.85, g: 0.22, b: 0.22, a: 1}
+    StaminaFillColor: {r: 0.24, g: 0.65, b: 0.95, a: 1}
+    TrackColor: {r: 0.08, g: 0.1, b: 0.14, a: 0.85}
+    BorderColor: {r: 0.22, g: 0.25, b: 0.32, a: 0.95}
+    TextColor: {r: 0.92, g: 0.95, b: 1, a: 1}
+    PromptColor: {r: 1, g: 0.88, b: 0.35, a: 1}
+--- !u!4 &1653430827
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1653430821}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1961286280
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1961286286}
+  - component: {fileID: 1961286285}
+  - component: {fileID: 1961286284}
+  - component: {fileID: 1961286283}
+  - component: {fileID: 1961286282}
+  - component: {fileID: 1961286281}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -465,13 +498,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1782659944
+--- !u!114 &1961286281
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1782659943}
+  m_GameObject: {fileID: 1961286280}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8a6c16a9827c2254d9a24a1c638905eb, type: 3}
@@ -485,13 +518,13 @@ MonoBehaviour:
       serializedVersion: 2
       m_Bits: 4294967295
   playerTarget: {fileID: 0}
---- !u!114 &1782659945
+--- !u!114 &1961286282
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1782659943}
+  m_GameObject: {fileID: 1961286280}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f70c206820962aa40b0ff2ddee96eaef, type: 3}
@@ -504,13 +537,13 @@ MonoBehaviour:
     TargetOffset: {x: 0, y: 1.2, z: 0}
     FollowDamping: 10
   target: {fileID: 0}
---- !u!114 &1782659946
+--- !u!114 &1961286283
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1782659943}
+  m_GameObject: {fileID: 1961286280}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
@@ -548,21 +581,21 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
---- !u!81 &1782659947
+--- !u!81 &1961286284
 AudioListener:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1782659943}
+  m_GameObject: {fileID: 1961286280}
   m_Enabled: 1
---- !u!20 &1782659948
+--- !u!20 &1961286285
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1782659943}
+  m_GameObject: {fileID: 1961286280}
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
@@ -607,13 +640,13 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!4 &1782659949
+--- !u!4 &1961286286
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1782659943}
+  m_GameObject: {fileID: 1961286280}
   serializedVersion: 2
   m_LocalRotation: {x: 0.40500215, y: 0.3439536, z: -0.1677574, w: 0.8303774}
   m_LocalPosition: {x: 0, y: 22, z: -22}
@@ -622,7 +655,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2040071413
+--- !u!1 &2083715651
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -630,8 +663,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2040071415}
-  - component: {fileID: 2040071414}
+  - component: {fileID: 2083715653}
+  - component: {fileID: 2083715652}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -639,13 +672,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &2040071414
+--- !u!108 &2083715652
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2040071413}
+  m_GameObject: {fileID: 2083715651}
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
@@ -704,13 +737,13 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &2040071415
+--- !u!4 &2083715653
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2040071413}
+  m_GameObject: {fileID: 2083715651}
   serializedVersion: 2
   m_LocalRotation: {x: 0.418082, y: -0.27027258, z: 0.13182074, w: 0.85719514}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -723,8 +756,8 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 2040071415}
-  - {fileID: 1782659949}
-  - {fileID: 83539626}
-  - {fileID: 262177995}
-  - {fileID: 79880488}
+  - {fileID: 2083715653}
+  - {fileID: 1961286286}
+  - {fileID: 505824794}
+  - {fileID: 694754042}
+  - {fileID: 1653430827}
