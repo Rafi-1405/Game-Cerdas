@@ -11,6 +11,8 @@ GameObject:
   - component: {fileID: 1518527203952426143}
   - component: {fileID: 5098009247029623470}
   - component: {fileID: 6082170066249946725}
+  - component: {fileID: 8870035834320300731}
+  - component: {fileID: 5196259962258943527}
   m_Layer: 0
   m_Name: DeadDepths_Player
   m_TagString: Player
@@ -75,8 +77,20 @@ MonoBehaviour:
     WalkSpeed: 4.5
     RunSpeed: 7.5
     CrouchSpeed: 2.5
+    AimWalkSpeed: 3.1
     RotationSpeed: 14
+    AimRotationSpeed: 20
     Gravity: -15
+    StandingHeight: 1.8
+    CrouchHeight: 1.15
+    AimDeadzoneRadius: 0.35
+    ShiftHoldThreshold: 0.2
+    DodgeSpeed: 15
+    DodgeDuration: 0.24
+    DodgeIframeDuration: 0.22
+    DodgeStaminaCost: 22
+    DodgeCooldown: 0.75
+    DodgeBufferWindow: 0.12
     GodModeWalkSpeed: 22
     GodModeRunSpeed: 32
     MaxStamina: 100
@@ -88,7 +102,51 @@ MonoBehaviour:
     PunchCooldown: 0.5
     PunchHitDelay: 0.16
     PunchArcAngle: 110
+    ComboResetWindow: 0.95
+    ComboFinisherMultiplier: 1.35
+    CritChance: 0.15
+    CritMultiplier: 1.5
+    HitstopDuration: 0.035
     InteractionScanRadius: 2.4
+--- !u!114 &8870035834320300731
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5082783380368665309}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94f1c3f896e561042b7574fa004239bf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Player.DeadDepthsFlashlight
+  isOn: 1
+  spotColor: {r: 1, g: 0.96, b: 0.88, a: 1}
+  spotIntensity: 14
+  spotRange: 36
+  spotAngle: 68
+  innerSpotAngle: 42
+  floodIntensity: 4.2
+  floodRange: 18
+  floodAngle: 105
+  floodInnerAngle: 62
+  footLightIntensity: 1.4
+  footLightRange: 6.5
+  handheldOffset: {x: 0.24, y: 1.15, z: 0.32}
+  aimRotateSpeed: 18
+--- !u!114 &5196259962258943527
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5082783380368665309}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eff07972b095ca949995c27c1e499d69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Player.DeadDepthsAimReticle
+  bundledLineShader: {fileID: 10753, guid: 0000000000000000f000000000000000, type: 0}
 --- !u!1001 &3839987248099092729
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -160,10 +218,30 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 103dfe0bb432608469ebbf113d582182, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2681193934392198594}
   m_SourcePrefab: {fileID: 100100000, guid: 103dfe0bb432608469ebbf113d582182, type: 3}
 --- !u!4 &3657161989232561938 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 103dfe0bb432608469ebbf113d582182, type: 3}
   m_PrefabInstance: {fileID: 3839987248099092729}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &4146418737403450792 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 103dfe0bb432608469ebbf113d582182, type: 3}
+  m_PrefabInstance: {fileID: 3839987248099092729}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2681193934392198594
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4146418737403450792}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7f080abd4666e374e8cf40a34e75c082, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Player.PlayerAimIK

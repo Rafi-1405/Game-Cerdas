@@ -11,7 +11,7 @@ namespace DeadDepths.PCG
 {
     /// <summary>
     /// Master procedural generator that creates an interconnected multi-cluster world
-    /// with corridors, forest boundaries, structures, loot crates, obstacles, NavMesh, and zombies.
+    /// with corridors, forest boundaries, detailed cabins, loot crates, obstacles, NavMesh, and zombies.
     /// ASD-STE100: This module creates the cluster-based outdoor world and all map entities.
     /// </summary>
     public class WorldGenerator : MonoBehaviour
@@ -26,8 +26,10 @@ namespace DeadDepths.PCG
         [SerializeField] private Material barkMaterial;
         [SerializeField] private Material leafMaterial;
         [SerializeField] private Material wallMaterial;
+        [SerializeField] private Material cabinFloorMaterial;
         [SerializeField] private Material crateMaterial;
         [SerializeField] private Material helicopterMaterial;
+        [SerializeField] private Material helipadMaterial;
         [SerializeField] private Material blockerMaterial;
         [SerializeField] private Material unbreakableBlockerMaterial;
 
@@ -36,14 +38,24 @@ namespace DeadDepths.PCG
         public Material BarkMaterial => barkMaterial;
         public Material LeafMaterial => leafMaterial;
         public Material WallMaterial => wallMaterial;
+        public Material CabinFloorMaterial => cabinFloorMaterial;
         public Material CrateMaterial => crateMaterial;
         public Material HelicopterMaterial => helicopterMaterial;
+        public Material HelipadMaterial => helipadMaterial;
         public Material BlockerMaterial => blockerMaterial;
         public Material UnbreakableBlockerMaterial => unbreakableBlockerMaterial;
 
         [Header("Prefabs / Templates")]
         [SerializeField] private GameObject zombiePrefab;
         [SerializeField] private GameObject playerPrefab;
+        [SerializeField] private GameObject medkitItemPrefab;
+        [SerializeField] private GameObject bandageItemPrefab;
+        [SerializeField] private GameObject firstAidItemPrefab;
+
+        [Header("Bundled Shaders (Standalone Safety)")]
+        [SerializeField] private Shader bundledLitShader;
+        [SerializeField] private Shader bundledParticleUnlitShader;
+        [SerializeField] private Shader bundledUnlitShader;
         #endregion
 
         public static WorldGenerator Instance { get; private set; }
@@ -54,13 +66,13 @@ namespace DeadDepths.PCG
 
         private readonly List<ClusterInfo> clusters = new List<ClusterInfo>();
         private readonly List<CorridorEdge> corridors = new List<CorridorEdge>();
+        private readonly List<Material> transientMaterials = new List<Material>();
 
         public Vector3 PlayerSpawnPosition { get; private set; }
         public Vector3 ExtractionPosition { get; private set; }
         public int TotalZombiesSpawned { get; private set; }
         public Transform WorldRoot => worldRoot;
 
-        // PCG Metadata for Debug Mode & Automated Verification
         public int LastSeed { get; private set; }
         public int GridWidth => mapConfig.GridWidth;
         public int GridHeight => mapConfig.GridHeight;
@@ -76,6 +88,12 @@ namespace DeadDepths.PCG
         public int TotalCratesSpawned { get; private set; }
         public int TotalMudPatchesSpawned { get; private set; }
         public bool ConnectivityValid { get; private set; }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            Instance = null;
+        }
 
         public CellType GetCell(int x, int y)
         {
@@ -104,44 +122,76 @@ namespace DeadDepths.PCG
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
+            CleanupTransientMaterials();
+        }
+
+        private void CleanupTransientMaterials()
+        {
+            for (int i = 0; i < transientMaterials.Count; i++)
+            {
+                if (transientMaterials[i] != null)
+                {
+                    if (Application.isPlaying) Destroy(transientMaterials[i]);
+                    else DestroyImmediate(transientMaterials[i]);
+                }
+            }
+            transientMaterials.Clear();
+        }
+
+        private Material CreateTransientLitMaterial(Color c, float smoothness = 0.25f)
+        {
+            Shader litShader = bundledLitShader != null
+                ? bundledLitShader
+                : (Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Sprites/Default"));
+            if (litShader == null) return null;
+            Material m = new Material(litShader) { hideFlags = HideFlags.HideAndDontSave, color = c };
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+            if (m.HasProperty("_Smoothness")) m.SetFloat("_Smoothness", smoothness);
+            transientMaterials.Add(m);
+            return m;
         }
 
         private void InitializeDefaultMaterials()
         {
-            Shader litShader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-
             if (groundMaterial == null)
             {
-                groundMaterial = Resources.Load<Material>("Ground_Grass") ?? new Material(litShader) { color = new Color(0.24f, 0.35f, 0.22f) };
+                groundMaterial = Resources.Load<Material>("Ground_Grass") ?? CreateTransientLitMaterial(new Color(0.24f, 0.35f, 0.22f));
             }
             if (mudMaterial == null)
             {
-                mudMaterial = new Material(litShader) { color = new Color(0.22f, 0.16f, 0.10f) };
-                if (mudMaterial.HasProperty("_Smoothness")) mudMaterial.SetFloat("_Smoothness", 0.8f);
+                mudMaterial = CreateTransientLitMaterial(new Color(0.22f, 0.16f, 0.10f), 0.8f);
             }
             if (barkMaterial == null)
             {
-                barkMaterial = new Material(litShader) { color = new Color(0.26f, 0.18f, 0.12f) };
+                barkMaterial = CreateTransientLitMaterial(new Color(0.26f, 0.18f, 0.12f));
             }
             if (leafMaterial == null)
             {
-                leafMaterial = new Material(litShader) { color = new Color(0.12f, 0.28f, 0.15f) };
+                leafMaterial = CreateTransientLitMaterial(new Color(0.12f, 0.28f, 0.15f));
             }
             if (wallMaterial == null)
             {
-                wallMaterial = new Material(litShader) { color = new Color(0.35f, 0.35f, 0.38f) };
+                wallMaterial = CreateTransientLitMaterial(new Color(0.35f, 0.35f, 0.38f));
+            }
+            if (cabinFloorMaterial == null)
+            {
+                cabinFloorMaterial = crateMaterial != null ? crateMaterial : CreateTransientLitMaterial(new Color(0.30f, 0.22f, 0.14f));
             }
             if (crateMaterial == null)
             {
-                crateMaterial = new Material(litShader) { color = new Color(0.48f, 0.34f, 0.20f) };
+                crateMaterial = CreateTransientLitMaterial(new Color(0.48f, 0.34f, 0.20f));
             }
             if (helicopterMaterial == null)
             {
-                helicopterMaterial = new Material(litShader) { color = new Color(0.18f, 0.24f, 0.19f) };
+                helicopterMaterial = CreateTransientLitMaterial(new Color(0.18f, 0.24f, 0.19f));
+            }
+            if (helipadMaterial == null)
+            {
+                helipadMaterial = CreateTransientLitMaterial(new Color(0.28f, 0.30f, 0.33f), 0.2f);
             }
             if (blockerMaterial == null)
             {
-                blockerMaterial = new Material(litShader) { color = new Color(0.42f, 0.40f, 0.38f) };
+                blockerMaterial = CreateTransientLitMaterial(new Color(0.42f, 0.40f, 0.38f));
             }
             if (unbreakableBlockerMaterial == null)
             {
@@ -149,12 +199,10 @@ namespace DeadDepths.PCG
             }
         }
 
-        /// <summary>
-        /// Executes the full multi-stage cluster-based procedural generation pipeline.
-        /// </summary>
         public void GenerateWorld(int levelNumber, DifficultyController.LevelDifficultyProfile ddaProfile)
         {
             if (navBaker == null) navBaker = GetComponent<NavMeshRuntimeBaker>();
+            CleanupTransientMaterials();
             InitializeDefaultMaterials();
 
             if (ddaProfile == null)
@@ -162,7 +210,6 @@ namespace DeadDepths.PCG
                 ddaProfile = new DifficultyController.LevelDifficultyProfile();
             }
 
-            // Clean up previous world objects immediately from physics/NavMesh before baking new world
             if (worldRoot != null)
             {
                 worldRoot.gameObject.SetActive(false);
@@ -172,7 +219,6 @@ namespace DeadDepths.PCG
 
             worldRoot = new GameObject($"GeneratedWorld_Level_{levelNumber}").transform;
 
-            // Reset counters & AI debug state log
             ZombieController.ClearStateChangeLog();
             clusters.Clear();
             corridors.Clear();
@@ -188,7 +234,6 @@ namespace DeadDepths.PCG
             TotalZombiesSpawned = 0;
             ConnectivityValid = false;
 
-            // 1. Initialize Seed & Forest Grid (all TreeBoundary initially)
             LastSeed = mapConfig.UseRandomSeed
                 ? UnityEngine.Random.Range(1000, 999999)
                 : mapConfig.Seed + levelNumber * 101;
@@ -206,13 +251,9 @@ namespace DeadDepths.PCG
                 }
             }
 
-            // 2. Playable Ground Surface
             CreateTerrainGround(w, h);
-
-            // 3. Generate 4-6 Random Clusters & Carve Corridors between them
             GenerateClustersAndCorridors(w, h);
 
-            // 4. Assign Start Cluster & Farthest Evacuation Cluster
             AssignStartAndEvacuationClusters(out Vector2Int startCell, out Vector2Int extractionCell);
             ReserveArea(startCell, 3, CellType.PlayerStart);
             ReserveArea(extractionCell, 4, CellType.ExtractionZone);
@@ -220,24 +261,19 @@ namespace DeadDepths.PCG
             PlayerSpawnPosition = CellToWorld(startCell.x, startCell.y);
             ExtractionPosition = CellToWorld(extractionCell.x, extractionCell.y);
 
-            // 5. Muddy Patches inside Clusters (kept clear of Start & Extraction pads)
             CreateMudPatches(w, h, startCell, extractionCell);
 
-            // 6. Abandoned Structures & Supplies Crates inside Clusters
             List<Vector2Int> structureDoorways = new List<Vector2Int>();
             List<Vector2Int> crateCells = new List<Vector2Int>();
             CreateAbandonedStructures(w, h, structureDoorways, crateCells);
 
-            // Guarantee at least 3 crates even if tight clusters couldn't fit full cabins
             if (crateCells.Count < 3)
             {
                 PlaceFallbackCratesInClusters(crateCells, 3);
             }
 
-            // 7. Blocking Objects inside Cluster Interiors (keeping corridors passable)
             CreateBlockingObjects(w, h, ddaProfile.BlockingObjectsCount);
 
-            // 8. Validate World Connectivity BEFORE instantiating trees/crates
             List<Vector2Int> criticalPoints = new List<Vector2Int>(structureDoorways);
             criticalPoints.AddRange(crateCells);
             ConnectivityValid = WorldValidator.ValidateConnectivity(grid, w, h, startCell, extractionCell, criticalPoints);
@@ -248,26 +284,18 @@ namespace DeadDepths.PCG
                 ConnectivityValid = WorldValidator.ValidateConnectivity(grid, w, h, startCell, extractionCell, criticalPoints);
             }
 
-            // 9. Spawn Forest Tree Boundary framing all clusters & corridors
             CreateClusterTreeForest(w, h);
-
-            // 10. Spawn Supplies Crates
+            CreateEnvironmentScatter(w, h);
             SpawnSuppliesCrates(crateCells, ddaProfile);
-
-            // 11. Extraction Safe Zone & Helicopter in Evacuation Cluster
             CreateExtractionHelicopter(ExtractionPosition);
 
-            // 12. NavMesh Baking
             Physics.SyncTransforms();
             if (navBaker != null)
             {
                 navBaker.BuildNavMesh();
             }
 
-            // 13. Spawn / Reset Player
             SpawnPlayerActor(PlayerSpawnPosition);
-
-            // 14. Spawn Zombie Groups across non-start clusters
             SpawnZombies(w, h, startCell, extractionCell, ddaProfile);
 
             Debug.Log($"[WorldGenerator] Level {levelNumber} generated | Seed={LastSeed} | Clusters={clusters.Count} | Corridors={corridors.Count} | Trees={TotalTreesSpawned} | Walls={TotalWallsSpawned} | Blockers={TotalBlockersSpawned} | Crates={TotalCratesSpawned} | Zombies={TotalZombiesSpawned} | Connected={ConnectivityValid}");
@@ -284,7 +312,6 @@ namespace DeadDepths.PCG
             int maxR = Mathf.Max(minR, mapConfig.ClusterMaxRadius);
             int margin = thickness + maxR + 1;
 
-            // Place distinct clusters via rejection sampling
             for (int i = 0; i < targetCount; i++)
             {
                 int rx = UnityEngine.Random.Range(minR, maxR + 1);
@@ -321,7 +348,6 @@ namespace DeadDepths.PCG
 
                 if (!found)
                 {
-                    // Deterministic spread fallback so we always get at least 4 clusters
                     float angle = (i / (float)targetCount) * Mathf.PI * 2f + UnityEngine.Random.Range(-0.25f, 0.25f);
                     float spreadX = (w * 0.5f - margin) * 0.75f;
                     float spreadY = (h * 0.5f - margin) * 0.75f;
@@ -343,7 +369,6 @@ namespace DeadDepths.PCG
                 CarveOrganicCluster(cluster, w, h, thickness);
             }
 
-            // Connect all clusters via Prim's Minimum Spanning Tree
             if (clusters.Count > 1)
             {
                 bool[] inTree = new bool[clusters.Count];
@@ -385,7 +410,6 @@ namespace DeadDepths.PCG
                     }
                 }
 
-                // Add optional loop corridor(s) for alternate routes
                 for (int e = 0; e < mapConfig.ExtraLoopCorridors && clusters.Count >= 4; e++)
                 {
                     int a = UnityEngine.Random.Range(0, clusters.Count);
@@ -442,7 +466,6 @@ namespace DeadDepths.PCG
             int w = mapConfig.GridWidth;
             int h = mapConfig.GridHeight;
 
-            // L-shaped or diagonal corridor with slight organic dogleg
             bool horizontalFirst = UnityEngine.Random.value < 0.5f;
             Vector2Int elbow = horizontalFirst ? new Vector2Int(to.x, from.y) : new Vector2Int(from.x, to.y);
 
@@ -506,7 +529,6 @@ namespace DeadDepths.PCG
                 return;
             }
 
-            // Pick a random Start cluster, then find the farthest cluster as Evacuation Zone
             int bestStart = UnityEngine.Random.Range(0, clusters.Count);
             int bestEvac = 0;
             float maxDist = -1f;
@@ -569,9 +591,7 @@ namespace DeadDepths.PCG
             boundaryGroup.transform.SetParent(worldRoot, false);
 
             Mesh treeMesh = ProceduralGeometry.CreateTreeMesh();
-            int thickness = mapConfig.BoundaryTreeThickness;
 
-            // Precompute whether a TreeBoundary cell borders walkable space (within radius 3) or is outer map rim
             for (int x = 0; x < w; x++)
             {
                 for (int y = 0; y < h; y++)
@@ -598,7 +618,6 @@ namespace DeadDepths.PCG
                         }
                     }
 
-                    // Fill deep forest sparsely for overhead camera aesthetics while keeping a solid 3-cell wall around every cluster
                     bool sparseDeepTree = !isOuterRim && !nearWalkable && ((x + y) % 3 == 0 && (x * 7 + y * 13) % 5 == 0);
                     if (!isOuterRim && !nearWalkable && !sparseDeepTree) continue;
 
@@ -619,11 +638,59 @@ namespace DeadDepths.PCG
                     mr.sharedMaterials = new Material[] { barkMaterial, leafMaterial };
 
                     var col = tree.AddComponent<CapsuleCollider>();
-                    col.radius = 0.65f;
+                    col.radius = 0.45f;
                     col.height = 5.0f;
                     col.center = new Vector3(0f, 2.5f, 0f);
 
                     TotalTreesSpawned++;
+                }
+            }
+        }
+
+        private void CreateEnvironmentScatter(int w, int h)
+        {
+            GameObject scatterGroup = new GameObject("EnvScatter");
+            scatterGroup.transform.SetParent(worldRoot, false);
+
+            Material stoneMat = CreateTransientLitMaterial(new Color(0.28f, 0.29f, 0.31f), 0.15f);
+            Material tuftMat = CreateTransientLitMaterial(new Color(0.14f, 0.24f, 0.13f), 0.08f);
+
+            for (int x = mapConfig.BoundaryTreeThickness; x < w - mapConfig.BoundaryTreeThickness; x++)
+            {
+                for (int y = mapConfig.BoundaryTreeThickness; y < h - mapConfig.BoundaryTreeThickness; y++)
+                {
+                    if (grid[x, y] != CellType.WalkableGround) continue;
+                    if (UnityEngine.Random.value > 0.08f) continue;
+
+                    Vector3 basePos = CellToWorld(x, y) + new Vector3(UnityEngine.Random.Range(-0.75f, 0.75f), 0f, UnityEngine.Random.Range(-0.75f, 0.75f));
+                    bool isRock = UnityEngine.Random.value < 0.35f;
+
+                    GameObject prop;
+                    if (isRock)
+                    {
+                        prop = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                        prop.name = "EnvRock";
+                        prop.transform.localScale = new Vector3(UnityEngine.Random.Range(0.22f, 0.45f), UnityEngine.Random.Range(0.12f, 0.24f), UnityEngine.Random.Range(0.22f, 0.42f));
+                        prop.transform.position = basePos + Vector3.up * 0.06f;
+                        prop.GetComponent<Renderer>().sharedMaterial = stoneMat;
+                    }
+                    else
+                    {
+                        prop = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                        prop.name = "EnvGrassTuft";
+                        prop.transform.localScale = new Vector3(0.14f, UnityEngine.Random.Range(0.18f, 0.35f), 0.14f);
+                        prop.transform.position = basePos + Vector3.up * 0.12f;
+                        prop.transform.rotation = Quaternion.Euler(UnityEngine.Random.Range(-12f, 12f), UnityEngine.Random.Range(0f, 360f), UnityEngine.Random.Range(-12f, 12f));
+                        prop.GetComponent<Renderer>().sharedMaterial = tuftMat;
+                    }
+
+                    prop.transform.SetParent(scatterGroup.transform, true);
+                    var col = prop.GetComponent<Collider>();
+                    if (col != null)
+                    {
+                        if (Application.isPlaying) Destroy(col);
+                        else DestroyImmediate(col);
+                    }
                 }
             }
         }
@@ -701,7 +768,8 @@ namespace DeadDepths.PCG
             GameObject structGroup = new GameObject("AbandonedStructures");
             structGroup.transform.SetParent(worldRoot, false);
 
-            // Prefer placing structures inside Normal clusters first, then any non-Start/non-Evac space
+            Material trimMat = CreateTransientLitMaterial(new Color(0.20f, 0.16f, 0.12f), 0.15f);
+
             List<ClusterInfo> candidateClusters = new List<ClusterInfo>();
             foreach (var c in clusters)
             {
@@ -725,8 +793,6 @@ namespace DeadDepths.PCG
                     continue;
                 }
 
-                // Ensure entire structure sits on walkable cluster ground with 1-cell clearance ring
-                // so a cabin never blocks a cluster corridor!
                 bool validSpot = true;
                 for (int x = sx - 1; x <= sx + sw + 1 && validSpot; x++)
                 {
@@ -747,19 +813,44 @@ namespace DeadDepths.PCG
                 }
                 if (!validSpot) continue;
 
-                // Choose doorway side facing toward cluster center
                 Vector2 structCenter = new Vector2(sx + sw * 0.5f, sy + sh * 0.5f);
                 Vector2 toClusterCenter = (Vector2)cluster.Center - structCenter;
                 int doorSide;
                 if (Mathf.Abs(toClusterCenter.y) >= Mathf.Abs(toClusterCenter.x))
-                    doorSide = toClusterCenter.y >= 0 ? 1 : 0; // 1=North, 0=South
+                    doorSide = toClusterCenter.y >= 0 ? 1 : 0;
                 else
-                    doorSide = toClusterCenter.x >= 0 ? 3 : 2; // 3=East, 2=West
+                    doorSide = toClusterCenter.x >= 0 ? 3 : 2;
 
                 int doorPos = (doorSide == 0 || doorSide == 1) ? sx + (sw / 2) : sy + (sh / 2);
 
                 GameObject cabin = new GameObject($"Structure_{TotalStructuresSpawned}");
                 cabin.transform.SetParent(structGroup.transform, false);
+
+                // Wood floor plank pad inside cabin
+                Vector3 floorCenter = CellToWorld(sx, sy) + new Vector3(sw * mapConfig.CellSize * 0.5f, 0.02f, sh * mapConfig.CellSize * 0.5f);
+                GameObject floorObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                floorObj.name = "CabinWoodFloor";
+                floorObj.transform.SetParent(cabin.transform, false);
+                floorObj.transform.position = floorCenter;
+                floorObj.transform.localScale = new Vector3((sw + 0.5f) * mapConfig.CellSize, 0.04f, (sh + 0.5f) * mapConfig.CellSize);
+                floorObj.GetComponent<Renderer>().sharedMaterial = cabinFloorMaterial;
+                var floorCol = floorObj.GetComponent<Collider>();
+                if (floorCol != null)
+                {
+                    if (Application.isPlaying) Destroy(floorCol);
+                    else DestroyImmediate(floorCol);
+                }
+
+                // Warm lantern light inside cabin so abandoned structures invite exploration in the night
+                GameObject lanternGo = new GameObject("CabinLantern");
+                lanternGo.transform.SetParent(cabin.transform, false);
+                lanternGo.transform.position = floorCenter + Vector3.up * 2.4f;
+                var lantern = lanternGo.AddComponent<Light>();
+                lantern.type = LightType.Point;
+                lantern.color = new Color(1.0f, 0.72f, 0.36f);
+                lantern.intensity = 3.2f;
+                lantern.range = 8.5f;
+                lantern.shadows = LightShadows.None;
 
                 for (int x = sx; x <= sx + sw; x++)
                 {
@@ -781,7 +872,7 @@ namespace DeadDepths.PCG
                             else
                             {
                                 grid[x, y] = CellType.StructureWall;
-                                BuildWallBlock(cabin.transform, CellToWorld(x, y));
+                                BuildWallBlock(cabin.transform, CellToWorld(x, y), trimMat);
                                 TotalWallsSpawned++;
                             }
                         }
@@ -792,7 +883,6 @@ namespace DeadDepths.PCG
                     }
                 }
 
-                // Place crates inside this structure
                 int placed = 0;
                 for (int cx = sx + 1; cx < sx + sw && placed < mapConfig.CratesPerStructure; cx++)
                 {
@@ -840,7 +930,7 @@ namespace DeadDepths.PCG
             }
         }
 
-        private void BuildWallBlock(Transform parent, Vector3 pos)
+        private void BuildWallBlock(Transform parent, Vector3 pos, Material trimMat)
         {
             GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
             wall.name = "StructureWall";
@@ -851,6 +941,20 @@ namespace DeadDepths.PCG
             var mr = wall.GetComponent<Renderer>();
             mr.sharedMaterial = wallMaterial;
             wall.layer = LayerMask.NameToLayer("Default");
+
+            // Roofline trim cap added as child object so parent Renderer material contract stays intact
+            GameObject cap = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            cap.name = "WallTrimCap";
+            cap.transform.SetParent(wall.transform, false);
+            cap.transform.localPosition = new Vector3(0f, 0.51f, 0f);
+            cap.transform.localScale = new Vector3(1.06f, 0.06f, 1.06f);
+            cap.GetComponent<Renderer>().sharedMaterial = trimMat;
+            var capCol = cap.GetComponent<Collider>();
+            if (capCol != null)
+            {
+                if (Application.isPlaying) Destroy(capCol);
+                else DestroyImmediate(capCol);
+            }
         }
 
         private void CreateBlockingObjects(int w, int h, int count)
@@ -858,7 +962,10 @@ namespace DeadDepths.PCG
             GameObject blockerGroup = new GameObject("BlockingObjects");
             blockerGroup.transform.SetParent(worldRoot, false);
 
-            int maxAttempts = count * 10;
+            Material plankMat = CreateTransientLitMaterial(new Color(0.45f, 0.30f, 0.16f), 0.15f);
+            Material capMat = CreateTransientLitMaterial(new Color(0.24f, 0.26f, 0.28f), 0.35f);
+
+            int maxAttempts = count * 25;
             for (int attempt = 0; attempt < maxAttempts && TotalBlockersSpawned < count; attempt++)
             {
                 if (clusters.Count == 0) break;
@@ -874,7 +981,6 @@ namespace DeadDepths.PCG
                 if (grid[bx, by] != CellType.WalkableGround && grid[bx, by] != CellType.MudPatch)
                     continue;
 
-                // Ensure blocker has open space around it so corridors/doorways are never clogged
                 if (!HasOpenWalkableNeighbors(bx, by, w, h)) continue;
 
                 grid[bx, by] = CellType.BlockingObject;
@@ -891,11 +997,18 @@ namespace DeadDepths.PCG
                     blocker.transform.position = worldPos + new Vector3(0f, 0.75f, 0f);
                     blocker.transform.localScale = new Vector3(1.5f, 1.5f, 1.5f);
                     BreakableBlockersSpawned++;
+
+                    // Cross-plank child details (no collider, parent Renderer remains blockerMaterial)
+                    CreateDetailChildCube(blocker.transform, "BarricadePlank_1", new Vector3(0f, 0.15f, 0.52f), new Vector3(1.1f, 0.14f, 0.08f), new Vector3(0f, 0f, 14f), plankMat);
+                    CreateDetailChildCube(blocker.transform, "BarricadePlank_2", new Vector3(0f, -0.15f, -0.52f), new Vector3(1.1f, 0.14f, 0.08f), new Vector3(0f, 0f, -12f), plankMat);
                 }
                 else
                 {
                     blocker.transform.position = worldPos + new Vector3(0f, 1.5f, 0f);
                     blocker.transform.localScale = new Vector3(1.4f, 3.0f, 1.4f);
+
+                    CreateDetailChildCube(blocker.transform, "PillarTopCap", new Vector3(0f, 0.52f, 0f), new Vector3(1.14f, 0.08f, 1.14f), Vector3.zero, capMat);
+                    CreateDetailChildCube(blocker.transform, "PillarBaseTrim", new Vector3(0f, -0.47f, 0f), new Vector3(1.12f, 0.08f, 1.12f), Vector3.zero, capMat);
                 }
 
                 var mr = blocker.GetComponent<Renderer>();
@@ -909,9 +1022,25 @@ namespace DeadDepths.PCG
             }
         }
 
+        private static void CreateDetailChildCube(Transform parent, string name, Vector3 localPos, Vector3 localScale, Vector3 localEuler, Material mat)
+        {
+            GameObject child = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            child.name = name;
+            child.transform.SetParent(parent, false);
+            child.transform.localPosition = localPos;
+            child.transform.localScale = localScale;
+            child.transform.localEulerAngles = localEuler;
+            child.GetComponent<Renderer>().sharedMaterial = mat;
+            var col = child.GetComponent<Collider>();
+            if (col != null)
+            {
+                if (Application.isPlaying) Destroy(col);
+                else DestroyImmediate(col);
+            }
+        }
+
         private bool HasOpenWalkableNeighbors(int x, int y, int w, int h)
         {
-            int walkableNeighbors = 0;
             for (int ox = -1; ox <= 1; ox++)
             {
                 for (int oy = -1; oy <= 1; oy++)
@@ -921,13 +1050,11 @@ namespace DeadDepths.PCG
                     int ny = y + oy;
                     if (nx < 0 || nx >= w || ny < 0 || ny >= h) return false;
                     CellType t = grid[nx, ny];
-                    if (t == CellType.StructureDoorway || t == CellType.PlayerStart || t == CellType.ExtractionZone)
+                    if (t != CellType.WalkableGround && t != CellType.MudPatch)
                         return false;
-                    if (t == CellType.WalkableGround || t == CellType.MudPatch)
-                        walkableNeighbors++;
                 }
             }
-            return walkableNeighbors >= 6;
+            return true;
         }
 
         private void SpawnSuppliesCrates(List<Vector2Int> crateCells, DifficultyController.LevelDifficultyProfile ddaProfile)
@@ -936,6 +1063,7 @@ namespace DeadDepths.PCG
             crateGroup.transform.SetParent(worldRoot, false);
 
             Mesh crateMesh = ProceduralGeometry.CreateCrateMesh();
+            Mesh lidMesh = ProceduralGeometry.CreateCrateLidMesh();
             int healingSuppliesRemaining = ddaProfile.HealingSuppliesCount;
 
             foreach (var cell in crateCells)
@@ -951,11 +1079,21 @@ namespace DeadDepths.PCG
                 var mr = crateObj.AddComponent<MeshRenderer>();
                 mr.sharedMaterial = crateMaterial;
 
+                // Hinged Lid child object
+                GameObject lidObj = new GameObject("Lid");
+                lidObj.transform.SetParent(crateObj.transform, false);
+                lidObj.transform.localPosition = new Vector3(0f, 1.0f, -0.60f);
+                var lidMf = lidObj.AddComponent<MeshFilter>();
+                lidMf.sharedMesh = lidMesh;
+                var lidMr = lidObj.AddComponent<MeshRenderer>();
+                lidMr.sharedMaterial = crateMaterial;
+
                 var col = crateObj.AddComponent<BoxCollider>();
                 col.size = new Vector3(1.2f, 1.0f, 1.2f);
                 col.center = new Vector3(0f, 0.5f, 0f);
 
                 var crateComp = crateObj.AddComponent<SuppliesCrate>();
+                crateComp.SetLootPreviewPrefabs(medkitItemPrefab, bandageItemPrefab, firstAidItemPrefab);
 
                 List<CrateLootItem> loot = new List<CrateLootItem>();
 
@@ -1033,7 +1171,26 @@ namespace DeadDepths.PCG
             col.size = new Vector3(3.5f, 3f, 7f);
             col.center = new Vector3(0f, 1.5f, 0f);
 
-            // Split MainRotor child so ExtractionHelicopter spins blades independently at 720 deg/s
+            // Concrete Helipad base + painted 'H' child marker
+            GameObject pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pad.name = "HelipadConcrete";
+            pad.transform.SetParent(heliObj.transform, false);
+            pad.transform.localPosition = new Vector3(0f, 0.02f, 0f);
+            pad.transform.localScale = new Vector3(13.5f, 0.04f, 13.5f);
+            pad.GetComponent<Renderer>().sharedMaterial = helipadMaterial;
+            var padCol = pad.GetComponent<Collider>();
+            if (padCol != null)
+            {
+                if (Application.isPlaying) Destroy(padCol);
+                else DestroyImmediate(padCol);
+            }
+
+            Material stripeMat = CreateTransientLitMaterial(new Color(0.95f, 0.78f, 0.18f), 0.2f);
+            CreateDetailChildCube(heliObj.transform, "HelipadMark_L", new Vector3(-2.4f, 0.055f, 0f), new Vector3(0.45f, 0.02f, 5.2f), Vector3.zero, stripeMat);
+            CreateDetailChildCube(heliObj.transform, "HelipadMark_R", new Vector3(2.4f, 0.055f, 0f), new Vector3(0.45f, 0.02f, 5.2f), Vector3.zero, stripeMat);
+            CreateDetailChildCube(heliObj.transform, "HelipadMark_C", new Vector3(0f, 0.055f, 0f), new Vector3(4.8f, 0.02f, 0.55f), Vector3.zero, stripeMat);
+
+            // MainRotor child
             GameObject rotorObj = new GameObject("MainRotor");
             rotorObj.transform.SetParent(heliObj.transform, false);
             rotorObj.transform.localPosition = new Vector3(0f, 2.95f, 0f);
@@ -1042,7 +1199,16 @@ namespace DeadDepths.PCG
             var rotorMr = rotorObj.AddComponent<MeshRenderer>();
             rotorMr.sharedMaterial = helicopterMaterial;
 
-            // Add rescue green smoke flare with URP ParticleSystem plume
+            // TailRotor child
+            GameObject tailRotorObj = new GameObject("TailRotor");
+            tailRotorObj.transform.SetParent(heliObj.transform, false);
+            tailRotorObj.transform.localPosition = new Vector3(0.22f, 2.35f, -5.4f);
+            var tailMf = tailRotorObj.AddComponent<MeshFilter>();
+            tailMf.sharedMesh = ProceduralGeometry.CreateTailRotorMesh();
+            var tailMr = tailRotorObj.AddComponent<MeshRenderer>();
+            tailMr.sharedMaterial = helicopterMaterial;
+
+            // Rescue green smoke flare with URP ParticleSystem plume
             GameObject flare = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             flare.name = "GreenSmokeCanister";
             flare.transform.SetParent(heliObj.transform, false);
@@ -1056,10 +1222,8 @@ namespace DeadDepths.PCG
             }
             var flareRend = flare.GetComponent<Renderer>();
             Color smokeColor = new Color(0.12f, 1.0f, 0.40f, 0.85f);
-            flareRend.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
-            {
-                color = new Color(0.1f, 0.85f, 0.3f)
-            };
+            Material flareMat = CreateTransientLitMaterial(new Color(0.1f, 0.85f, 0.3f), 0.3f);
+            flareRend.sharedMaterial = flareMat;
 
             var ps = flare.AddComponent<ParticleSystem>();
             var main = ps.main;
@@ -1125,27 +1289,44 @@ namespace DeadDepths.PCG
             if (psRend != null)
             {
                 psRend.renderMode = ParticleSystemRenderMode.Billboard;
-                Material smokeMat = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit"));
-                smokeMat.color = smokeColor;
-                if (smokeMat.HasProperty("_BaseColor")) smokeMat.SetColor("_BaseColor", smokeColor);
-                if (smokeMat.HasProperty("_Surface")) smokeMat.SetFloat("_Surface", 1f);
-                if (smokeMat.HasProperty("_Blend")) smokeMat.SetFloat("_Blend", 0f);
-                if (smokeMat.HasProperty("_SrcBlend")) smokeMat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                if (smokeMat.HasProperty("_DstBlend")) smokeMat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                if (smokeMat.HasProperty("_ZWrite")) smokeMat.SetFloat("_ZWrite", 0f);
-                smokeMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                smokeMat.SetOverrideTag("RenderType", "Transparent");
-                smokeMat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
-                smokeMat.mainTexture = GetOrCreateSmokeTexture();
-                psRend.sharedMaterial = smokeMat;
+                Shader smokeShader = bundledParticleUnlitShader != null
+                    ? bundledParticleUnlitShader
+                    : (Shader.Find("Universal Render Pipeline/Particles/Unlit") ??
+                       Shader.Find("Particles/Standard Unlit") ??
+                       bundledUnlitShader ??
+                       Shader.Find("Universal Render Pipeline/Unlit") ??
+                       Shader.Find("Sprites/Default") ??
+                       bundledLitShader ??
+                       Shader.Find("Universal Render Pipeline/Lit"));
+                if (smokeShader != null)
+                {
+                    Material smokeMat = new Material(smokeShader)
+                    {
+                        hideFlags = HideFlags.HideAndDontSave
+                    };
+                    smokeMat.color = smokeColor;
+                    if (smokeMat.HasProperty("_BaseColor")) smokeMat.SetColor("_BaseColor", smokeColor);
+                    if (smokeMat.HasProperty("_Surface")) smokeMat.SetFloat("_Surface", 1f);
+                    if (smokeMat.HasProperty("_Blend")) smokeMat.SetFloat("_Blend", 0f);
+                    if (smokeMat.HasProperty("_SrcBlend")) smokeMat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                    if (smokeMat.HasProperty("_DstBlend")) smokeMat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                    if (smokeMat.HasProperty("_ZWrite")) smokeMat.SetFloat("_ZWrite", 0f);
+                    smokeMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    smokeMat.SetOverrideTag("RenderType", "Transparent");
+                    smokeMat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                    smokeMat.mainTexture = GetOrCreateSmokeTexture();
+                    transientMaterials.Add(smokeMat);
+                    psRend.sharedMaterial = smokeMat;
+                }
             }
 
             var light = flare.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = new Color(0.2f, 1f, 0.4f);
-            light.intensity = 2.5f;
-            light.range = 8.0f;
+            light.intensity = 2.8f;
+            light.range = 9.0f;
 
+            heliObj.AddComponent<SafeZoneController>();
             heliObj.AddComponent<ExtractionHelicopter>();
         }
 
@@ -1194,6 +1375,7 @@ namespace DeadDepths.PCG
                 cc.radius = 0.4f;
 
                 spawned.AddComponent<DeadDepthsPlayerController>();
+                spawned.AddComponent<DeadDepthsFlashlight>();
 
                 var playerModelPrefab = Resources.Load<GameObject>("PlayerChar") ?? FindModelAsset("PlayerChar");
                 if (playerModelPrefab != null)
@@ -1202,7 +1384,11 @@ namespace DeadDepths.PCG
                     visual.transform.localPosition = Vector3.zero;
                     visual.transform.localRotation = Quaternion.identity;
                     var visualAnim = visual.GetComponentInChildren<Animator>();
-                    if (visualAnim != null) visualAnim.applyRootMotion = false;
+                    if (visualAnim != null)
+                    {
+                        visualAnim.applyRootMotion = false;
+                        if (visualAnim.GetComponent<PlayerAimIK>() == null) visualAnim.gameObject.AddComponent<PlayerAimIK>();
+                    }
                 }
                 else
                 {
@@ -1246,21 +1432,13 @@ namespace DeadDepths.PCG
                 chargers = Mathf.Max(1, ddaProfile.TotalZombies - walkers - spitters);
             }
 
-            // Collect valid walkable cells outside the PlayerStart safety radius
-            List<Vector2Int> validCells = new List<Vector2Int>();
-            for (int x = mapConfig.BoundaryTreeThickness; x < w - mapConfig.BoundaryTreeThickness; x++)
+            int totalDesired = walkers + spitters + chargers;
+            List<Vector2Int> validCells = CollectValidZombieCells(w, h, startCell, extractionCell, 11f);
+            if (validCells.Count < totalDesired)
             {
-                for (int y = mapConfig.BoundaryTreeThickness; y < h - mapConfig.BoundaryTreeThickness; y++)
-                {
-                    CellType c = grid[x, y];
-                    if (c != CellType.WalkableGround && c != CellType.MudPatch) continue;
-                    if (Vector2Int.Distance(new Vector2Int(x, y), startCell) < 8f) continue;
-                    if (Vector2Int.Distance(new Vector2Int(x, y), extractionCell) < 3f) continue;
-                    validCells.Add(new Vector2Int(x, y));
-                }
+                validCells = CollectValidZombieCells(w, h, startCell, extractionCell, 8f);
             }
 
-            // Fisher-Yates shuffle
             for (int i = validCells.Count - 1; i > 0; i--)
             {
                 int j = UnityEngine.Random.Range(0, i + 1);
@@ -1281,6 +1459,23 @@ namespace DeadDepths.PCG
                 float maxHp = player != null ? player.MaxHealth : 100f;
                 PlayerPerformanceTracker.Instance.StartNewLevel(hp, maxHp, TotalZombiesSpawned);
             }
+        }
+
+        private List<Vector2Int> CollectValidZombieCells(int w, int h, Vector2Int startCell, Vector2Int extractionCell, float minStartDist)
+        {
+            List<Vector2Int> validCells = new List<Vector2Int>();
+            for (int x = mapConfig.BoundaryTreeThickness; x < w - mapConfig.BoundaryTreeThickness; x++)
+            {
+                for (int y = mapConfig.BoundaryTreeThickness; y < h - mapConfig.BoundaryTreeThickness; y++)
+                {
+                    CellType c = grid[x, y];
+                    if (c != CellType.WalkableGround && c != CellType.MudPatch) continue;
+                    if (Vector2Int.Distance(new Vector2Int(x, y), startCell) < minStartDist) continue;
+                    if (Vector2Int.Distance(new Vector2Int(x, y), extractionCell) < 3f) continue;
+                    validCells.Add(new Vector2Int(x, y));
+                }
+            }
+            return validCells;
         }
 
         private int SpawnArchetypeGroup(Transform parent, ZombieArchetype arch, int count, List<Vector2Int> validCells, int cellCursor)
@@ -1329,7 +1524,6 @@ namespace DeadDepths.PCG
                 var ctrl = zObj.GetComponent<ZombieController>();
                 if (ctrl == null) ctrl = zObj.AddComponent<ZombieController>();
 
-                // Explicitly initialize archetype stats, scale, and visual tint AFTER instantiation
                 ctrl.InitializeArchetype(arch);
                 TotalZombiesSpawned++;
             }

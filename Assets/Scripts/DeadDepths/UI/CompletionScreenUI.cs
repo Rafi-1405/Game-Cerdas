@@ -1,12 +1,17 @@
 using System;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
+using DeadDepths.Audio;
 using DeadDepths.Core;
+using UTS.Audio;
 
 namespace DeadDepths.UI
 {
     /// <summary>
     /// Displays the Evacuation Scoreboard upon reaching the extraction zone with Continue Run (keeps score).
-    /// ASD-STE100: This module displays the completion scoreboard when the player extracts.
+    /// Renders via publish-grade uGUI + Rank Seal (S/A/B/C) + 5-Metric DDA Breakdown when DeadDepthsUIRoot is active,
+    /// while preserving all [NonSerialized] IMGUI Texture2D/GUIStyle reflection contracts for Automated Tests #14 & #20.
     /// </summary>
     public class CompletionScreenUI : MonoBehaviour
     {
@@ -56,6 +61,11 @@ namespace DeadDepths.UI
         [NonSerialized] private GUIStyle buttonStyle;
         [NonSerialized] private GUIStyle secButtonStyle;
 
+        // uGUI Canvas View References
+        [NonSerialized] private GameObject canvasPanelRoot;
+        [NonSerialized] private TMP_Text uguiTitle, uguiSubtitle, uguiRankLetter, uguiTotalScore, uguiNewHighBadge, uguiMetricsTable, uguiDdaNext;
+        [NonSerialized] private Image uguiRankSealBg;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
@@ -70,6 +80,12 @@ namespace DeadDepths.UI
             continueClicked = false;
             ResetStyles();
             InitializeTextures();
+        }
+
+        private void Start()
+        {
+            EnsureCanvasPanelBuilt();
+            if (canvasPanelRoot != null) canvasPanelRoot.SetActive(isVisible);
         }
 
         private void OnEnable()
@@ -148,6 +164,140 @@ namespace DeadDepths.UI
             secButtonStyle = null;
         }
 
+        private void EnsureCanvasPanelBuilt()
+        {
+            if (canvasPanelRoot != null) return;
+            var uiRoot = DeadDepthsUIRoot.Instance;
+            if (uiRoot == null || uiRoot.CompletionLayer == null) return;
+
+            var scrim = uiRoot.CreatePanel(uiRoot.CompletionLayer, "CompletionScrim",
+                Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero,
+                null, new Color(0.02f, 0.03f, 0.05f, 0.84f), true);
+            canvasPanelRoot = scrim.gameObject;
+
+            var card = uiRoot.CreatePanel(scrim, "CompletionCard",
+                new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 560f),
+                DeadDepthsUIArtFactory.ChamferedCardSprite, Color.white, true);
+
+            uguiTitle = uiRoot.CreateText(card, "Title", "SECTOR 1 EXTRACTION COMPLETE", 30f, FontStyles.Bold,
+                new Color(0.36f, 0.94f, 0.58f), TextAlignmentOptions.Left,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(34f, -26f), new Vector2(-180f, 38f));
+
+            uguiSubtitle = uiRoot.CreateText(card, "Subtitle", "HELICOPTER EVACUATION CONFIRMED", 15f, FontStyles.Bold,
+                new Color(0.68f, 0.76f, 0.84f), TextAlignmentOptions.Left,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 1f), new Vector2(34f, -66f), new Vector2(-180f, 24f));
+
+            // Rank Seal (S / A / B / C)
+            uguiRankSealBg = uiRoot.CreateImage(card, "RankSeal",
+                new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-34f, -24f), new Vector2(94f, 94f),
+                DeadDepthsUIArtFactory.RankSealSprite, new Color(0.95f, 0.80f, 0.24f, 1f), false);
+
+            uguiRankLetter = uiRoot.CreateText(uguiRankSealBg.rectTransform, "RankLetter", "S", 46f, FontStyles.Bold,
+                Color.white, TextAlignmentOptions.Center,
+                Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
+
+            // Total Score + New High Score Badge
+            var scoreBand = uiRoot.CreatePanel(card, "ScoreBand",
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -112f), new Vector2(-68f, 64f),
+                DeadDepthsUIArtFactory.BarTrackSprite, new Color(0.10f, 0.14f, 0.18f, 0.96f), false);
+
+            uguiTotalScore = uiRoot.CreateText(scoreBand, "TotalScore", "TOTAL RUN SCORE: 0", 24f, FontStyles.Bold,
+                new Color(0.96f, 0.98f, 1f), TextAlignmentOptions.Left,
+                new Vector2(0f, 0f), new Vector2(0.7f, 1f), new Vector2(0f, 0.5f), new Vector2(20f, 0f), new Vector2(-20f, 0f));
+
+            uguiNewHighBadge = uiRoot.CreateText(scoreBand, "NewHigh", "NEW HIGH SCORE!", 16f, FontStyles.Bold,
+                new Color(1f, 0.85f, 0.25f), TextAlignmentOptions.Right,
+                new Vector2(0.6f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(-20f, 0f), new Vector2(-20f, 0f));
+
+            // 5-Metric DDA Breakdown Table
+            uguiMetricsTable = uiRoot.CreateText(card, "MetricsTable", "", 17f, FontStyles.Normal,
+                new Color(0.86f, 0.90f, 0.95f), TextAlignmentOptions.TopLeft,
+                new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -194f), new Vector2(-68f, 220f));
+
+            uguiDdaNext = uiRoot.CreateText(card, "DdaNext", "", 16f, FontStyles.Bold,
+                new Color(0.45f, 0.85f, 0.98f), TextAlignmentOptions.Left,
+                new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 96f), new Vector2(-68f, 28f));
+
+            // Action Buttons
+            uiRoot.CreateButton(card, "ContinueRunBtn", "CONTINUE RUN (NEXT SECTOR)", 18f,
+                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(-148f, 28f), new Vector2(330f, 50f),
+                new Color(0.16f, 0.52f, 0.30f, 1f), new Color(0.24f, 0.70f, 0.42f, 1f), () =>
+                {
+                    if (!continueClicked)
+                    {
+                        continueClicked = true;
+                        AudioManager.Instance?.PlayCue(SfxCue.UI);
+                        OnContinueSelected();
+                    }
+                });
+
+            uiRoot.CreateButton(card, "MainMenuBtn", "MAIN MENU", 18f,
+                new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(184f, 28f), new Vector2(220f, 50f),
+                new Color(0.18f, 0.22f, 0.28f, 1f), new Color(0.28f, 0.34f, 0.44f, 1f), () =>
+                {
+                    if (!continueClicked)
+                    {
+                        continueClicked = true;
+                        AudioManager.Instance?.PlayCue(SfxCue.UI);
+                        Hide();
+                        GameManager.Instance?.EnterMainMenu();
+                    }
+                });
+
+            canvasPanelRoot.SetActive(false);
+        }
+
+        private void RefreshCanvasContent()
+        {
+            EnsureCanvasPanelBuilt();
+            if (canvasPanelRoot == null) return;
+
+            var gm = GameManager.Instance;
+            int totalScore = gm != null ? gm.TotalScore : 0;
+            int levelScore = gm != null ? gm.LevelScore : 0;
+            int levelBonus = gm != null ? gm.LastLevelBonus : 0;
+            int totalKills = gm != null ? gm.TotalZombiesKilled : 0;
+            int levelKills = gm != null ? gm.LevelZombiesKilled : 0;
+            int totalCrates = gm != null ? gm.TotalCratesOpened : 0;
+            int levelCrates = gm != null ? gm.LevelCratesOpened : 0;
+            float clearTime = gm != null ? gm.LastLevelClearTime : 0f;
+            float perf = gm != null ? gm.LastEvaluatedPerfScore : 0.5f;
+            string nextTier = gm != null ? gm.LastEvaluatedTier.ToString() : "Balanced";
+
+            string rank = perf >= 0.80f ? "S" : (perf >= 0.62f ? "A" : (perf >= 0.42f ? "B" : "C"));
+            Color rankCol = rank == "S" ? new Color(1f, 0.82f, 0.22f)
+                          : (rank == "A" ? new Color(0.32f, 0.92f, 0.54f)
+                          : (rank == "B" ? new Color(0.36f, 0.76f, 0.98f) : new Color(0.75f, 0.78f, 0.82f)));
+
+            if (uguiTitle != null) uguiTitle.text = $"SECTOR {currentLevelNumber} EXTRACTION COMPLETE";
+            if (uguiSubtitle != null) uguiSubtitle.text = $"SECTORS CLEARED: {(gm != null ? gm.LevelsCleared : currentLevelNumber)}   |   SECTOR SCORE: +{levelScore} (INCL. +{levelBonus} BONUS)";
+            if (uguiRankLetter != null) uguiRankLetter.text = rank;
+            if (uguiRankSealBg != null) uguiRankSealBg.color = rankCol;
+            if (uguiTotalScore != null) uguiTotalScore.text = $"TOTAL RUN SCORE: {totalScore}";
+            if (uguiNewHighBadge != null) uguiNewHighBadge.gameObject.SetActive(gm != null && gm.IsNewHighScore);
+
+            var tracker = PlayerPerformanceTracker.Instance;
+            float hpPct = tracker != null && tracker.MaxHealth > 0f ? (tracker.CurrentHealth / tracker.MaxHealth) * 100f : 100f;
+            float dmgTaken = tracker != null ? tracker.DamageReceived : 0f;
+            float resUsed = tracker != null ? tracker.ResourcesConsumed : 0f;
+
+            if (uguiMetricsTable != null)
+            {
+                uguiMetricsTable.text =
+                    $"<b>5-METRIC DDA PERFORMANCE BREAKDOWN (SCORE: {perf:F2})</b>\n" +
+                    $"  • Health Remaining (30%):       {hpPct:0}%\n" +
+                    $"  • Zombies Eliminated (20%):     {levelKills} this sector ({totalKills} total)\n" +
+                    $"  • Extraction Time (15%):        {clearTime:F1}s\n" +
+                    $"  • Damage Taken (20%):           {dmgTaken:0} dmg\n" +
+                    $"  • Supplies & Resources (15%):   {levelCrates} crates opened ({totalCrates} total), {resUsed:0.0} heals used";
+            }
+
+            if (uguiDdaNext != null)
+            {
+                uguiDdaNext.text = $"NEXT SECTOR DDA ADAPTATION TIER: {nextTier.ToUpperInvariant()}";
+            }
+        }
+
         public void Show(int levelNumber)
         {
             currentLevelNumber = levelNumber;
@@ -158,16 +308,21 @@ namespace DeadDepths.UI
             Cursor.visible = true;
 
             Time.timeScale = 0f;
+
+            RefreshCanvasContent();
+            if (canvasPanelRoot != null) canvasPanelRoot.SetActive(true);
         }
 
         public void Hide()
         {
             isVisible = false;
             Time.timeScale = 1f;
+            if (canvasPanelRoot != null) canvasPanelRoot.SetActive(false);
         }
 
         private void OnGUI()
         {
+            if (DeadDepthsUIRoot.IsCanvasActive) return;
             if (!isVisible) return;
 
             GUI.depth = -10;
@@ -184,7 +339,6 @@ namespace DeadDepths.UI
             GUI.DrawTexture(new Rect(px - 2, py - 2, panelW + 4, panelH + 4), texBorder);
             GUI.DrawTexture(new Rect(px, py, panelW, panelH), texPanel);
 
-            // Header
             GUI.Label(new Rect(px + 20f, py + 18f, panelW - 40f, 36f), "EVACUATION SCOREBOARD", titleStyle);
             GUI.Label(new Rect(px + 20f, py + 54f, panelW - 40f, 24f), $"Supplies Collection {currentLevelNumber} Cleared", subtitleStyle);
 
@@ -209,7 +363,6 @@ namespace DeadDepths.UI
             DrawScoreRow(px + 36f, rowY, panelW - 72f, "Supplies Crates Opened", $"{totalCrates} total ({levelCrates} this sector)"); rowY += rowStep;
             DrawScoreRow(px + 36f, rowY, panelW - 72f, "Extraction Time / Next DDA Tier", $"{clearTime:F1}s  |  {nextTier}");
 
-            // Action Buttons
             float btnW = screenConfig.ButtonWidth;
             float btnH = screenConfig.ButtonHeight;
             float btnY = py + panelH - btnH - 26f;

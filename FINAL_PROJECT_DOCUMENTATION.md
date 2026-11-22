@@ -227,10 +227,11 @@ flowchart TB
 | **Scoring** | Walker / Spitter / Charger / Crate / Clear Bonus | `100` / `150` / `250` / `150` / `500 × Level` |
 
 ### 6.4 Kontrol Pemain
-- **`WASD` / `Arrow Keys`:** Gerak isometrik $45^\circ$
-- **`Left Shift`:** Sprint | **`C`:** Crouch | **`LMB` / `Space` / `F`:** Punch
-- **`Hold E`:** Buka `SuppliesCrate` | **`R`:** Retry saat mati
-- **`F1`:** Toggle Debug Mode | **`G`:** Toggle God Mode (pengujian/demo)
+- **`WASD` / `Arrow Keys`:** Gerak isometrik $45^\circ$ | **`Hold RMB`:** Combat Aim Stance (IK, reticle, backpedal, look-ahead)
+- **`Tap Shift` (`< 0.20s`):** Dodge (*i-frames*) | **`Hold Shift` (`>= 0.20s`):** Sprint | **`C`:** Crouch Stealth (`0.65x` zombie vision)
+- **`LMB` / `Space` / `F`:** 3-Hit Melee Combo | **`T` / `L`:** Tactical Flashlight | **`1` / `2` / `3`:** Quick-Belt (Bandage/Medkit/Adrenaline)
+- **`Hold E`:** Buka `SuppliesCrate` (`+1` Supply Intel, syarat `3/3` Intel + `4.0s` tahan di Helipad)
+- **`M`:** Corner Minimap | **`ESC`:** Pause Menu | **`R`:** Retry saat mati | **`F1`:** Debug Mode | **`G`:** God Mode
 
 ---
 
@@ -238,8 +239,8 @@ flowchart TB
 
 ### 7.1 Hasil *Automated Tests* (`DeadDepthsAutomatedTests.RunVerification`)
 Eksekusi langsung melalui Unity `6000.6.0f1` CLI batchmode pada `Assets/Scenes/DeadDepths.unity`:
-- **Hasil Verifikasi:** **`TEST SUMMARY: PASSED=100, FAILED=0`** (`EXIT_CODE=0`, `0` compile errors/warnings).
-- **Cakupan Terverifikasi Otomatis (100 asersi):**
+- **Hasil Verifikasi:** **`TEST SUMMARY: PASSED=146, FAILED=0`** (`EXIT_CODE=0`, `0` compile errors/warnings).
+- **Cakupan Terverifikasi Otomatis (146 asersi):**
   - Keberadaan seluruh manager, komponen UI (`[NonSerialized]` GUIStyle/Texture2D), dan pengaturan kamera isometrik (`Pitch > 40°`, `Yaw == 45°`).
   - Multi-seed PCG across 5 level (`clusters=4..6`), Prim's MST corridors, BFS `WorldValidator`, dan `NavMeshPathStatus.PathComplete` dari Start ke Evacuation.
   - Statistik & skala akurat untuk `Walker`, `Spitter`, `Charger`, pencatatan transisi (`IdlePatrol -> Chase`, `Dead`), batas ring-buffer `10` entri pada `ZombieController.StateChangeLog`, serta `CurrentTargetLabel`.
@@ -270,9 +271,9 @@ Eksekusi langsung melalui Unity `6000.6.0f1` CLI batchmode pada `Assets/Scenes/D
 
 ### 8.2 Keterbatasan Jujur (*Known Limitations*)
 1. **`ZombieState.Investigate` sebagai *Reserved / Deferred Enum*:** Enum `ZombieState.Investigate` terdefinisi di `ZombieArchetype.cs`, namun sengaja tidak diimplementasikan karena belum ada sistem propagasi suara (*noise/hearing stimulus*) pada *vertical slice* ini. Zombie bertransisi langsung dari penglihatan (`IdlePatrol -> Chase`) atau kerusakan (`TakeDamage -> Chase`).
-2. **Lingkup *Vertical Slice* Tanpa Menu & Inventory Senjata Api:** Tidak tersedia Title Screen, Pause Menu (`ESC`), atau senjata api yang dapat ditembakkan (*Rifle/Pistol Ammo* dari crate berfungsi sebagai item progresi/notifikasi skor). Pemain bertarung menggunakan serangan *melee punch*.
-3. **Pengujian Play Mode Interaktif:** Seluruh 100 asersi `DeadDepthsAutomatedTests.RunVerification` diverifikasi secara nyata di Unity batchmode (Edit Mode API & simulasi komponen), sedangkan perilaku frame-by-frame lintas waktu nyata (pergerakan input keyboard, render visual URP di viewport, audio output speaker) bergantung pada uji Play Mode interaktif oleh pengguna di Editor atau `Builds/DeadDepths.exe`.
-4. **Skala UI IMGUI:** HUD dan panel Debug `[F1]` dirancang optimal untuk resolusi `1024×768` hingga `1920×1080`; pada rasio layar sangat sempit/ekstrem, teks baris panjang pada panel debug tidak melakukan *auto-scaling* DPI.
+2. **Pertarungan Jarak Dekat & *Ranged Loot* Non-Equippable:** Senjata api (*Rifle/Pistol Ammo* dari crate) tetap berfungsi sebagai item skor/progresi sementara pertarungan utama menggunakan *3-Hit Melee Combo*, *Project Zomboid Hold RMB Aim Stance*, *Tap-to-Dodge*, dan *Quick-Belt* (`[1][2][3]`), dilengkapi *Live 3D Main Menu Diorama*, *Pause Menu* (`[ESC]`), dan *Settings Modal*.
+3. **Pengujian Play Mode Interaktif:** Seluruh 146 asersi `DeadDepthsAutomatedTests.RunVerification` diverifikasi secara nyata di Unity batchmode (Edit Mode API, uGUI `DeadDepthsUIRoot`/`GameplayHUDCanvas` hierarchy, & simulasi komponen), sedangkan perilaku frame-by-frame lintas waktu nyata (pergerakan input mouse/keyboard, render visual URP di viewport, audio output speaker) bergantung pada uji Play Mode interaktif oleh pengguna di Editor atau `Builds/DeadDepths.exe`.
+4. **Skala UI Debug `[F1]`:** Antarmuka utama (`MainMenu`, `GameplayHUD`, `PauseMenu`, `Settings`, `CompletionScreen`) menggunakan uGUI responsif `1920×1080` `ScaleWithScreenSize`, sedangkan panel Debug `[F1]` masih menggunakan IMGUI tetap sehingga pada rasio layar sangat sempit teks baris panjang tidak melakukan *auto-scaling* DPI.
 
 ---
 

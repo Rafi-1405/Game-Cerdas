@@ -208,6 +208,7 @@ namespace DeadDepths.UI
 
         private void OnGUI()
         {
+            if (DeadDepthsUIRoot.IsCanvasActive) return;
             if (player == null) return;
             if (CompletionScreenUI.Instance != null && CompletionScreenUI.Instance.IsVisible) return;
 

@@ -23,14 +23,17 @@
      `Health (30%) + Kills (20%) + Time (15%) + Damage Avoidance (20%) + Resource Efficiency (15%)`.
    - Mengklasifikasikan tingkat kesulitan sektor berikutnya ke `Struggling` ($\le 0.39$), `Balanced` ($\le 0.69$), atau `PerformingWell` ($> 0.69$) untuk mengatur jumlah zombie, komposisi `W/S/C`, kualitas loot, suplai medis, dan jumlah *blocking objects*.
 
-4. **Asset Non-Default, URP See-Through & Audio Feedback:**
-   - Menggunakan material PBR `YughuesFreeGroundMaterials` & `YughuesFreeArchitecturalMaterials` (`M_YFGM_Ground01`, `M_YFGM_Dry02`, `M_YFGM_SoilMoss`, `M_YFGM_Clay`, `M_YFAM_BricksWeathered`, `M_YFAM_WoodFlooring`, `M_YFAM_Plywood`, `M_YFAM_GabionWall`, `M_YFAM_Ceiling`), model animasi `PlayerChar.fbx` & `ZombieChar.fbx`, serta `SurvivalSoundLibrary.asset`.
-   - Pohon prosedural terbagi **2 submesh** (batang `M_YFGM_Dry02` + daun `M_YFGM_SoilMoss`), helikopter memiliki child `MainRotor` berputar `720°/s`, dan `GreenSmokeCanister` memancarkan partikel asap hijau URP.
+4. **Asset Non-Default, URP Atmosphere & Pooled Audio Feedback:**
+   - Menggunakan material PBR `YughuesFreeGroundMaterials` & `YughuesFreeArchitecturalMaterials` (`M_YFGM_Ground01`, `M_YFGM_Dry02`, `M_YFGM_SoilMoss`, `M_YFGM_Clay`, `M_YFAM_BricksWeathered`, `M_YFAM_WoodFlooring`, `M_YFAM_Plywood`, `M_YFAM_GabionWall`, `M_YFAM_Ceiling`, `M_YFAM_TilesConcave`), model animasi `PlayerChar.fbx` & `ZombieChar.fbx` (+ aksesori tulang *Spitter*/*Charger*), item 3D `Medkit`/`Bandage`/`FirstAidKit`, serta `SurvivalSoundLibrary.asset`.
+   - Langit malam `NightSky.mat` (URP shader), fog atmosferik, moonlight dingin, Global URP `Volume` (`DeadDepthsVolumeProfile.asset`: ACES Tonemapping, Bloom, Vignette, Color Adjustments), serta kamera **SMAA**.
+   - Pohon prosedural terbagi **2 submesh** (batang `M_YFGM_Dry02` + daun `M_YFGM_SoilMoss`), helikopter memiliki child `MainRotor` (`720°/s`) & `TailRotor`, helipad beton `H`, dan `GreenSmokeCanister` memancarkan partikel asap hijau URP.
    - `ObstructionFadeController` mengonversi material URP Opaque penghalang kamera secara sementara ke Transparent (`_Surface = 1`, `renderQueue = 3000`) saat pemain tertutup tembok/pohon, dan memulihkan material asli saat bersih.
-   - `AudioManager` memutar ambient loop `SfxCue.Wind` serta cue aksi (`FootGrass`, `PunchSwing`, `PunchHit`, `ZombieGroan`, `ZombieAttack`, `ZombieDeath`, `Creak`, `Pickup`, `ExtractionSuccess`).
+   - `AudioManager` upgraded ke **24-voice pooled `AudioSource`** + **`AudioLowPassFilter` wall occlusion**, `SfxCue.Tension` crossfade adaptif, `SfxCue.Heartbeat` (`HP <= 35%`), langkah kaki permukaan (`FootGrass`, `FootWood`, `FootConcrete`, pitch lumpur), serta pengaturan volume tersimpan di `PlayerPrefs`.
 
-5. **AI & PCG Debug Mode (`[F1]`) (`DeadDepthsDebugMode.cs`):**
-   - Menampilkan status hidup & FSM zombie, **Target aktif** (`Tgt:Player`, `Tgt:LKP`, `Tgt:Patrol`, `Tgt:None`), **AI State Change Log** (ring-buffer 10 transisi terakhir), FOV cone, garis LOS, jalur NavMesh, marker `[PATROL DEST]` & `[SEARCH TARGET]`, minimap grid PCG live, serta rincian parameter aktif **DDA Profile**.
+5. **Publish-Grade Combat Feel, uGUI + TMP Interface & Debug Mode (`[F1]`):**
+   - **Project Zomboid Combat Stance (`Hold RMB`):** Membidik bebas ke arah kursor dengan upper-body `PlayerAimIK`, ground reticle, sinar senter `[T]`/`[L]` mengikuti kursor, animasi mundur alami (`AnimSpeedMult = -0.85`), dan *camera look-ahead* ber-deadzone `10%` (maks `3.2m`).
+   - **Dual-Action `Shift`:** Ketuk cepat (`< 0.20s` *unscaled*, dapat diatur `0.15–0.25s`) untuk **Dodge** (*Ease-Out* burst, *i-frame*, membatalkan crate & uncrouch), atau tahan (`>= 0.20s`) untuk **Sprint**.
+   - **uGUI + TextMesh Pro (`1920×1080`):** Live 3D Main Menu Diorama, Gameplay HUD (ghost-drain HP bar, 3-Slot Quick-Belt `[1][2][3]`, Objective `3/3` Supply Intel + `4.0s` Helipad Hold, tabular timer, collapsible Corner Minimap `[M]`), Pause Menu `[ESC]`, Settings Modal, Ranked Evacuation Scoreboard (`S/A/B/C`), serta mode Debug `[F1]` (`DeadDepthsDebugMode`).
 
 ---
 
@@ -39,10 +42,16 @@
 | Input | Aksi |
 | :--- | :--- |
 | `W / A / S / D` atau `Arrow Keys` | Gerak karakter (orientasi kamera isometrik $45^\circ$) |
-| `Left Shift` | Sprint (menguras Stamina) |
-| `C` | Toggle Crouch |
-| `Left Mouse` / `Space` / `F` | Punch Attack (menyerang zombie & barikade *breakable*) |
-| `Hold E` | Membuka `SuppliesCrate` (`2.0s` progress bar) |
+| `Hold Right Mouse` | **Combat Aim Stance** (hadap kursor bebas, IK, reticle, *look-ahead*, mundur alami) |
+| `Tap Left Shift` (`< 0.20s`) | **Dodge** (*Ease-Out* dash + *i-frame*; *backstep* bila diam sambil Aim) |
+| `Hold Left Shift` (`>= 0.20s`) | **Sprint** (menguras Stamina) |
+| `C` | Toggle Crouch Stealth (menurunkan `VisionRange` zombie menjadi `0.65x`) |
+| `Left Mouse` / `Space` / `F` | **3-Hit Melee Combo** (+ 15% Crit & hitstop; `LMB`/Aim membidik kursor, `F`/`Space` lurus ke depan) |
+| `T` / `L` | Toggle **Tactical Flashlight** (dual-beam; bebas bentrok dengan `F`) |
+| `Hold E` | Membuka `SuppliesCrate` (`2.0s`, +`1` Supply Intel & item heal/belt) |
+| `1` / `2` / `3` | Quick-Use Belt: **Bandage** (`+20 HP`) / **Medkit** (`+50 HP`) / **Adrenaline** (`+40 Stamina` + speed) |
+| `M` | Toggle Corner Tactical Minimap |
+| `ESC` | Toggle Pause Menu / Tutup Settings |
 | `R` | Retry cepat saat layar *YOU DIED* |
 | `F1` | Toggle **AI / PCG / DDA Debug Mode** |
 | `G` | Toggle **God Mode** (kecepatan tinggi + kebal + *noclip*, khusus pengujian/demo) |
@@ -56,7 +65,7 @@
 - **Unity Editor (`6000.6.0f1`):** Buka folder proyek `Game-Cerdas/`, buka scene `Assets/Scenes/DeadDepths.unity`, lalu tekan **Play**.
 - Untuk meregenerasi scene dari skrip editor: menu **`DeadDepths -> Build Main Scene`**.
 
-### 2. Menjalankan Automated Verification (`100` Assertions)
+### 2. Menjalankan Automated Verification (`146` Assertions)
 - Di Unity Editor: menu **`DeadDepths -> Run Automated Verification`**.
 - Atau via Unity CLI Batchmode (pastikan Editor GUI sedang ditutup agar `Temp/UnityLockfile` tidak terkunci):
   ```powershell

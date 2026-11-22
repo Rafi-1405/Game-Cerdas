@@ -4,7 +4,7 @@ using UnityEngine;
 namespace DeadDepths.Core
 {
     /// <summary>
-    /// Tracks player performance indicators during a level.
+    /// Tracks player performance indicators during a level, pausing elapsed time during Main Menu and Pause.
     /// ASD-STE100: This module records health, kills, damage, and time.
     /// </summary>
     public class PlayerPerformanceTracker : MonoBehaviour
@@ -39,7 +39,17 @@ namespace DeadDepths.Core
         public float DamageReceived { get; private set; } = 0f;
         public float ResourcesConsumed { get; private set; } = 0f;
         public float LevelStartTime { get; private set; } = 0f;
-        public float ElapsedLevelTime => Time.time - LevelStartTime;
+
+        private float activeElapsedTime = 0f;
+        private bool isTimePaused = false;
+
+        public float ElapsedLevelTime => activeElapsedTime;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            Instance = null;
+        }
 
         private void Awake()
         {
@@ -58,6 +68,24 @@ namespace DeadDepths.Core
             if (Instance == this) Instance = null;
         }
 
+        private void Update()
+        {
+            if (isTimePaused || Time.timeScale <= 0f) return;
+
+            var gm = GameManager.Instance;
+            if (gm != null && (gm.IsInMainMenu || gm.IsPaused || !gm.IsLevelActive))
+            {
+                return;
+            }
+
+            activeElapsedTime += Time.deltaTime;
+        }
+
+        public void SetTimePaused(bool paused)
+        {
+            isTimePaused = paused;
+        }
+
         /// <summary>
         /// Resets all tracking metrics for a new level.
         /// </summary>
@@ -71,6 +99,8 @@ namespace DeadDepths.Core
             DamageReceived = 0f;
             ResourcesConsumed = 0f;
             LevelStartTime = Time.time;
+            activeElapsedTime = 0f;
+            isTimePaused = GameManager.Instance != null && GameManager.Instance.IsInMainMenu;
         }
 
         public void UpdatePlayerHealth(float currentHealth, float maxHealth)

@@ -4,6 +4,7 @@ using UnityEngine;
 using DeadDepths.Audio;
 using DeadDepths.Core;
 using DeadDepths.Player;
+using DeadDepths.UI;
 using UTS.Audio;
 
 namespace DeadDepths.Interactive
@@ -25,8 +26,9 @@ namespace DeadDepths.Interactive
 
     /// <summary>
     /// Represents an interactable supplies crate placed inside structures or clusters.
+    /// Grants Supply Intel (for 3/3 extraction), heals injured players or stocks the Quick-Belt,
+    /// animates a hinged Lid child, and spawns a transient 3D loot preview mesh.
     /// ASD-STE100: This container gives items to the player after opening progress finishes.
-    /// Follows Section 3.2 of the specification.
     /// </summary>
     public class SuppliesCrate : MonoBehaviour
     {
@@ -54,6 +56,10 @@ namespace DeadDepths.Interactive
         [SerializeField] private Config crateConfig = new Config();
         public Config CrateConfig => crateConfig;
 
+        [SerializeField] private GameObject medkitPreviewPrefab;
+        [SerializeField] private GameObject bandagePreviewPrefab;
+        [SerializeField] private GameObject firstAidKitPreviewPrefab;
+
         public bool IsOpened { get; private set; } = false;
         public float CurrentProgress { get; private set; } = 0f;
         public bool IsInteracting { get; private set; } = false;
@@ -62,10 +68,44 @@ namespace DeadDepths.Interactive
         public IReadOnlyList<CrateLootItem> LootContents => lootContents;
         private Transform interactingPlayer;
 
+        private Transform lidTransform;
+        private bool animateLidOpen = false;
+        private float lidAnimT = 0f;
+
+        private Transform lootPopupTransform;
+        private float lootPopupTimer = 0f;
+
         public event Action<float> OnProgressUpdated;
         public event Action OnInteractionStarted;
         public event Action OnInteractionCancelled;
         public event Action OnCrateOpened;
+
+        private void Awake()
+        {
+            ApplyFallbackDefaults();
+            lidTransform = transform.Find("Lid");
+        }
+
+        private void OnValidate()
+        {
+            ApplyFallbackDefaults();
+        }
+
+        private void ApplyFallbackDefaults()
+        {
+            if (crateConfig == null) crateConfig = new Config();
+            if (crateConfig.OpenDuration <= 0f) crateConfig.OpenDuration = 2.0f;
+            if (crateConfig.InteractionDistance <= 0f) crateConfig.InteractionDistance = 2.4f;
+            if (crateConfig.MedkitHealAmount <= 0f) crateConfig.MedkitHealAmount = 40f;
+            if (crateConfig.BandageHealAmount <= 0f) crateConfig.BandageHealAmount = 15f;
+        }
+
+        public void SetLootPreviewPrefabs(GameObject medkit, GameObject bandage, GameObject firstAidKit)
+        {
+            medkitPreviewPrefab = medkit;
+            bandagePreviewPrefab = bandage;
+            firstAidKitPreviewPrefab = firstAidKit;
+        }
 
         public void ConfigureLoot(List<CrateLootItem> items)
         {
@@ -115,6 +155,30 @@ namespace DeadDepths.Interactive
             OnInteractionCancelled?.Invoke();
         }
 
+        private void Update()
+        {
+            if (animateLidOpen && lidTransform != null && lidAnimT < 1f)
+            {
+                lidAnimT = Mathf.Clamp01(lidAnimT + Time.deltaTime * 4.5f);
+                float angle = Mathf.SmoothStep(0f, -65f, lidAnimT);
+                lidTransform.localRotation = Quaternion.Euler(angle, 0f, 0f);
+            }
+
+            if (lootPopupTransform != null)
+            {
+                lootPopupTimer += Time.deltaTime;
+                lootPopupTransform.position += Vector3.up * (Time.deltaTime * 0.65f);
+                lootPopupTransform.Rotate(Vector3.up, 150f * Time.deltaTime, Space.World);
+                float scaleFactor = lootPopupTimer < 1.2f ? 1f : Mathf.Clamp01(1f - (lootPopupTimer - 1.2f) / 0.5f);
+                lootPopupTransform.localScale = Vector3.one * (0.85f * scaleFactor);
+                if (lootPopupTimer >= 1.7f)
+                {
+                    Destroy(lootPopupTransform.gameObject);
+                    lootPopupTransform = null;
+                }
+            }
+        }
+
         private void CompleteOpen()
         {
             IsInteracting = false;
@@ -126,22 +190,35 @@ namespace DeadDepths.Interactive
                 AudioManager.Instance.PlayCue(SfxCue.Pickup, transform.position);
             }
 
-            // Animate or tilt lid
-            Transform lid = transform.Find("Lid");
-            if (lid != null)
+            if (lidTransform == null) lidTransform = transform.Find("Lid");
+            if (lidTransform != null)
             {
-                lid.localRotation = Quaternion.Euler(-55f, 0f, 0f);
+                if (Application.isPlaying)
+                {
+                    animateLidOpen = true;
+                    lidAnimT = 0f;
+                }
+                else
+                {
+                    lidTransform.localRotation = Quaternion.Euler(-65f, 0f, 0f);
+                }
             }
 
-            // Visually dim opened crate
-            var rend = GetComponentInChildren<Renderer>();
-            if (rend != null)
+            Spawn3DLootPopup();
+
+            // Visually dim opened crate (body + hinged lid)
+            var rends = GetComponentsInChildren<Renderer>();
+            if (rends != null && rends.Length > 0)
             {
                 var pb = new MaterialPropertyBlock();
-                rend.GetPropertyBlock(pb);
-                pb.SetColor("_BaseColor", new Color(0.25f, 0.22f, 0.18f));
-                pb.SetColor("_Color", new Color(0.25f, 0.22f, 0.18f));
-                rend.SetPropertyBlock(pb);
+                foreach (var rend in rends)
+                {
+                    if (rend == null) continue;
+                    rend.GetPropertyBlock(pb);
+                    pb.SetColor("_BaseColor", new Color(0.25f, 0.22f, 0.18f));
+                    pb.SetColor("_Color", new Color(0.25f, 0.22f, 0.18f));
+                    rend.SetPropertyBlock(pb);
+                }
             }
 
             OnCrateOpened?.Invoke();
@@ -150,11 +227,24 @@ namespace DeadDepths.Interactive
                 ? interactingPlayer.GetComponentInParent<DeadDepthsPlayerController>()
                 : DeadDepthsPlayerController.Instance;
 
-            // Grant items to player: apply healing + UI notifications + DDA resource tracking
+            var gm = GameManager.Instance;
+            var notificationMgr = ItemNotificationManager.Instance;
+
+            // Every crate yields 1 Supply Intel toward the 3/3 evacuation requirement
+            if (gm != null)
+            {
+                gm.AddSupplyIntel(1);
+            }
+            if (notificationMgr != null)
+            {
+                notificationMgr.PostNotification("Supply Intel", 1);
+            }
+
+            // Grant items to player: immediate heal when injured (preserves Test #6), plus Quick-Belt items
             if (lootContents != null && lootContents.Count > 0)
             {
-                var notificationMgr = UI.ItemNotificationManager.Instance;
                 float totalHeal = 0f;
+                bool hasMedkit = false;
 
                 foreach (var item in lootContents)
                 {
@@ -165,30 +255,99 @@ namespace DeadDepths.Interactive
 
                     if (item.IsHealing)
                     {
-                        float perUnit = item.ItemName.IndexOf("Medkit", StringComparison.OrdinalIgnoreCase) >= 0
+                        bool isMedkit = item.ItemName.IndexOf("Medkit", StringComparison.OrdinalIgnoreCase) >= 0;
+                        if (isMedkit) hasMedkit = true;
+
+                        float perUnit = isMedkit
                             ? crateConfig.MedkitHealAmount
                             : crateConfig.BandageHealAmount;
                         totalHeal += perUnit * Mathf.Max(1, item.Quantity);
+                    }
+                    else if (gm != null && item.ItemName.IndexOf("Adrenaline", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        gm.AddBeltItem(BeltItemType.Adrenaline, Mathf.Max(1, item.Quantity));
                     }
                 }
 
                 if (totalHeal > 0f)
                 {
-                    if (playerCtrl != null)
+                    bool playerInjured = playerCtrl != null && playerCtrl.CurrentHealth < playerCtrl.MaxHealth - 0.1f;
+                    if (playerInjured)
                     {
                         playerCtrl.Heal(totalHeal);
+                        CombatVfxManager.Instance?.PlayHealBurst(playerCtrl.transform.position);
+                        DamagePopupManager.Instance?.ShowHeal(playerCtrl.transform.position + Vector3.up * 1.9f, Mathf.RoundToInt(totalHeal));
+                        if (PlayerPerformanceTracker.Instance != null)
+                        {
+                            PlayerPerformanceTracker.Instance.RecordResourceConsumed(1f);
+                        }
+                        // Also grant a spare belt bandage/adrenaline so players feel rewarded
+                        if (gm != null)
+                        {
+                            gm.AddBeltItem(BeltItemType.Bandage, 1);
+                        }
                     }
-                    if (PlayerPerformanceTracker.Instance != null)
+                    else if (gm != null)
                     {
-                        PlayerPerformanceTracker.Instance.RecordResourceConsumed(1f);
+                        gm.AddBeltItem(hasMedkit ? BeltItemType.Medkit : BeltItemType.Bandage, 1);
+                    }
+                }
+
+                // Small chance or alternating crates drop Adrenaline for Quick-Belt slot [3]
+                if (gm != null && (gm.TotalCratesOpened % 2 == 0 || gm.AdrenalineCount == 0))
+                {
+                    gm.AddBeltItem(BeltItemType.Adrenaline, 1);
+                    if (notificationMgr != null)
+                    {
+                        notificationMgr.PostNotification("Adrenaline", 1);
                     }
                 }
             }
 
-            if (GameManager.Instance != null)
+            if (gm != null)
             {
-                GameManager.Instance.RecordCrateOpened();
+                gm.RecordCrateOpened();
             }
+        }
+
+        private void Spawn3DLootPopup()
+        {
+            if (!Application.isPlaying) return;
+
+            GameObject prefab = null;
+            if (lootContents != null)
+            {
+                foreach (var item in lootContents)
+                {
+                    if (item.ItemName.IndexOf("Medkit", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        prefab = medkitPreviewPrefab != null ? medkitPreviewPrefab : firstAidKitPreviewPrefab;
+                        break;
+                    }
+                    if (item.ItemName.IndexOf("Bandage", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        prefab = bandagePreviewPrefab;
+                        break;
+                    }
+                }
+            }
+
+            if (prefab == null)
+            {
+                if (firstAidKitPreviewPrefab != null) prefab = firstAidKitPreviewPrefab;
+                else if (medkitPreviewPrefab != null) prefab = medkitPreviewPrefab;
+                else prefab = bandagePreviewPrefab;
+            }
+            if (prefab == null) return;
+
+            GameObject popup = Instantiate(prefab, transform.position + Vector3.up * 0.85f, Quaternion.identity);
+            popup.name = "CrateLootPopup";
+            foreach (var c in popup.GetComponentsInChildren<Collider>())
+            {
+                Destroy(c);
+            }
+            lootPopupTransform = popup.transform;
+            lootPopupTimer = 0f;
         }
     }
 }

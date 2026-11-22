@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.EventSystems;
 using DeadDepths.Audio;
 using DeadDepths.Core;
 using DeadDepths.Interactive;
@@ -15,9 +16,10 @@ using UnityEngine.InputSystem;
 namespace DeadDepths.Player
 {
     /// <summary>
-    /// Controls 3D player locomotion, combat, crate interaction, God Mode, and health in isometric view.
-    /// ASD-STE100: This controller moves the player, punches enemies, and opens supplies crates.
-    /// Follows Section 3 of the specification.
+    /// Controls 3D player locomotion, Project Zomboid RMB combat aim stance,
+    /// Shift Tap-to-Dodge vs Hold-to-Sprint, 3-hit melee combo with crit & hitstop,
+    /// crouch stealth, crate interaction, Quick-Belt shortcuts, God Mode, and health.
+    /// ASD-STE100: This controller moves the player, aims, dodges, punches enemies, and opens supplies crates.
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
     public class DeadDepthsPlayerController : MonoBehaviour, IMudSlowable
@@ -30,8 +32,26 @@ namespace DeadDepths.Player
             public float WalkSpeed = 4.5f;
             public float RunSpeed = 7.5f;
             public float CrouchSpeed = 2.5f;
+            public float AimWalkSpeed = 3.1f;
             public float RotationSpeed = 14f;
+            public float AimRotationSpeed = 20f;
             public float Gravity = -15f;
+
+            [Header("Crouch Dimensions")]
+            public float StandingHeight = 1.8f;
+            public float CrouchHeight = 1.15f;
+
+            [Header("Aim Stance")]
+            public float AimDeadzoneRadius = 0.35f;
+
+            [Header("Tap-Dodge vs Hold-Sprint")]
+            public float ShiftHoldThreshold = 0.20f;
+            public float DodgeSpeed = 15.0f;
+            public float DodgeDuration = 0.24f;
+            public float DodgeIframeDuration = 0.22f;
+            public float DodgeStaminaCost = 22f;
+            public float DodgeCooldown = 0.75f;
+            public float DodgeBufferWindow = 0.12f;
 
             [Header("God Mode Settings (Testing)")]
             public float GodModeWalkSpeed = 22f;
@@ -49,11 +69,18 @@ namespace DeadDepths.Player
             public float PunchCooldown = 0.5f;
             public float PunchHitDelay = 0.16f;
             public float PunchArcAngle = 110f;
+            public float ComboResetWindow = 0.95f;
+            public float ComboFinisherMultiplier = 1.35f;
+            public float CritChance = 0.15f;
+            public float CritMultiplier = 1.5f;
+            public float HitstopDuration = 0.035f;
 
             [Header("Interaction Settings")]
             public float InteractionScanRadius = 2.4f;
         }
         #endregion
+
+        public const string PrefTapDodgeThreshold = "DeadDepths_TapDodgeThreshold";
 
         [SerializeField] private Config playerConfig = new Config();
         public Config PlayerConfig => playerConfig;
@@ -67,12 +94,24 @@ namespace DeadDepths.Player
         public bool IsDead => CurrentHealth <= 0f;
         public bool IsCrouching { get; private set; }
         public bool IsSprinting { get; private set; }
+        public bool IsAiming { get; private set; }
+        public bool IsDodging { get; private set; }
         public bool IsGodMode { get; private set; }
+        public bool IsInvulnerable => IsGodMode || Time.unscaledTime < iframeEndTime;
         public float CurrentSpeed { get; private set; }
         public float TerrainMultiplier => terrainMultiplier;
+        public float CurrentAnimSpeedMult { get; private set; } = 1.0f;
+        public Vector3 LastValidAimPoint { get; private set; }
+        public Vector3 LastValidAimDir { get; private set; } = Vector3.forward;
+        public Vector3 CursorScreenPosition { get; private set; }
+        public bool IsInteractingWithCrate => isInteractingWithCrate;
+
+        public bool IsPunchingAnimActive =>
+            animator != null && Application.isPlaying && animator.GetCurrentAnimatorStateInfo(0).IsName("Punch");
 
         private CharacterController charController;
         private Animator animator;
+        private DeadDepthsFlashlight flashlight;
         private float verticalVelocity = 0f;
         private float terrainMultiplier = 1.0f;
         private float nextPunchTime = 0f;
@@ -80,21 +119,114 @@ namespace DeadDepths.Player
         private SuppliesCrate activeTargetCrate;
         private bool isInteractingWithCrate = false;
         private Coroutine activePunchRoutine;
+        private Coroutine activeHitstopRoutine;
+
+        // Aim state
+        private bool aimInputHeld = false;
+        private bool testAimOverrideActive = false;
+        private float lastValidAimDist = 4.0f;
+
+        // Dodge & Sprint state (unscaled time so hitstop never skews tap vs hold)
+        private bool shiftWasHeld = false;
+        private float shiftHoldDuration = 0f;
+        private float dodgeBufferedUntil = -1f;
+        private float nextDodgeTime = -10f;
+        private float dodgeTimer = 0f;
+        private float iframeEndTime = -10f;
+        private Vector3 dodgeDirection = Vector3.forward;
+        private bool dodgeIsBackstep = false;
+
+        // 3-Hit Melee Combo state
+        private int comboStep = 0;
+        private float lastPunchTriggerTime = -10f;
+        private float pendingDamageMultiplier = 1.0f;
+        private bool pendingIsCrit = false;
 
         public event Action<float, float> OnHealthChanged;
         public event Action<float, float> OnStaminaChanged;
         public event Action OnPunchExecuted;
+        public event Action OnDodgeExecuted;
         public event Action<bool> OnGodModeChanged;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            Instance = null;
+        }
 
         private void Awake()
         {
             if (Instance == null) Instance = this;
+            ApplyFallbackDefaults();
+
             charController = GetComponent<CharacterController>();
             animator = GetComponentInChildren<Animator>();
+            flashlight = GetComponent<DeadDepthsFlashlight>();
+            if (animator != null && animator.GetComponent<PlayerAimIK>() == null)
+            {
+                animator.gameObject.AddComponent<PlayerAimIK>();
+            }
+            if (GetComponent<DeadDepthsAimReticle>() == null)
+            {
+                gameObject.AddComponent<DeadDepthsAimReticle>();
+            }
+
             EnforceAnimatorNoRootMotion();
+            LastValidAimDir = transform.forward;
+            LastValidAimPoint = transform.position + transform.forward * 4f + Vector3.up * 0.9f;
 
             CurrentHealth = playerConfig.MaxHealth;
             CurrentStamina = playerConfig.MaxStamina;
+            LoadSettings();
+        }
+
+        private void OnValidate()
+        {
+            ApplyFallbackDefaults();
+        }
+
+        private void ApplyFallbackDefaults()
+        {
+            if (playerConfig == null) playerConfig = new Config();
+            if (playerConfig.WalkSpeed <= 0f) playerConfig.WalkSpeed = 4.5f;
+            if (playerConfig.RunSpeed <= 0f) playerConfig.RunSpeed = 7.5f;
+            if (playerConfig.CrouchSpeed <= 0f) playerConfig.CrouchSpeed = 2.5f;
+            if (playerConfig.AimWalkSpeed <= 0f) playerConfig.AimWalkSpeed = 3.1f;
+            if (playerConfig.RotationSpeed <= 0f) playerConfig.RotationSpeed = 14f;
+            if (playerConfig.AimRotationSpeed <= 0f) playerConfig.AimRotationSpeed = 20f;
+            if (playerConfig.StandingHeight <= 0f) playerConfig.StandingHeight = 1.8f;
+            if (playerConfig.CrouchHeight <= 0f) playerConfig.CrouchHeight = 1.15f;
+            if (playerConfig.AimDeadzoneRadius <= 0f) playerConfig.AimDeadzoneRadius = 0.35f;
+            if (playerConfig.ShiftHoldThreshold <= 0f) playerConfig.ShiftHoldThreshold = 0.20f;
+            if (playerConfig.DodgeSpeed <= 0f) playerConfig.DodgeSpeed = 15.0f;
+            if (playerConfig.DodgeDuration <= 0f) playerConfig.DodgeDuration = 0.24f;
+            if (playerConfig.DodgeIframeDuration <= 0f) playerConfig.DodgeIframeDuration = 0.22f;
+            if (playerConfig.DodgeStaminaCost <= 0f) playerConfig.DodgeStaminaCost = 22f;
+            if (playerConfig.DodgeCooldown <= 0f) playerConfig.DodgeCooldown = 0.75f;
+            if (playerConfig.DodgeBufferWindow <= 0f) playerConfig.DodgeBufferWindow = 0.12f;
+            if (playerConfig.MaxStamina <= 0f) playerConfig.MaxStamina = 100f;
+            if (playerConfig.StaminaDrainRate <= 0f) playerConfig.StaminaDrainRate = 22f;
+            if (playerConfig.StaminaRegenRate <= 0f) playerConfig.StaminaRegenRate = 18f;
+            if (playerConfig.MaxHealth <= 0f) playerConfig.MaxHealth = 100f;
+            if (playerConfig.PunchRange <= 0f) playerConfig.PunchRange = 2.0f;
+            if (playerConfig.PunchDamage <= 0f) playerConfig.PunchDamage = 25f;
+            if (playerConfig.PunchCooldown <= 0f) playerConfig.PunchCooldown = 0.5f;
+            if (playerConfig.PunchArcAngle <= 0f) playerConfig.PunchArcAngle = 110f;
+            if (playerConfig.ComboResetWindow <= 0f) playerConfig.ComboResetWindow = 0.95f;
+            if (playerConfig.ComboFinisherMultiplier <= 0f) playerConfig.ComboFinisherMultiplier = 1.35f;
+            if (playerConfig.CritChance <= 0f) playerConfig.CritChance = 0.15f;
+            if (playerConfig.CritMultiplier <= 0f) playerConfig.CritMultiplier = 1.5f;
+            if (playerConfig.HitstopDuration <= 0f) playerConfig.HitstopDuration = 0.035f;
+            if (playerConfig.InteractionScanRadius <= 0f) playerConfig.InteractionScanRadius = 2.4f;
+        }
+
+        public void LoadSettings()
+        {
+            if (PlayerPrefs.HasKey(PrefTapDodgeThreshold))
+            {
+                playerConfig.ShiftHoldThreshold = Mathf.Clamp(
+                    PlayerPrefs.GetFloat(PrefTapDodgeThreshold, 0.20f), 0.15f, 0.25f);
+            }
         }
 
         private void OnDestroy()
@@ -106,18 +238,63 @@ namespace DeadDepths.Player
         {
             if (animator == null) return;
             animator.applyRootMotion = false;
-            if (animator.transform != transform)
+            if (!IsDead && animator.transform != transform)
             {
                 animator.transform.localPosition = Vector3.zero;
                 animator.transform.localRotation = Quaternion.identity;
             }
         }
 
+        private void CorrectPlayerDeathContact()
+        {
+            if (!IsDead || animator == null || animator.transform == transform) return;
+            // Subtle vertical settle so death pose lies flush on ground plane
+            Vector3 lp = animator.transform.localPosition;
+            lp.x = 0f;
+            lp.z = 0f;
+            lp.y = Mathf.MoveTowards(lp.y, -0.04f, Time.deltaTime * 0.5f);
+            animator.transform.localPosition = lp;
+        }
+
         private void Update()
         {
             if (IsDead) return;
-            if (Time.timeScale <= 0f || (CompletionScreenUI.Instance != null && CompletionScreenUI.Instance.IsVisible))
+
+            var gm = GameManager.Instance;
+            if (gm != null && gm.IsInMainMenu)
             {
+                if (GetKeyDown(Key.Escape) && SettingsModalUI.Instance != null && SettingsModalUI.Instance.IsOpen)
+                {
+                    SettingsModalUI.Instance.Close();
+                }
+                ResetTransientInputStates();
+                if (animator != null)
+                {
+                    animator.SetFloat("Speed", 0f);
+                    SetAnimatorSpeedMultiplier(1.0f);
+                }
+                return;
+            }
+
+            // Handle [ESC] pause toggle even while paused
+            if (GetKeyDown(Key.Escape))
+            {
+                if (SettingsModalUI.Instance != null && SettingsModalUI.Instance.IsOpen)
+                {
+                    SettingsModalUI.Instance.Close();
+                }
+                else if (gm != null)
+                {
+                    gm.TogglePause();
+                }
+                return;
+            }
+
+            if (Time.timeScale <= 0f ||
+                (gm != null && gm.IsPaused) ||
+                (CompletionScreenUI.Instance != null && CompletionScreenUI.Instance.IsVisible))
+            {
+                ResetTransientInputStates();
                 return;
             }
 
@@ -130,6 +307,30 @@ namespace DeadDepths.Player
         private void LateUpdate()
         {
             EnforceAnimatorNoRootMotion();
+            if (IsDead)
+            {
+                CorrectPlayerDeathContact();
+            }
+        }
+
+        private void ResetTransientInputStates()
+        {
+            if (!testAimOverrideActive)
+            {
+                aimInputHeld = false;
+                IsAiming = false;
+            }
+            IsSprinting = false;
+            shiftWasHeld = false;
+            shiftHoldDuration = 0f;
+            dodgeBufferedUntil = -1f;
+        }
+
+        private bool IsPointerOverBlockingUI()
+        {
+            if (DeadDepthsDebugMode.IsPointerOverAnyPanel()) return true;
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return true;
+            return false;
         }
 
         private void HandleInput()
@@ -140,21 +341,259 @@ namespace DeadDepths.Player
                 ToggleGodMode();
             }
 
-            // Crouch Toggle
-            if (GetKeyDown(Key.C))
+            // Quick-Use Belt Slots [1] Bandage, [2] Medkit, [3] Adrenaline
+            if (GameManager.Instance != null)
             {
-                IsCrouching = !IsCrouching;
-                if (animator != null) animator.SetBool("Crouching", IsCrouching);
+                if (GetKeyDown(Key.Digit1)) GameManager.Instance.TryUseBeltSlot(0);
+                else if (GetKeyDown(Key.Digit2)) GameManager.Instance.TryUseBeltSlot(1);
+                else if (GetKeyDown(Key.Digit3)) GameManager.Instance.TryUseBeltSlot(2);
             }
 
-            // Punch Attack (Left Mouse or Space or F)
-            if (GetMouseButtonDown(0) || GetKeyDown(Key.Space) || GetKeyDown(Key.F))
+            // Crouch Toggle (C) with headroom verification before standing up
+            if (GetKeyDown(Key.C) && !IsDodging)
             {
-                if (Time.time >= nextPunchTime && !isInteractingWithCrate)
+                if (!IsCrouching)
                 {
-                    ExecutePunch();
+                    SetCrouchState(true);
+                }
+                else if (CanStandUp())
+                {
+                    SetCrouchState(false);
                 }
             }
+
+            // Hold RMB Aim Stance
+            UpdateAimInputAndCursor();
+
+            // Shift Tap-to-Dodge vs Hold-to-Sprint (unscaled real-time)
+            HandleShiftDodgeSprintInput();
+
+            // Retry buffered dodge if cooldown just finished
+            if (Time.unscaledTime <= dodgeBufferedUntil && !IsDodging)
+            {
+                TryTriggerDodge();
+            }
+
+            // Punch Attack (Left Mouse, Space, or F)
+            bool lmbPressed = GetMouseButtonDown(0) && !IsPointerOverBlockingUI();
+            bool keyPunchPressed = GetKeyDown(Key.Space) || GetKeyDown(Key.F);
+            if (lmbPressed || keyPunchPressed)
+            {
+                if (Time.time >= nextPunchTime && !isInteractingWithCrate && !IsDodging)
+                {
+                    ExecutePunch(lmbPressed);
+                }
+            }
+        }
+
+        private void UpdateAimInputAndCursor()
+        {
+            if (testAimOverrideActive)
+            {
+                IsAiming = !IsDead && !IsDodging && !isInteractingWithCrate;
+                return;
+            }
+
+            if (GetMouseButtonDown(1) && !IsPointerOverBlockingUI())
+            {
+                aimInputHeld = true;
+            }
+            if (!GetMouseButton(1))
+            {
+                aimInputHeld = false;
+            }
+
+            IsAiming = aimInputHeld && !IsDead && !IsDodging && !isInteractingWithCrate;
+
+            // Update cursor aim point on waist plane whenever pointer is available
+            UpdateCursorAimPoint();
+        }
+
+        private void UpdateCursorAimPoint()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current == null) return;
+            Vector2 screenPos = Mouse.current.position.ReadValue();
+#else
+            Vector2 screenPos = Input.mousePosition;
+#endif
+            CursorScreenPosition = screenPos;
+
+            Camera cam = Camera.main;
+            if (cam == null) return;
+
+            Ray ray = cam.ScreenPointToRay(screenPos);
+            Plane waistPlane = new Plane(Vector3.up, new Vector3(0f, transform.position.y + 0.9f, 0f));
+            if (waistPlane.Raycast(ray, out float enter) && enter > 0f)
+            {
+                Vector3 hitPoint = ray.GetPoint(enter);
+                Vector3 delta = hitPoint - transform.position;
+                delta.y = 0f;
+                if (delta.magnitude > playerConfig.AimDeadzoneRadius)
+                {
+                    lastValidAimDist = delta.magnitude;
+                    LastValidAimPoint = hitPoint;
+                    LastValidAimDir = delta.normalized;
+                }
+                else
+                {
+                    LastValidAimPoint = transform.position + LastValidAimDir * lastValidAimDist + Vector3.up * 0.9f;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Programmatic helper used by automated tests to verify RMB Aim stance and backpedaling.
+        /// </summary>
+        public void SetAimStateForTest(bool aiming, Vector3 aimWorldPoint)
+        {
+            testAimOverrideActive = aiming;
+            aimInputHeld = aiming;
+            IsAiming = aiming;
+            if (aiming)
+            {
+                Vector3 delta = aimWorldPoint - transform.position;
+                delta.y = 0f;
+                if (delta.sqrMagnitude > 0.001f)
+                {
+                    lastValidAimDist = Mathf.Max(1.0f, delta.magnitude);
+                    LastValidAimDir = delta.normalized;
+                    LastValidAimPoint = aimWorldPoint;
+                    transform.rotation = Quaternion.LookRotation(LastValidAimDir);
+                }
+            }
+        }
+
+        private void HandleShiftDodgeSprintInput()
+        {
+            bool shiftPressed = GetKey(Key.LeftShift);
+            if (shiftPressed)
+            {
+                if (!shiftWasHeld)
+                {
+                    shiftWasHeld = true;
+                    shiftHoldDuration = 0f;
+                }
+                else
+                {
+                    shiftHoldDuration += Time.unscaledDeltaTime;
+                }
+            }
+            else if (shiftWasHeld)
+            {
+                // Released Shift: if held shorter than threshold -> Tap-to-Dodge
+                if (shiftHoldDuration < playerConfig.ShiftHoldThreshold)
+                {
+                    dodgeBufferedUntil = Time.unscaledTime + playerConfig.DodgeBufferWindow;
+                    TryTriggerDodge();
+                }
+                shiftWasHeld = false;
+                shiftHoldDuration = 0f;
+            }
+        }
+
+        public bool TryTriggerDodge(Vector3? explicitDirection = null)
+        {
+            if (IsDead || IsDodging) return false;
+            var gm = GameManager.Instance;
+            if (gm != null && gm.IsInMainMenu) return false;
+            if (Time.timeScale <= 0f) return false;
+            if (Time.unscaledTime < nextDodgeTime) return false;
+            if (!IsGodMode && CurrentStamina < playerConfig.DodgeStaminaCost) return false;
+
+            // Cancel crate interaction smoothly if player dodges away
+            if (isInteractingWithCrate)
+            {
+                CancelCrateInteraction();
+            }
+
+            // Uncrouch if headroom is clear
+            if (IsCrouching && CanStandUp())
+            {
+                SetCrouchState(false);
+            }
+
+            Vector2 moveInput = GetMovementInput();
+            Vector3 worldMove = GetIsoWorldMoveDirection(moveInput);
+            bool hasMove = moveInput.sqrMagnitude > 0.01f;
+
+            dodgeIsBackstep = false;
+            if (explicitDirection.HasValue && explicitDirection.Value.sqrMagnitude > 0.001f)
+            {
+                Vector3 d = explicitDirection.Value;
+                d.y = 0f;
+                dodgeDirection = d.normalized;
+            }
+            else if (hasMove)
+            {
+                dodgeDirection = worldMove;
+            }
+            else if (IsAiming)
+            {
+                dodgeDirection = -transform.forward;
+                dodgeIsBackstep = true;
+            }
+            else
+            {
+                dodgeDirection = transform.forward;
+            }
+
+            if (!IsGodMode)
+            {
+                CurrentStamina = Mathf.Max(0f, CurrentStamina - playerConfig.DodgeStaminaCost);
+                OnStaminaChanged?.Invoke(CurrentStamina, playerConfig.MaxStamina);
+            }
+
+            IsDodging = true;
+            IsSprinting = false;
+            IsAiming = false;
+            dodgeTimer = 0f;
+            dodgeBufferedUntil = -1f;
+            nextDodgeTime = Time.unscaledTime + playerConfig.DodgeCooldown;
+            iframeEndTime = Time.unscaledTime + playerConfig.DodgeIframeDuration;
+
+            if (!dodgeIsBackstep && dodgeDirection.sqrMagnitude > 0.001f)
+            {
+                transform.rotation = Quaternion.LookRotation(dodgeDirection);
+            }
+
+            AudioManager.Instance?.PlayCueScaled(SfxCue.PunchSwing, transform.position, 0.7f, 1.25f);
+            CombatVfxManager.Instance?.PlayDodgeDust(transform.position);
+            OnDodgeExecuted?.Invoke();
+            return true;
+        }
+
+        private void SetCrouchState(bool crouch)
+        {
+            IsCrouching = crouch;
+            if (charController != null)
+            {
+                float h = crouch ? playerConfig.CrouchHeight : playerConfig.StandingHeight;
+                charController.height = h;
+                charController.center = new Vector3(0f, h * 0.5f, 0f);
+            }
+            if (animator != null)
+            {
+                animator.SetBool("Crouching", IsCrouching);
+            }
+        }
+
+        private bool CanStandUp()
+        {
+            if (IsGodMode || charController == null) return true;
+            float r = Mathf.Max(0.2f, charController.radius * 0.85f);
+            Vector3 pBottom = transform.position + Vector3.up * (playerConfig.CrouchHeight + 0.05f);
+            Vector3 pTop = transform.position + Vector3.up * (playerConfig.StandingHeight - r);
+            if (pTop.y <= pBottom.y) return true;
+
+            Collider[] hits = Physics.OverlapCapsule(pBottom, pTop, r, ~0, QueryTriggerInteraction.Ignore);
+            foreach (var col in hits)
+            {
+                if (col == null || col.transform == transform || col.transform.IsChildOf(transform)) continue;
+                if (col.gameObject.name == "PlayableGround") continue;
+                return false;
+            }
+            return true;
         }
 
         public void ToggleGodMode()
@@ -169,7 +608,6 @@ namespace DeadDepths.Player
 
             if (!enabled)
             {
-                // Keep player safely grounded and outside any solid wall/tree collider when exiting noclip
                 Vector3 safePos = ResolveUnobstructedExitPosition(transform.position);
                 safePos.y = Mathf.Max(0.05f, safePos.y);
                 transform.position = safePos;
@@ -178,7 +616,6 @@ namespace DeadDepths.Player
 
             if (charController != null)
             {
-                // Disable CharacterController during God Mode so Noclip passes cleanly through walls/trees/zombies
                 charController.enabled = !enabled;
                 charController.detectCollisions = !enabled;
             }
@@ -192,7 +629,6 @@ namespace DeadDepths.Player
             float radius = charController != null ? charController.radius : 0.35f;
             if (!IsPositionBlocked(pos, radius)) return pos;
 
-            // Search outward in rings for an unobstructed spot
             for (float dist = 1.0f; dist <= 8.0f; dist += 1.0f)
             {
                 for (int i = 0; i < 12; i++)
@@ -207,13 +643,11 @@ namespace DeadDepths.Player
                 }
             }
 
-            // NavMesh fallback
             if (NavMesh.SamplePosition(pos, out NavMeshHit navHit, 12f, NavMesh.AllAreas))
             {
                 return navHit.position + Vector3.up * 0.05f;
             }
 
-            // WorldGenerator spawn fallback
             if (WorldGenerator.Instance != null)
             {
                 return WorldGenerator.Instance.PlayerSpawnPosition + Vector3.up * 0.05f;
@@ -245,6 +679,11 @@ namespace DeadDepths.Player
                 StopCoroutine(activePunchRoutine);
                 activePunchRoutine = null;
             }
+            if (activeHitstopRoutine != null)
+            {
+                StopCoroutine(activeHitstopRoutine);
+                activeHitstopRoutine = null;
+            }
 
             CurrentHealth = playerConfig.MaxHealth;
             CurrentStamina = playerConfig.MaxStamina;
@@ -252,11 +691,28 @@ namespace DeadDepths.Player
             verticalVelocity = 0f;
             IsCrouching = false;
             IsSprinting = false;
+            IsAiming = false;
+            IsDodging = false;
+            aimInputHeld = false;
+            testAimOverrideActive = false;
+            shiftWasHeld = false;
+            shiftHoldDuration = 0f;
+            dodgeBufferedUntil = -1f;
+            nextDodgeTime = -10f;
+            iframeEndTime = -10f;
+            comboStep = 0;
+            lastPunchTriggerTime = -10f;
+            pendingDamageMultiplier = 1.0f;
+            pendingIsCrit = false;
             CurrentSpeed = 0f;
+            CurrentAnimSpeedMult = 1.0f;
             nextPunchTime = 0f;
             footstepTimer = 0f;
             isInteractingWithCrate = false;
             activeTargetCrate = null;
+            lastValidAimDist = 4.0f;
+            LastValidAimDir = transform.forward;
+            LastValidAimPoint = transform.position + transform.forward * 4f + Vector3.up * 0.9f;
 
             if (CrateProgressBarUI.Instance != null)
             {
@@ -265,6 +721,8 @@ namespace DeadDepths.Player
 
             if (charController != null)
             {
+                charController.height = playerConfig.StandingHeight;
+                charController.center = new Vector3(0f, playerConfig.StandingHeight * 0.5f, 0f);
                 charController.enabled = !IsGodMode;
                 charController.detectCollisions = !IsGodMode;
             }
@@ -275,6 +733,7 @@ namespace DeadDepths.Player
                 animator.SetBool("Dead", false);
                 animator.SetBool("Crouching", false);
                 animator.SetFloat("Speed", 0f);
+                SetAnimatorSpeedMultiplier(1.0f);
                 animator.ResetTrigger("Punch");
                 if (Application.isPlaying)
                 {
@@ -288,20 +747,45 @@ namespace DeadDepths.Player
             OnStaminaChanged?.Invoke(CurrentStamina, playerConfig.MaxStamina);
         }
 
+        private static Vector3 GetIsoWorldMoveDirection(Vector2 inputDir)
+        {
+            if (inputDir.sqrMagnitude <= 0.0001f) return Vector3.zero;
+            Vector3 isoForward = new Vector3(1f, 0f, 1f).normalized;
+            Vector3 isoRight = new Vector3(1f, 0f, -1f).normalized;
+            return (isoRight * inputDir.x + isoForward * inputDir.y).normalized;
+        }
+
         private void HandleLocomotion()
         {
+            if (IsDodging)
+            {
+                UpdateDodgeMovement();
+                return;
+            }
+
             Vector2 inputDir = GetMovementInput();
             bool hasMoveInput = inputDir.sqrMagnitude > 0.01f;
 
-            // Sprinting check
-            bool wantsRun = GetKey(Key.LeftShift) && hasMoveInput && !IsCrouching && (IsGodMode || CurrentStamina > 5f);
+            // Sprinting only after Shift held >= threshold, never while aiming/crouching/interacting
+            bool wantsRun = shiftWasHeld &&
+                            shiftHoldDuration >= playerConfig.ShiftHoldThreshold &&
+                            hasMoveInput &&
+                            !IsCrouching &&
+                            !IsAiming &&
+                            !isInteractingWithCrate &&
+                            (IsGodMode || CurrentStamina > 5f);
             IsSprinting = wantsRun;
 
-            // Determine target speed
+            float adrenalineMult = (GameManager.Instance != null && GameManager.Instance.IsAdrenalineActive) ? 1.22f : 1.0f;
+
             float baseSpeed;
             if (IsGodMode)
             {
                 baseSpeed = IsSprinting ? playerConfig.GodModeRunSpeed : playerConfig.GodModeWalkSpeed;
+            }
+            else if (IsAiming)
+            {
+                baseSpeed = IsCrouching ? Mathf.Min(playerConfig.AimWalkSpeed, playerConfig.CrouchSpeed) : playerConfig.AimWalkSpeed;
             }
             else
             {
@@ -310,28 +794,26 @@ namespace DeadDepths.Player
                 else if (IsSprinting) baseSpeed = playerConfig.RunSpeed;
             }
 
-            // Apply terrain speed modifier (ignored in God Mode)
             float effectiveTerrain = IsGodMode ? 1.0f : terrainMultiplier;
-            float targetSpeed = baseSpeed * effectiveTerrain;
+            float targetSpeed = baseSpeed * effectiveTerrain * adrenalineMult;
             CurrentSpeed = hasMoveInput ? targetSpeed : 0f;
 
-            // Convert input relative to isometric 45 degree camera orientation
-            Vector3 worldMoveDir = Vector3.zero;
-            if (hasMoveInput)
-            {
-                // Isometric direction: Forward is (+1, 0, +1), Right is (+1, 0, -1)
-                Vector3 isoForward = new Vector3(1f, 0f, 1f).normalized;
-                Vector3 isoRight = new Vector3(1f, 0f, -1f).normalized;
-                worldMoveDir = (isoRight * inputDir.x + isoForward * inputDir.y).normalized;
+            Vector3 worldMoveDir = hasMoveInput ? GetIsoWorldMoveDirection(inputDir) : Vector3.zero;
 
-                // Smooth rotation toward movement direction
+            // Rotation: Aiming rotates toward cursor; normal locomotion rotates toward movement
+            if (IsAiming && LastValidAimDir.sqrMagnitude > 0.001f)
+            {
+                Quaternion aimRot = Quaternion.LookRotation(LastValidAimDir);
+                transform.rotation = Quaternion.Slerp(transform.rotation, aimRot, Time.deltaTime * playerConfig.AimRotationSpeed);
+            }
+            else if (hasMoveInput)
+            {
                 Quaternion targetRot = Quaternion.LookRotation(worldMoveDir);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * playerConfig.RotationSpeed);
             }
 
             if (IsGodMode)
             {
-                // Noclip movement directly via transform (bypasses wall/tree colliders)
                 Vector3 nextPos = transform.position + worldMoveDir * (CurrentSpeed * Time.deltaTime);
                 nextPos.y = 0.05f;
                 transform.position = nextPos;
@@ -343,7 +825,6 @@ namespace DeadDepths.Player
                     charController.enabled = true;
                 }
 
-                // Gravity
                 if (charController.isGrounded)
                 {
                     verticalVelocity = -0.5f;
@@ -356,17 +837,17 @@ namespace DeadDepths.Player
                 Vector3 finalMove = (worldMoveDir * CurrentSpeed) + (Vector3.up * verticalVelocity);
                 charController.Move(finalMove * Time.deltaTime);
 
-                // Footstep cadence audio feedback when moving on ground
                 if (hasMoveInput && charController.isGrounded)
                 {
                     footstepTimer -= Time.deltaTime;
                     if (footstepTimer <= 0f)
                     {
-                        float baseInterval = IsSprinting ? 0.32f : (IsCrouching ? 0.58f : 0.45f);
-                        footstepTimer = baseInterval / Mathf.Max(0.5f, effectiveTerrain);
+                        float baseInterval = IsSprinting ? 0.30f : (IsCrouching ? 0.56f : 0.44f);
+                        footstepTimer = baseInterval / Mathf.Max(0.5f, effectiveTerrain * adrenalineMult);
                         if (AudioManager.Instance != null)
                         {
-                            AudioManager.Instance.PlayCue(SfxCue.FootGrass, transform.position);
+                            bool inMud = terrainMultiplier < 0.95f || MuddyPatch.IsActorInMud(this);
+                            AudioManager.Instance.PlayFootstep(transform.position, inMud);
                         }
                     }
                 }
@@ -376,22 +857,35 @@ namespace DeadDepths.Player
                 }
             }
 
-            // Sync Animator Speed parameter with Player.controller thresholds:
-            // Standing BlendTree: 0 = Idle, 2.3 = Walk, 5.2 = Run
-            // Crouch BlendTree:   0 = CrouchIdle, 1.1 = CrouchWalk
+            // Backpedaling animation detection & Animator Speed sync
+            bool isBackpedaling = IsAiming && hasMoveInput && Vector3.Dot(worldMoveDir, transform.forward) < -0.35f;
+            float animSpeedMult = isBackpedaling ? -0.85f : 1.0f;
+            CurrentAnimSpeedMult = animSpeedMult;
+
             if (animator != null)
             {
                 float targetAnimSpeed = 0f;
                 if (hasMoveInput)
                 {
-                    if (IsCrouching)
+                    if (isBackpedaling)
+                    {
+                        targetAnimSpeed = IsCrouching ? 1.8f : 2.3f;
+                    }
+                    else if (IsCrouching)
+                    {
                         targetAnimSpeed = 1.1f * effectiveTerrain;
+                    }
                     else if (IsSprinting || IsGodMode)
+                    {
                         targetAnimSpeed = 5.2f * effectiveTerrain;
+                    }
                     else
+                    {
                         targetAnimSpeed = 2.3f * effectiveTerrain;
+                    }
                 }
 
+                SetAnimatorSpeedMultiplier(animSpeedMult);
                 if (Time.deltaTime > 0f)
                 {
                     animator.SetFloat("Speed", targetAnimSpeed, 0.08f, Time.deltaTime);
@@ -402,10 +896,59 @@ namespace DeadDepths.Player
                 }
             }
 
-            // Interrupt crate opening if player moves
             if (hasMoveInput && isInteractingWithCrate)
             {
                 CancelCrateInteraction();
+            }
+        }
+
+        private void UpdateDodgeMovement()
+        {
+            dodgeTimer += Time.deltaTime;
+            float t = Mathf.Clamp01(dodgeTimer / Mathf.Max(0.05f, playerConfig.DodgeDuration));
+            // Ease-Out burst deceleration
+            float easeOutFactor = Mathf.Pow(1f - t, 1.35f) * 1.15f + 0.15f;
+            float stepSpeed = playerConfig.DodgeSpeed * Mathf.Clamp01(easeOutFactor);
+            CurrentSpeed = stepSpeed;
+
+            if (IsGodMode)
+            {
+                Vector3 nextPos = transform.position + dodgeDirection * (stepSpeed * Time.deltaTime);
+                nextPos.y = 0.05f;
+                transform.position = nextPos;
+            }
+            else if (charController != null)
+            {
+                if (!charController.enabled) charController.enabled = true;
+                verticalVelocity = charController.isGrounded ? -0.5f : verticalVelocity + playerConfig.Gravity * Time.deltaTime;
+                Vector3 move = dodgeDirection * stepSpeed + Vector3.up * verticalVelocity;
+                charController.Move(move * Time.deltaTime);
+            }
+
+            if (animator != null)
+            {
+                SetAnimatorSpeedMultiplier(dodgeIsBackstep ? -1.1f : 1.25f);
+                animator.SetFloat("Speed", 5.2f);
+            }
+
+            if (dodgeTimer >= playerConfig.DodgeDuration)
+            {
+                IsDodging = false;
+                CurrentAnimSpeedMult = 1.0f;
+                SetAnimatorSpeedMultiplier(1.0f);
+            }
+        }
+
+        private void SetAnimatorSpeedMultiplier(float value)
+        {
+            if (animator == null) return;
+            foreach (var p in animator.parameters)
+            {
+                if (p.name == "AnimSpeedMult" && p.type == AnimatorControllerParameterType.Float)
+                {
+                    animator.SetFloat("AnimSpeedMult", value);
+                    return;
+                }
             }
         }
 
@@ -418,20 +961,52 @@ namespace DeadDepths.Player
                 return;
             }
 
+            float regenBoost = (GameManager.Instance != null && GameManager.Instance.IsAdrenalineActive) ? 2.0f : 1.0f;
+
             if (IsSprinting)
             {
-                CurrentStamina = Mathf.Max(0f, CurrentStamina - playerConfig.StaminaDrainRate * Time.deltaTime);
+                float drain = playerConfig.StaminaDrainRate * (regenBoost > 1f ? 0.5f : 1f);
+                CurrentStamina = Mathf.Max(0f, CurrentStamina - drain * Time.deltaTime);
             }
-            else
+            else if (!IsDodging)
             {
-                CurrentStamina = Mathf.Min(playerConfig.MaxStamina, CurrentStamina + playerConfig.StaminaRegenRate * Time.deltaTime);
+                CurrentStamina = Mathf.Min(playerConfig.MaxStamina, CurrentStamina + playerConfig.StaminaRegenRate * regenBoost * Time.deltaTime);
             }
             OnStaminaChanged?.Invoke(CurrentStamina, playerConfig.MaxStamina);
         }
 
-        private void ExecutePunch()
+        private void ExecutePunch(bool orientToCursor = false)
         {
             nextPunchTime = Time.time + playerConfig.PunchCooldown;
+            IsSprinting = false;
+
+            // CRITICAL: Orient toward cursor ONLY on LMB or when IsAiming == true;
+            // [F]/[Space] while un-aimed punches straight along transform.forward.
+            if (orientToCursor || IsAiming)
+            {
+                UpdateCursorAimPoint();
+                if (LastValidAimDir.sqrMagnitude > 0.001f)
+                {
+                    transform.rotation = Quaternion.LookRotation(LastValidAimDir);
+                }
+            }
+
+            // 3-Hit Combo progression
+            if (Time.time - lastPunchTriggerTime <= playerConfig.ComboResetWindow)
+            {
+                comboStep = (comboStep + 1) % 3;
+            }
+            else
+            {
+                comboStep = 0;
+            }
+            lastPunchTriggerTime = Time.time;
+
+            bool isFinisher = comboStep == 2;
+            bool isCrit = UnityEngine.Random.value < playerConfig.CritChance;
+            pendingDamageMultiplier = (isFinisher ? playerConfig.ComboFinisherMultiplier : 1.0f) *
+                                      (isCrit ? playerConfig.CritMultiplier : 1.0f);
+            pendingIsCrit = isCrit;
 
             if (animator != null)
             {
@@ -448,34 +1023,42 @@ namespace DeadDepths.Player
 
             if (AudioManager.Instance != null)
             {
-                AudioManager.Instance.PlayCue(SfxCue.PunchSwing, transform.position);
+                AudioManager.Instance.PlayCueScaled(SfxCue.PunchSwing, transform.position, 1f, isFinisher ? 0.88f : 1.0f);
             }
+            CombatVfxManager.Instance?.PlayPunchSwing(transform.position, transform.forward, isFinisher);
 
             OnPunchExecuted?.Invoke();
 
-            // Sync hit detection with the punch animation swing impact
             if (playerConfig.PunchHitDelay > 0f && Application.isPlaying)
             {
                 if (activePunchRoutine != null) StopCoroutine(activePunchRoutine);
-                activePunchRoutine = StartCoroutine(ExecutePunchHitRoutine());
+                activePunchRoutine = StartCoroutine(ExecutePunchHitRoutine(pendingDamageMultiplier, pendingIsCrit));
             }
             else
             {
-                PerformPunchHitDetection();
+                PerformPunchHitDetectionInternal(pendingDamageMultiplier, pendingIsCrit);
             }
         }
 
-        private IEnumerator ExecutePunchHitRoutine()
+        private IEnumerator ExecutePunchHitRoutine(float damageMult, bool isCrit)
         {
             yield return new WaitForSeconds(playerConfig.PunchHitDelay);
             activePunchRoutine = null;
             if (!IsDead)
             {
-                PerformPunchHitDetection();
+                PerformPunchHitDetectionInternal(damageMult, isCrit);
             }
         }
 
+        /// <summary>
+        /// Direct deterministic hit check used by Test #12 (exact PunchDamage).
+        /// </summary>
         public void PerformPunchHitDetection()
+        {
+            PerformPunchHitDetectionInternal(1.0f, false);
+        }
+
+        private void PerformPunchHitDetectionInternal(float damageMultiplier, bool isCrit)
         {
             Vector3 hitCenter = transform.position + transform.forward * (playerConfig.PunchRange * 0.55f);
             Collider[] hitCols = Physics.OverlapSphere(hitCenter, playerConfig.PunchRange, ~0, QueryTriggerInteraction.Ignore);
@@ -483,6 +1066,8 @@ namespace DeadDepths.Player
             var hitZombies = new System.Collections.Generic.HashSet<AI.ZombieController>();
             var hitBlockers = new System.Collections.Generic.HashSet<BlockingObject>();
             Vector3 playerChest = transform.position + Vector3.up * 1.0f;
+
+            float dmg = playerConfig.PunchDamage * Mathf.Max(0.1f, damageMultiplier);
 
             foreach (var col in hitCols)
             {
@@ -497,37 +1082,65 @@ namespace DeadDepths.Player
 
                 if (dist <= 0.9f || Vector3.Angle(transform.forward, dirToTarget) <= playerConfig.PunchArcAngle * 0.5f)
                 {
-                    // Check solid wall/tree occlusion so punches cannot connect through solid walls (other zombies don't block cleave)
                     Vector3 targetChest = col.bounds.center;
                     if (IsPunchOccludedByWall(playerChest, targetChest, col))
                     {
                         continue;
                     }
 
-                    // 1. Check for Zombies
                     var zombie = col.GetComponentInParent<AI.ZombieController>();
                     if (zombie != null && !zombie.IsDead && hitZombies.Add(zombie))
                     {
-                        zombie.TakeDamage(playerConfig.PunchDamage, transform.position);
+                        zombie.TakeDamage(dmg, transform.position);
                         if (AudioManager.Instance != null) AudioManager.Instance.PlayCue(SfxCue.PunchHit, col.transform.position);
+                        CombatVfxManager.Instance?.PlayHitBlood(col.transform.position, isCrit);
+                        DamagePopupManager.Instance?.ShowDamage(zombie.transform.position + Vector3.up * 2.0f, Mathf.RoundToInt(dmg), isCrit);
                         hitSomething = true;
                         continue;
                     }
 
-                    // 2. Check for Breakable Blockers
                     var blocker = col.GetComponentInParent<BlockingObject>();
                     if (blocker != null && blocker.IsBreakable && !blocker.IsDestroyed && hitBlockers.Add(blocker))
                     {
-                        blocker.ApplyDamage(playerConfig.PunchDamage);
+                        blocker.ApplyDamage(dmg);
+                        DamagePopupManager.Instance?.ShowDamage(blocker.transform.position + Vector3.up * 1.4f, Mathf.RoundToInt(dmg), false);
                         hitSomething = true;
                     }
                 }
             }
 
-            if (hitSomething && IsometricCameraController.Instance != null)
+            if (hitSomething)
             {
-                IsometricCameraController.Instance.TriggerShake(0.20f, 0.16f);
+                if (IsometricCameraController.Instance != null)
+                {
+                    IsometricCameraController.Instance.TriggerShake(isCrit ? 0.30f : 0.20f, 0.16f);
+                }
+
+                if (Application.isPlaying && playerConfig.HitstopDuration > 0f && gameObject.activeInHierarchy)
+                {
+                    if (activeHitstopRoutine != null) StopCoroutine(activeHitstopRoutine);
+                    activeHitstopRoutine = StartCoroutine(HitstopRoutine(playerConfig.HitstopDuration));
+                }
             }
+        }
+
+        private IEnumerator HitstopRoutine(float duration)
+        {
+            var gm = GameManager.Instance;
+            if (Time.timeScale <= 0f || (gm != null && (gm.IsPaused || gm.IsInMainMenu)))
+            {
+                activeHitstopRoutine = null;
+                yield break;
+            }
+
+            Time.timeScale = 0.05f;
+            yield return new WaitForSecondsRealtime(duration);
+
+            if (gm == null || (!gm.IsPaused && !(CompletionScreenUI.Instance != null && CompletionScreenUI.Instance.IsVisible)))
+            {
+                Time.timeScale = 1.0f;
+            }
+            activeHitstopRoutine = null;
         }
 
         private bool IsPunchOccludedByWall(Vector3 fromPos, Vector3 toPos, Collider targetCol)
@@ -555,7 +1168,6 @@ namespace DeadDepths.Player
 
         private void HandleCrateInteraction()
         {
-            // Scan for nearby crate within actual CrateConfig.InteractionDistance
             Collider[] cols = Physics.OverlapSphere(transform.position, playerConfig.InteractionScanRadius);
             SuppliesCrate nearestCrate = null;
             float nearestDist = float.MaxValue;
@@ -583,11 +1195,12 @@ namespace DeadDepths.Player
             activeTargetCrate = nearestCrate;
 
             bool isHoldingInteract = GetKey(Key.E);
-            if (isHoldingInteract && activeTargetCrate != null)
+            if (isHoldingInteract && activeTargetCrate != null && !IsDodging)
             {
                 if (!isInteractingWithCrate)
                 {
                     isInteractingWithCrate = true;
+                    IsAiming = false;
                     activeTargetCrate.StartInteraction(transform);
 
                     if (CrateProgressBarUI.Instance != null)
@@ -626,12 +1239,11 @@ namespace DeadDepths.Player
 
         public void TakeDamage(float amount)
         {
-            if (IsDead || IsGodMode) return;
+            if (IsDead || IsInvulnerable) return;
 
             CurrentHealth = Mathf.Max(0f, CurrentHealth - Mathf.Max(0f, amount));
             OnHealthChanged?.Invoke(CurrentHealth, playerConfig.MaxHealth);
 
-            // Record in performance tracker for DDA
             if (PlayerPerformanceTracker.Instance != null)
             {
                 PlayerPerformanceTracker.Instance.RecordDamageReceived(amount);
@@ -643,13 +1255,11 @@ namespace DeadDepths.Player
                 AudioManager.Instance.PlayCue(SfxCue.PlayerHurt, transform.position);
             }
 
-            // Screen shake
             if (IsometricCameraController.Instance != null)
             {
                 IsometricCameraController.Instance.TriggerShake(0.35f, 0.25f);
             }
 
-            // Cancel any active crate opening on damage (Section 3.2)
             CancelCrateInteraction();
 
             if (CurrentHealth <= 0f)
@@ -669,6 +1279,13 @@ namespace DeadDepths.Player
             }
         }
 
+        public void RestoreStamina(float amount)
+        {
+            if (IsDead || amount <= 0f) return;
+            CurrentStamina = Mathf.Min(playerConfig.MaxStamina, CurrentStamina + amount);
+            OnStaminaChanged?.Invoke(CurrentStamina, playerConfig.MaxStamina);
+        }
+
         private void Die()
         {
             if (activePunchRoutine != null)
@@ -676,7 +1293,18 @@ namespace DeadDepths.Player
                 StopCoroutine(activePunchRoutine);
                 activePunchRoutine = null;
             }
+            if (activeHitstopRoutine != null)
+            {
+                StopCoroutine(activeHitstopRoutine);
+                activeHitstopRoutine = null;
+                Time.timeScale = 1f;
+            }
 
+            IsAiming = false;
+            IsDodging = false;
+            IsSprinting = false;
+            aimInputHeld = false;
+            testAimOverrideActive = false;
             CancelCrateInteraction();
 
             if (animator != null)
@@ -690,7 +1318,6 @@ namespace DeadDepths.Player
                 AudioManager.Instance.PlayCue(SfxCue.PlayerDeath, transform.position);
             }
 
-            // Ensure mouse cursor is unlocked so player can click Retry button
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
@@ -731,6 +1358,10 @@ namespace DeadDepths.Player
                 case Key.F: return Keyboard.current.fKey.wasPressedThisFrame;
                 case Key.G: return Keyboard.current.gKey.wasPressedThisFrame;
                 case Key.Space: return Keyboard.current.spaceKey.wasPressedThisFrame;
+                case Key.Escape: return Keyboard.current.escapeKey.wasPressedThisFrame;
+                case Key.Digit1: return Keyboard.current.digit1Key.wasPressedThisFrame;
+                case Key.Digit2: return Keyboard.current.digit2Key.wasPressedThisFrame;
+                case Key.Digit3: return Keyboard.current.digit3Key.wasPressedThisFrame;
                 default: return false;
             }
 #else
@@ -762,6 +1393,18 @@ namespace DeadDepths.Player
             return false;
 #else
             return Input.GetMouseButtonDown(button);
+#endif
+        }
+
+        private bool GetMouseButton(int button)
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current == null) return false;
+            if (button == 0) return Mouse.current.leftButton.isPressed;
+            if (button == 1) return Mouse.current.rightButton.isPressed;
+            return false;
+#else
+            return Input.GetMouseButton(button);
 #endif
         }
         #endregion

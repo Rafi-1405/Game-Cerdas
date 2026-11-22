@@ -126,6 +126,7 @@ namespace DeadDepths.UI
 
         private void OnGUI()
         {
+            if (DeadDepthsUIRoot.IsCanvasActive) return;
             if (!isVisible || targetActor == null) return;
             if (activeCamera == null) activeCamera = Camera.main;
             if (activeCamera == null) return;

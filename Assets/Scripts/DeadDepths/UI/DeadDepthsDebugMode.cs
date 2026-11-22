@@ -45,6 +45,26 @@ namespace DeadDepths.UI
 
         [NonSerialized] private readonly List<ZombieController> cachedZombies = new List<ZombieController>();
         [NonSerialized] private float zombieRefreshTimer = 0f;
+        [NonSerialized] private Rect leftPanelRect;
+        [NonSerialized] private Rect rightPanelRect;
+
+        public static bool IsPointerOverAnyPanel()
+        {
+            if (Instance == null || !Instance.isDebugVisible) return false;
+            if (CompletionScreenUI.Instance != null && CompletionScreenUI.Instance.IsVisible) return false;
+
+            Vector2 mousePos;
+#if ENABLE_INPUT_SYSTEM
+            if (Mouse.current == null) return false;
+            mousePos = Mouse.current.position.ReadValue();
+#else
+            mousePos = Input.mousePosition;
+#endif
+            Vector2 guiPos = new Vector2(mousePos.x, Screen.height - mousePos.y);
+            if (Instance.leftPanelRect.width > 0f && Instance.leftPanelRect.Contains(guiPos)) return true;
+            if (Instance.showMapResourcePanel && Instance.rightPanelRect.width > 0f && Instance.rightPanelRect.Contains(guiPos)) return true;
+            return false;
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -267,6 +287,7 @@ namespace DeadDepths.UI
             float panelY = 14f;
             float panelW = 365f;
             float panelH = showAiPanel ? Mathf.Min(Screen.height - 95f, 540f) : 108f;
+            leftPanelRect = new Rect(panelX, panelY, panelW, panelH);
 
             GUI.DrawTexture(new Rect(panelX - 1, panelY - 1, panelW + 2, panelH + 2), texBorder);
             GUI.DrawTexture(new Rect(panelX, panelY, panelW, panelH), texPanelBg);
@@ -399,6 +420,7 @@ namespace DeadDepths.UI
             float panelY = 48f;
             float panelH = Mathf.Min(540f, Screen.height - panelY - 12f);
             float panelX = Screen.width - panelW - 14f;
+            rightPanelRect = new Rect(panelX, panelY, panelW, panelH);
 
             GUI.DrawTexture(new Rect(panelX - 1, panelY - 1, panelW + 2, panelH + 2), texBorder);
             GUI.DrawTexture(new Rect(panelX, panelY, panelW, panelH), texPanelBg);
@@ -624,6 +646,8 @@ namespace DeadDepths.UI
             var wg = WorldGenerator.Instance;
             var player = DeadDepthsPlayerController.Instance;
             if (wg == null || player == null) return;
+
+            GameManager.Instance?.GrantAllSupplyIntelForDemo();
 
             var cc = player.GetComponent<CharacterController>();
             bool prevCC = cc != null && cc.enabled;

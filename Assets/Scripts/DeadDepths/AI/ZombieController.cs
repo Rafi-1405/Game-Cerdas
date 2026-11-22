@@ -14,9 +14,9 @@ using UTS.Audio;
 namespace DeadDepths.AI
 {
     /// <summary>
-    /// Controls zombie behaviors, shared FSM, and archetype-specific attacks.
+    /// Controls zombie behaviors, shared FSM, archetype-specific attacks, MainMenu isolation,
+    /// crouch stealth detection, bone-attached visual accessories, and smooth corpse sinking.
     /// ASD-STE100: This AI controller guides Walker, Spitter, and Charger zombies.
-    /// Follows Section 5 of the specification.
     /// </summary>
     [RequireComponent(typeof(NavMeshAgent))]
     public class ZombieController : MonoBehaviour, IMudSlowable
@@ -51,6 +51,7 @@ namespace DeadDepths.AI
             public float ChargerTelegraphDuration = 3.0f;
             public float ChargerStepBackDuration = 0.5f;
             public float ChargerSpeed = 15f;
+            public float ChargerMaxChargeDuration = 1.3f;
             public float ChargerStunDuration = 5.0f;
             public float ChargerImpactDamage = 35f;
         }
@@ -137,6 +138,9 @@ namespace DeadDepths.AI
         private Coroutine hitFlashRoutine;
         private Coroutine meleeHitRoutine;
 
+        private readonly List<GameObject> spawnedAccessories = new List<GameObject>();
+        private readonly List<Material> spawnedAccessoryMaterials = new List<Material>();
+
         private float terrainMultiplier = 1.0f;
         private float nextAttackTime = 0f;
         private float stateTimer = 0f;
@@ -148,20 +152,22 @@ namespace DeadDepths.AI
         private float patrolMoveTimer = 0f;
         private ChargerTelegraph chargerTelegraph;
 
-        // Spitter state variables
+        // Shared sub-phase timer for Spitter & Charger
         private enum SpitterPhase { None, Preparation, Recovery }
         private SpitterPhase spitterPhase = SpitterPhase.None;
         private bool spitterAnimTriggered = false;
         private Vector3 capturedSpitTarget;
 
-        // Charger state variables
         private enum ChargerPhase { None, TelegraphTracking, StepBack, Charging, Stunned }
         private ChargerPhase chargerPhase = ChargerPhase.None;
         private Vector3 lockedChargeDirection;
-        private float chargerPhaseTimer = 0f;
+        private float subPhaseTimer = 0f;
+
+        private float corpseTimer = 0f;
 
         private void Awake()
         {
+            ApplyFallbackDefaults();
             agent = GetComponent<NavMeshAgent>();
             animator = GetComponentInChildren<Animator>();
             EnforceAnimatorNoRootMotion();
@@ -174,6 +180,47 @@ namespace DeadDepths.AI
             ConfigureArchetypeSettings();
             CurrentHealth = aiConfig.MaxHealth;
             FindPlayer();
+        }
+
+        private void OnValidate()
+        {
+            ApplyFallbackDefaults();
+        }
+
+        private void ApplyFallbackDefaults()
+        {
+            if (aiConfig == null) aiConfig = new ArchetypeConfig();
+            if (aiConfig.VisionRange <= 0f) aiConfig.VisionRange = 16f;
+            if (aiConfig.VisionAngle <= 0f) aiConfig.VisionAngle = 110f;
+            if (aiConfig.ChargerMaxChargeDuration <= 0f) aiConfig.ChargerMaxChargeDuration = 1.3f;
+        }
+
+        private void OnDestroy()
+        {
+            CleanupAccessories();
+        }
+
+        private void CleanupAccessories()
+        {
+            for (int i = 0; i < spawnedAccessories.Count; i++)
+            {
+                if (spawnedAccessories[i] != null)
+                {
+                    if (Application.isPlaying) Destroy(spawnedAccessories[i]);
+                    else DestroyImmediate(spawnedAccessories[i]);
+                }
+            }
+            spawnedAccessories.Clear();
+
+            for (int i = 0; i < spawnedAccessoryMaterials.Count; i++)
+            {
+                if (spawnedAccessoryMaterials[i] != null)
+                {
+                    if (Application.isPlaying) Destroy(spawnedAccessoryMaterials[i]);
+                    else DestroyImmediate(spawnedAccessoryMaterials[i]);
+                }
+            }
+            spawnedAccessoryMaterials.Clear();
         }
 
         private void EnforceAnimatorNoRootMotion()
@@ -193,8 +240,7 @@ namespace DeadDepths.AI
         }
 
         /// <summary>
-        /// Explicitly initializes archetype stats, scale, and visual differentiation at spawn time.
-        /// Fixes B1 where Awake() previously ran before Reflection changed archetype.
+        /// Explicitly initializes archetype stats, scale, bone accessories, and visual tint at spawn time.
         /// </summary>
         public void InitializeArchetype(ZombieArchetype arch)
         {
@@ -202,16 +248,20 @@ namespace DeadDepths.AI
             if (agent == null) agent = GetComponent<NavMeshAgent>();
             if (animator == null) animator = GetComponentInChildren<Animator>();
             EnforceAnimatorNoRootMotion();
-            if (childRenderers == null || childRenderers.Length == 0) childRenderers = GetComponentsInChildren<Renderer>();
             if (propBlock == null) propBlock = new MaterialPropertyBlock();
 
             spawnPosition = transform.position;
             lastKnownPlayerPos = transform.position;
             CurrentState = ZombieState.IdlePatrol;
             stateTimer = 0f;
+            subPhaseTimer = 0f;
             spitterPhase = SpitterPhase.None;
             chargerPhase = ChargerPhase.None;
             hasPatrolTarget = false;
+            corpseTimer = 0f;
+
+            AttachArchetypeAccessories(arch);
+            childRenderers = GetComponentsInChildren<Renderer>();
 
             ConfigureArchetypeSettings();
             CurrentHealth = aiConfig.MaxHealth;
@@ -224,6 +274,104 @@ namespace DeadDepths.AI
                 {
                     chargerTelegraph = gameObject.AddComponent<ChargerTelegraph>();
                 }
+            }
+        }
+
+        private void AttachArchetypeAccessories(ZombieArchetype arch)
+        {
+            CleanupAccessories();
+            if (arch == ZombieArchetype.Walker) return;
+
+            Shader litShader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+
+            if (arch == ZombieArchetype.Spitter)
+            {
+                Transform chest = animator != null && animator.isHuman
+                    ? (animator.GetBoneTransform(HumanBodyBones.UpperChest) ?? animator.GetBoneTransform(HumanBodyBones.Chest))
+                    : null;
+                if (chest == null) chest = transform;
+
+                GameObject sac = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                sac.name = "ArchetypeAccessory_VenomSac";
+                RemoveCollidersImmediate(sac);
+                sac.transform.SetParent(chest, false);
+                if (chest == transform)
+                    sac.transform.localPosition = new Vector3(0f, 1.32f, 0.20f);
+                else
+                    sac.transform.localPosition = new Vector3(0f, 0.05f, 0.16f);
+                sac.transform.localScale = new Vector3(0.28f, 0.30f, 0.24f);
+
+                Material sacMat = new Material(litShader) { hideFlags = HideFlags.HideAndDontSave };
+                sacMat.color = new Color(0.25f, 0.95f, 0.35f);
+                if (sacMat.HasProperty("_BaseColor")) sacMat.SetColor("_BaseColor", new Color(0.25f, 0.95f, 0.35f));
+                if (sacMat.HasProperty("_EmissionColor"))
+                {
+                    sacMat.EnableKeyword("_EMISSION");
+                    sacMat.SetColor("_EmissionColor", new Color(0.15f, 0.85f, 0.25f) * 1.4f);
+                }
+                sac.GetComponent<Renderer>().sharedMaterial = sacMat;
+                spawnedAccessoryMaterials.Add(sacMat);
+                spawnedAccessories.Add(sac);
+            }
+            else if (arch == ZombieArchetype.Charger)
+            {
+                Material armorMat = new Material(litShader) { hideFlags = HideFlags.HideAndDontSave };
+                armorMat.color = new Color(0.28f, 0.14f, 0.14f);
+                if (armorMat.HasProperty("_BaseColor")) armorMat.SetColor("_BaseColor", new Color(0.28f, 0.14f, 0.14f));
+                if (armorMat.HasProperty("_Metallic")) armorMat.SetFloat("_Metallic", 0.65f);
+                spawnedAccessoryMaterials.Add(armorMat);
+
+                Transform leftArm = animator != null && animator.isHuman
+                    ? (animator.GetBoneTransform(HumanBodyBones.LeftUpperArm) ?? animator.GetBoneTransform(HumanBodyBones.LeftShoulder))
+                    : null;
+                Transform rightArm = animator != null && animator.isHuman
+                    ? (animator.GetBoneTransform(HumanBodyBones.RightUpperArm) ?? animator.GetBoneTransform(HumanBodyBones.RightShoulder))
+                    : null;
+                Transform head = animator != null && animator.isHuman
+                    ? animator.GetBoneTransform(HumanBodyBones.Head)
+                    : null;
+
+                CreateArmorPauldron(leftArm ?? transform, leftArm == null ? new Vector3(-0.34f, 1.45f, 0f) : Vector3.zero, armorMat);
+                CreateArmorPauldron(rightArm ?? transform, rightArm == null ? new Vector3(0.34f, 1.45f, 0f) : Vector3.zero, armorMat);
+
+                GameObject visor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visor.name = "ArchetypeAccessory_ChargerEyes";
+                RemoveCollidersImmediate(visor);
+                visor.transform.SetParent(head ?? transform, false);
+                visor.transform.localPosition = head == null ? new Vector3(0f, 1.62f, 0.16f) : new Vector3(0f, 0.06f, 0.12f);
+                visor.transform.localScale = new Vector3(0.16f, 0.04f, 0.06f);
+                Material eyeMat = new Material(litShader) { hideFlags = HideFlags.HideAndDontSave };
+                eyeMat.color = new Color(1f, 0.15f, 0.10f);
+                if (eyeMat.HasProperty("_BaseColor")) eyeMat.SetColor("_BaseColor", new Color(1f, 0.15f, 0.10f));
+                if (eyeMat.HasProperty("_EmissionColor"))
+                {
+                    eyeMat.EnableKeyword("_EMISSION");
+                    eyeMat.SetColor("_EmissionColor", new Color(1f, 0.2f, 0.1f) * 2.2f);
+                }
+                visor.GetComponent<Renderer>().sharedMaterial = eyeMat;
+                spawnedAccessoryMaterials.Add(eyeMat);
+                spawnedAccessories.Add(visor);
+            }
+        }
+
+        private void CreateArmorPauldron(Transform parent, Vector3 localPos, Material mat)
+        {
+            GameObject p = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            p.name = "ArchetypeAccessory_Pauldron";
+            RemoveCollidersImmediate(p);
+            p.transform.SetParent(parent, false);
+            p.transform.localPosition = localPos;
+            p.transform.localScale = new Vector3(0.24f, 0.22f, 0.26f);
+            p.GetComponent<Renderer>().sharedMaterial = mat;
+            spawnedAccessories.Add(p);
+        }
+
+        private static void RemoveCollidersImmediate(GameObject go)
+        {
+            foreach (var c in go.GetComponentsInChildren<Collider>())
+            {
+                if (Application.isPlaying) Destroy(c);
+                else DestroyImmediate(c);
             }
         }
 
@@ -270,6 +418,7 @@ namespace DeadDepths.AI
             foreach (var r in childRenderers)
             {
                 if (r == null) continue;
+                if (r.gameObject.name.StartsWith("ArchetypeAccessory_", StringComparison.Ordinal)) continue;
                 r.GetPropertyBlock(propBlock);
                 propBlock.SetColor("_BaseColor", c);
                 propBlock.SetColor("_Color", c);
@@ -289,7 +438,16 @@ namespace DeadDepths.AI
 
         private void Update()
         {
-            if (IsDead) return;
+            if (IsDead)
+            {
+                corpseTimer += Time.deltaTime;
+                if (corpseTimer >= 2.0f)
+                {
+                    transform.position += Vector3.down * (Time.deltaTime * 0.65f);
+                }
+                return;
+            }
+
             if (Time.timeScale <= 0f || (CompletionScreenUI.Instance != null && CompletionScreenUI.Instance.IsVisible))
             {
                 return;
@@ -303,13 +461,11 @@ namespace DeadDepths.AI
 
             HasLineOfSightToPlayer = CanSeePlayer();
 
-            // Speed adjustment per FSM state and mud multiplier
             if (agent != null && agent.enabled && chargerPhase != ChargerPhase.Charging)
             {
                 float targetSpeed = aiConfig.BaseMoveSpeed;
                 if (CurrentState == ZombieState.IdlePatrol)
                 {
-                    // Cap patrol speed so fast archetypes (e.g. Spitter) walk rather than sprint while patrolling
                     targetSpeed = Mathf.Min(aiConfig.BaseMoveSpeed * 0.45f, 1.25f);
                 }
                 else if (CurrentState == ZombieState.Search)
@@ -335,8 +491,6 @@ namespace DeadDepths.AI
                     break;
             }
 
-            // Sync Animator Speed parameter with Zombie.controller thresholds:
-            // 0 = Idle, 0.9 = Walk, 2.3 = Run
             if (animator != null)
             {
                 float actualWorldSpeed = 0f;
@@ -371,11 +525,17 @@ namespace DeadDepths.AI
 
         private bool CanSeePlayer()
         {
+            // Never aggro during Main Menu diorama
+            if (GameManager.Instance != null && GameManager.Instance.IsInMainMenu) return false;
             if (playerTarget == null || (playerController != null && playerController.IsDead)) return false;
+
+            float effectiveVisionRange = (playerController != null && playerController.IsCrouching)
+                ? aiConfig.VisionRange * 0.65f
+                : aiConfig.VisionRange;
 
             Vector3 dir = playerTarget.position - transform.position;
             float dist = dir.magnitude;
-            if (dist > aiConfig.VisionRange) return false;
+            if (dist > effectiveVisionRange) return false;
 
             Vector3 flatDir = new Vector3(dir.x, 0f, dir.z);
             if (flatDir.sqrMagnitude > 0.001f)
@@ -384,7 +544,6 @@ namespace DeadDepths.AI
                 if (angle > aiConfig.VisionAngle * 0.5f) return false;
             }
 
-            // Line of sight raycast ignoring triggers (e.g. MuddyPatch) and other zombies
             Vector3 eyePos = transform.position + Vector3.up * 1.4f;
             Vector3 targetCenter = playerTarget.position + Vector3.up * 1.0f;
             return HasUnobstructedLineOfSightToPlayer(eyePos, targetCenter);
@@ -467,7 +626,8 @@ namespace DeadDepths.AI
 
         private void UpdateChase()
         {
-            if (playerTarget == null || (playerController != null && playerController.IsDead))
+            if ((GameManager.Instance != null && GameManager.Instance.IsInMainMenu) ||
+                playerTarget == null || (playerController != null && playerController.IsDead))
             {
                 TransitionToState(ZombieState.IdlePatrol, "Target dead/lost");
                 return;
@@ -475,14 +635,12 @@ namespace DeadDepths.AI
 
             float distToPlayer = Vector3.Distance(transform.position, playerTarget.position);
 
-            // Update destination
             if (agent != null && agent.enabled && agent.isOnNavMesh)
             {
                 agent.isStopped = false;
                 agent.SetDestination(playerTarget.position);
             }
 
-            // Check if player is in attack range and unobstructed (Walkers don't require FOV angle once chasing, only unobstructed LOS)
             bool hasDirectLOS = HasUnobstructedLineOfSightToPlayer(transform.position + Vector3.up * 1.1f, playerTarget.position + Vector3.up * 1.0f);
             bool canEngage = archetype == ZombieArchetype.Walker
                 ? (distToPlayer <= aiConfig.AttackRange && hasDirectLOS)
@@ -495,7 +653,6 @@ namespace DeadDepths.AI
                 return;
             }
 
-            // Track last known position & lose sight timeout
             if (HasLineOfSightToPlayer)
             {
                 lastKnownPlayerPos = playerTarget.position;
@@ -539,7 +696,8 @@ namespace DeadDepths.AI
 
         private void UpdateAttack()
         {
-            if (playerTarget == null || (playerController != null && playerController.IsDead))
+            if ((GameManager.Instance != null && GameManager.Instance.IsInMainMenu) ||
+                playerTarget == null || (playerController != null && playerController.IsDead))
             {
                 if (chargerTelegraph != null) chargerTelegraph.HideTelegraph();
                 spitterPhase = SpitterPhase.None;
@@ -587,7 +745,6 @@ namespace DeadDepths.AI
                 agent.isStopped = true;
             }
 
-            // Face player
             Vector3 lookDir = (playerTarget.position - transform.position);
             lookDir.y = 0f;
             if (lookDir.sqrMagnitude > 0.01f)
@@ -628,13 +785,12 @@ namespace DeadDepths.AI
         }
         #endregion
 
-        #region Spitter Attack Sequence (Section 5.3)
+        #region Spitter Attack Sequence
         private void UpdateSpitterAttack()
         {
             float dt = Time.deltaTime;
-            chargerPhaseTimer += dt;
+            subPhaseTimer += dt;
 
-            // Face player during preparation
             if (spitterPhase == SpitterPhase.Preparation || spitterPhase == SpitterPhase.None)
             {
                 Vector3 lookDir = playerTarget.position - transform.position;
@@ -648,24 +804,21 @@ namespace DeadDepths.AI
             switch (spitterPhase)
             {
                 case SpitterPhase.None:
-                    // Step 2: Preparation - Stop moving for 1.0s
                     spitterPhase = SpitterPhase.Preparation;
                     spitterAnimTriggered = false;
-                    chargerPhaseTimer = 0f;
+                    subPhaseTimer = 0f;
                     if (agent != null && agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
                     break;
 
                 case SpitterPhase.Preparation:
-                    // Trigger Attack animation slightly before projectile release so swing aligns with spit
-                    if (!spitterAnimTriggered && chargerPhaseTimer >= Mathf.Max(0f, aiConfig.SpitterPreparationDuration - 0.30f))
+                    if (!spitterAnimTriggered && subPhaseTimer >= Mathf.Max(0f, aiConfig.SpitterPreparationDuration - 0.30f))
                     {
                         spitterAnimTriggered = true;
                         if (animator != null) animator.SetTrigger("Attack");
                     }
 
-                    if (chargerPhaseTimer >= aiConfig.SpitterPreparationDuration)
+                    if (subPhaseTimer >= aiConfig.SpitterPreparationDuration)
                     {
-                        // Step 3 & 4: Capture player chest position and spew projectile
                         if (!spitterAnimTriggered && animator != null)
                         {
                             spitterAnimTriggered = true;
@@ -675,12 +828,12 @@ namespace DeadDepths.AI
                         LaunchToxicProjectile(capturedSpitTarget);
 
                         spitterPhase = SpitterPhase.Recovery;
-                        chargerPhaseTimer = 0f;
+                        subPhaseTimer = 0f;
                     }
                     break;
 
                 case SpitterPhase.Recovery:
-                    if (chargerPhaseTimer >= aiConfig.SpitterRecoveryDuration)
+                    if (subPhaseTimer >= aiConfig.SpitterRecoveryDuration)
                     {
                         spitterPhase = SpitterPhase.None;
                         if (agent != null && agent.enabled && agent.isOnNavMesh) agent.isStopped = false;
@@ -705,14 +858,22 @@ namespace DeadDepths.AI
             sphereCol.isTrigger = true;
             sphereCol.radius = 0.35f;
 
-            // Visual green venom sphere
             GameObject sphereVisual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             sphereVisual.transform.SetParent(projObj.transform, false);
             sphereVisual.transform.localScale = Vector3.one * 0.45f;
             var rend = sphereVisual.GetComponent<Renderer>();
-            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
+            {
+                hideFlags = HideFlags.HideAndDontSave
+            };
             mat.color = new Color(0.2f, 1.0f, 0.3f);
-            rend.material = mat;
+            if (mat.HasProperty("_EmissionColor"))
+            {
+                mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", new Color(0.2f, 1.0f, 0.3f) * 1.5f);
+            }
+            rend.sharedMaterial = mat;
+            proj.RegisterRuntimeMaterial(mat);
             Destroy(sphereVisual.GetComponent<Collider>());
 
             proj.Launch(targetPos, transform);
@@ -724,17 +885,17 @@ namespace DeadDepths.AI
         }
         #endregion
 
-        #region Charger Attack Sequence (Section 5.4)
+        #region Charger Attack Sequence
         private void UpdateChargerAttack()
         {
             float dt = Time.deltaTime;
-            chargerPhaseTimer += dt;
+            subPhaseTimer += dt;
 
             switch (chargerPhase)
             {
                 case ChargerPhase.None:
                     chargerPhase = ChargerPhase.TelegraphTracking;
-                    chargerPhaseTimer = 0f;
+                    subPhaseTimer = 0f;
                     if (agent != null && agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
                     break;
 
@@ -756,13 +917,13 @@ namespace DeadDepths.AI
                         chargerTelegraph.ShowTelegraph(transform.position, trackDir);
                     }
 
-                    if (chargerPhaseTimer >= aiConfig.ChargerTelegraphDuration)
+                    if (subPhaseTimer >= aiConfig.ChargerTelegraphDuration)
                     {
                         lockedChargeDirection = trackDir;
                         if (chargerTelegraph != null) chargerTelegraph.HideTelegraph();
 
                         chargerPhase = ChargerPhase.StepBack;
-                        chargerPhaseTimer = 0f;
+                        subPhaseTimer = 0f;
                     }
                     break;
 
@@ -777,12 +938,13 @@ namespace DeadDepths.AI
                         transform.position += stepBackDelta;
                     }
 
-                    if (chargerPhaseTimer >= aiConfig.ChargerStepBackDuration)
+                    if (subPhaseTimer >= aiConfig.ChargerStepBackDuration)
                     {
                         chargerPhase = ChargerPhase.Charging;
-                        chargerPhaseTimer = 0f;
+                        subPhaseTimer = 0f;
                         if (agent != null) agent.enabled = false;
                         if (animator != null) animator.SetTrigger("Attack");
+                        CombatVfxManager.Instance?.PlayDodgeDust(transform.position);
                     }
                     break;
 
@@ -790,7 +952,6 @@ namespace DeadDepths.AI
                     float chargeStep = aiConfig.ChargerSpeed * dt;
                     Vector3 moveVec = lockedChargeDirection * chargeStep;
 
-                    // Start spherecast slightly behind center, but ignore hits behind the charger's back
                     const float backOffset = 0.15f;
                     Vector3 castOrigin = transform.position + Vector3.up * 0.9f - lockedChargeDirection * backOffset;
                     RaycastHit[] hits = Physics.SphereCastAll(
@@ -818,7 +979,6 @@ namespace DeadDepths.AI
                                 return;
                             }
 
-                            // Ignore obstacles behind or laterally grazing the Charger when spherecast starts slightly behind center
                             if (hit.distance <= 0.001f)
                             {
                                 Vector3 centerPos = transform.position + Vector3.up * 0.9f;
@@ -849,13 +1009,11 @@ namespace DeadDepths.AI
                                 return;
                             }
 
-                            // Ignore other zombies while charging through
                             if (hit.collider.GetComponentInParent<ZombieController>() != null)
                             {
                                 continue;
                             }
 
-                            // Hit solid wall/tree/ground obstacle -> 5.0s stun
                             StartChargerStun();
                             return;
                         }
@@ -863,14 +1021,14 @@ namespace DeadDepths.AI
 
                     transform.position += moveVec;
 
-                    if (chargerPhaseTimer > 4.0f)
+                    if (subPhaseTimer >= aiConfig.ChargerMaxChargeDuration)
                     {
                         StartChargerStun();
                     }
                     break;
 
                 case ChargerPhase.Stunned:
-                    if (chargerPhaseTimer >= aiConfig.ChargerStunDuration)
+                    if (subPhaseTimer >= aiConfig.ChargerStunDuration)
                     {
                         chargerPhase = ChargerPhase.None;
                         if (agent != null)
@@ -891,7 +1049,9 @@ namespace DeadDepths.AI
         private void StartChargerStun()
         {
             chargerPhase = ChargerPhase.Stunned;
-            chargerPhaseTimer = 0f;
+            subPhaseTimer = 0f;
+
+            CombatVfxManager.Instance?.PlayWallShockwave(transform.position);
 
             if (AudioManager.Instance != null)
             {
@@ -950,14 +1110,12 @@ namespace DeadDepths.AI
                     AudioManager.Instance.PlayCue(SfxCue.ZombieGroan, transform.position);
             }
 
-            // Visual hurt flash (no false Attack animation trigger!)
             if (gameObject.activeInHierarchy)
             {
                 if (hitFlashRoutine != null) StopCoroutine(hitFlashRoutine);
                 hitFlashRoutine = StartCoroutine(HitFlashRoutine());
             }
 
-            // Slight knockback away from attacker (except Charger mid-charge)
             if (attackerPos.HasValue && chargerPhase != ChargerPhase.Charging && CurrentHealth > 0f)
             {
                 Vector3 kbDir = transform.position - attackerPos.Value;
@@ -976,7 +1134,6 @@ namespace DeadDepths.AI
                 }
             }
 
-            // Alert zombie to Chase if hit while patrolling or searching
             if (CurrentHealth > 0f && (CurrentState == ZombieState.IdlePatrol || CurrentState == ZombieState.Search))
             {
                 if (playerTarget == null) FindPlayer();
@@ -1020,6 +1177,8 @@ namespace DeadDepths.AI
                 RecordStateChange(CurrentState, ZombieState.Dead, "Health <= 0");
             }
             CurrentState = ZombieState.Dead;
+            corpseTimer = 0f;
+
             if (agent != null && agent.enabled)
             {
                 if (agent.isOnNavMesh) agent.isStopped = true;
@@ -1033,7 +1192,6 @@ namespace DeadDepths.AI
                 AudioManager.Instance.PlayCue(SfxCue.ZombieDeath, transform.position);
             }
 
-            // Notify performance tracker (DDA) and GameManager (Score)
             if (PlayerPerformanceTracker.Instance != null)
             {
                 PlayerPerformanceTracker.Instance.RecordZombieKill();
@@ -1044,7 +1202,6 @@ namespace DeadDepths.AI
                 GameManager.Instance.RecordZombieKill(archetype);
             }
 
-            // Disable colliders
             var colliders = GetComponentsInChildren<Collider>();
             foreach (var col in colliders) col.enabled = false;
 

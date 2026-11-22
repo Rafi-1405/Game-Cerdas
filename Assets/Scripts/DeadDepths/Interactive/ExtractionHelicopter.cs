@@ -1,16 +1,13 @@
 using System;
 using UnityEngine;
-using DeadDepths.Audio;
 using DeadDepths.Core;
 using DeadDepths.Player;
-using UTS.Audio;
 
 namespace DeadDepths.Interactive
 {
     /// <summary>
-    /// Handles the extraction safe zone and helicopter completion trigger.
-    /// ASD-STE100: This module completes the level when the player enters the safe zone and helicopter.
-    /// Follows Section 4.1 of the specification.
+    /// Handles helicopter rotor visuals and coordinates extraction state with SafeZoneController.
+    /// ASD-STE100: This module drives the extraction helicopter and links to SafeZoneController.
     /// </summary>
     public class ExtractionHelicopter : MonoBehaviour
     {
@@ -32,16 +29,39 @@ namespace DeadDepths.Interactive
         [SerializeField] private Config heliConfig = new Config();
         public Config HeliConfig => heliConfig;
 
-        public bool IsPlayerInsideSafeZone { get; private set; } = false;
+        public bool IsPlayerInsideSafeZone => safeZone != null && safeZone.IsPlayerInsideZone;
         public bool IsPlayerInsideHelicopter { get; private set; } = false;
-        public bool HasExtracted { get; private set; } = false;
+        public bool HasExtracted => safeZone != null && safeZone.HasExtracted;
 
         private Transform mainRotor;
+        private Transform tailRotor;
         private Transform playerTransform;
+        private SafeZoneController safeZone;
 
         private void Awake()
         {
+            ApplyFallbackDefaults();
             mainRotor = transform.Find("MainRotor");
+            tailRotor = transform.Find("TailRotor");
+            safeZone = GetComponent<SafeZoneController>();
+            if (safeZone == null)
+            {
+                safeZone = gameObject.AddComponent<SafeZoneController>();
+            }
+            safeZone.ZoneConfig.SafeZoneRadius = heliConfig.SafeZoneRadius;
+        }
+
+        private void OnValidate()
+        {
+            ApplyFallbackDefaults();
+        }
+
+        private void ApplyFallbackDefaults()
+        {
+            if (heliConfig == null) heliConfig = new Config();
+            if (heliConfig.SafeZoneRadius <= 0f) heliConfig.SafeZoneRadius = 7.0f;
+            if (heliConfig.HelicopterCabinRadius <= 0f) heliConfig.HelicopterCabinRadius = 2.5f;
+            if (heliConfig.RotorSpeed <= 0f) heliConfig.RotorSpeed = 720f;
         }
 
         private void Start()
@@ -51,13 +71,21 @@ namespace DeadDepths.Interactive
 
         private void Update()
         {
-            // Spin rotor blades
+            // Spin main and tail rotor blades
             if (mainRotor != null)
             {
                 mainRotor.Rotate(Vector3.up, heliConfig.RotorSpeed * Time.deltaTime, Space.Self);
             }
+            if (tailRotor != null)
+            {
+                tailRotor.Rotate(Vector3.right, heliConfig.RotorSpeed * 1.5f * Time.deltaTime, Space.Self);
+            }
 
-            if (HasExtracted) return;
+            if (HasExtracted)
+            {
+                IsPlayerInsideHelicopter = true;
+                return;
+            }
 
             if (playerTransform == null)
             {
@@ -69,39 +97,13 @@ namespace DeadDepths.Interactive
             if (playerCtrl != null && playerCtrl.IsDead) return;
 
             float dist = Vector3.Distance(transform.position, playerTransform.position);
-
-            // Step 1: Check safe zone entry
-            IsPlayerInsideSafeZone = dist <= heliConfig.SafeZoneRadius;
-
-            // Step 2: Check helicopter entry AFTER entering safe zone
-            if (IsPlayerInsideSafeZone && dist <= heliConfig.HelicopterCabinRadius)
-            {
-                TriggerExtraction();
-            }
+            IsPlayerInsideHelicopter = dist <= heliConfig.HelicopterCabinRadius && (safeZone == null || safeZone.HasExtracted);
         }
 
         private void FindPlayer()
         {
             var p = GameObject.FindGameObjectWithTag("Player");
             if (p != null) playerTransform = p.transform;
-        }
-
-        private void TriggerExtraction()
-        {
-            if (HasExtracted) return;
-
-            HasExtracted = true;
-            IsPlayerInsideHelicopter = true;
-
-            if (AudioManager.Instance != null)
-            {
-                AudioManager.Instance.PlayCue(SfxCue.ExtractionSuccess, transform.position);
-            }
-
-            if (GameManager.Instance != null)
-            {
-                GameManager.Instance.CompleteLevel();
-            }
         }
 
         private void OnDrawGizmosSelected()

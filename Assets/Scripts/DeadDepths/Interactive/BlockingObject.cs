@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using DeadDepths.Audio;
+using DeadDepths.Core;
 using UTS.Audio;
 
 namespace DeadDepths.Interactive
@@ -8,7 +9,6 @@ namespace DeadDepths.Interactive
     /// <summary>
     /// Represents an environmental blocking obstacle (breakable or unbreakable).
     /// ASD-STE100: This object blocks movement and projectiles. Breakable objects can be destroyed.
-    /// Follows Section 2.5 of the specification.
     /// </summary>
     public class BlockingObject : MonoBehaviour
     {
@@ -35,6 +35,9 @@ namespace DeadDepths.Interactive
 
         private void Awake()
         {
+            if (blockerConfig == null) blockerConfig = new Config();
+            if (blockerConfig.MaxHealth <= 0f) blockerConfig.MaxHealth = 50f;
+
             CurrentHealth = blockerConfig.MaxHealth;
             objRenderer = GetComponent<Renderer>();
             propBlock = new MaterialPropertyBlock();
@@ -54,14 +57,17 @@ namespace DeadDepths.Interactive
 
             CurrentHealth -= Mathf.Max(0f, damage);
 
-            // Play hit audio
             if (AudioManager.Instance != null)
             {
                 AudioManager.Instance.PlayCue(SfxCue.PunchHit, transform.position);
             }
 
-            // Visual hit flash
-            StartCoroutine(HitFlashRoutine());
+            CombatVfxManager.Instance?.PlayWoodSplinter(transform.position, CurrentHealth <= 0f);
+
+            if (gameObject.activeInHierarchy)
+            {
+                StartCoroutine(HitFlashRoutine());
+            }
 
             if (CurrentHealth <= 0f)
             {
@@ -95,7 +101,6 @@ namespace DeadDepths.Interactive
                 AudioManager.Instance.PlayCue(SfxCue.BodyFall, transform.position);
             }
 
-            // Disable colliders immediately so projectiles and actors pass through
             var colliders = GetComponentsInChildren<Collider>();
             foreach (var col in colliders)
             {

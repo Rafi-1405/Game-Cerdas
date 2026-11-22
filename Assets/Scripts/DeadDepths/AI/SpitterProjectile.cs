@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using DeadDepths.Audio;
+using DeadDepths.Core;
 using DeadDepths.Interactive;
 using DeadDepths.Player;
 using DeadDepths.UI;
@@ -11,7 +12,6 @@ namespace DeadDepths.AI
     /// <summary>
     /// Toxic projectile spewed by the Spitter zombie archetype.
     /// ASD-STE100: This toxic projectile flies toward a captured position and damages the player.
-    /// Follows Section 5.3 of the specification.
     /// </summary>
     public class SpitterProjectile : MonoBehaviour
     {
@@ -33,6 +33,22 @@ namespace DeadDepths.AI
         private float spawnTime;
         private bool isLaunched = false;
         private Transform ownerRoot;
+        private Material runtimeMaterial;
+
+        public void RegisterRuntimeMaterial(Material mat)
+        {
+            runtimeMaterial = mat;
+        }
+
+        private void OnDestroy()
+        {
+            if (runtimeMaterial != null)
+            {
+                if (Application.isPlaying) Destroy(runtimeMaterial);
+                else DestroyImmediate(runtimeMaterial);
+                runtimeMaterial = null;
+            }
+        }
 
         public void Launch(Vector3 targetWorldPosition, Transform owner = null)
         {
@@ -55,7 +71,6 @@ namespace DeadDepths.AI
             float moveDist = projConfig.Speed * Time.deltaTime;
             Vector3 step = moveDirection * moveDist;
 
-            // Spherecast ignoring triggers (e.g. MuddyPatch) and owner zombie
             RaycastHit[] hits = Physics.SphereCastAll(
                 transform.position,
                 projConfig.Radius,
@@ -74,7 +89,6 @@ namespace DeadDepths.AI
                     {
                         continue;
                     }
-                    // Ignore other zombies so spit passes through allies cleanly
                     if (hit.collider.GetComponentInParent<ZombieController>() != null)
                     {
                         continue;
@@ -95,7 +109,8 @@ namespace DeadDepths.AI
 
         private void OnHit(Collider other, Vector3 hitPoint)
         {
-            // 1. Check Player hit
+            CombatVfxManager.Instance?.PlayAcidSplash(hitPoint == Vector3.zero ? transform.position : hitPoint);
+
             var player = other.GetComponentInParent<DeadDepthsPlayerController>();
             if (player != null && !player.IsDead)
             {
@@ -104,7 +119,6 @@ namespace DeadDepths.AI
                 return;
             }
 
-            // 2. Check Breakable/Unbreakable Blocker
             var blocker = other.GetComponentInParent<BlockingObject>();
             if (blocker != null)
             {
@@ -116,7 +130,6 @@ namespace DeadDepths.AI
                 return;
             }
 
-            // 3. Hit ground, structure wall, or boundary
             DestroyProjectile();
         }
 

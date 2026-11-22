@@ -31,6 +31,7 @@ namespace DeadDepths.UI
         public Config NotifyConfig => notifyConfig;
 
         public static ItemNotificationManager Instance { get; private set; }
+        public static event Action<string, int> OnNotificationPosted;
 
         private class ActiveNotification
         {
@@ -137,6 +138,7 @@ namespace DeadDepths.UI
         /// </summary>
         public void PostNotification(string itemName, int quantity)
         {
+            OnNotificationPosted?.Invoke(itemName, quantity);
             // Check if already active in list -> merge quantity and refresh timer
             for (int i = 0; i < activeList.Count; i++)
             {
@@ -207,6 +209,7 @@ namespace DeadDepths.UI
 
         private void OnGUI()
         {
+            if (DeadDepthsUIRoot.IsCanvasActive) return;
             if (activeList.Count == 0) return;
             if (playerTransform == null)
             {

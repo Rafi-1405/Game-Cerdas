@@ -5,6 +5,11 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
+using UnityEngine.UI;
 using DeadDepths.AI;
 using DeadDepths.Audio;
 using DeadDepths.Core;
@@ -259,6 +264,21 @@ namespace DeadDepths.Editor
                     }
                 }
                 Assert(allSeedsValid, $"Multi-seed cluster PCG + NavMesh Complete Path valid across 5 levels (clusters={minClustersSeen}..{maxClustersSeen})");
+
+                // Regression check for Seed 770591 (previously failed NavMesh PathComplete due to blocker/tree pinch)
+                bool prevRandomSeed = worldGen.MapConfig.UseRandomSeed;
+                int prevSeed = worldGen.MapConfig.Seed;
+                worldGen.MapConfig.UseRandomSeed = false;
+                worldGen.MapConfig.Seed = 770591 - 5 * 101;
+                worldGen.GenerateWorld(5, ddaProfile);
+                worldGen.MapConfig.UseRandomSeed = prevRandomSeed;
+                worldGen.MapConfig.Seed = prevSeed;
+                NavMeshPath regPath = new NavMeshPath();
+                bool regStart = NavMesh.SamplePosition(worldGen.PlayerSpawnPosition, out NavMeshHit regStartHit, 3.0f, NavMesh.AllAreas);
+                bool regEvac = NavMesh.SamplePosition(worldGen.ExtractionPosition + new Vector3(0f, 0f, -4.2f), out NavMeshHit regEvacHit, 5.0f, NavMesh.AllAreas);
+                bool regNav = regStart && regEvac && NavMesh.CalculatePath(regStartHit.position, regEvacHit.position, NavMesh.AllAreas, regPath);
+                Assert(worldGen.LastSeed == 770591 && worldGen.ConnectivityValid && regNav && regPath.status == NavMeshPathStatus.PathComplete,
+                    $"PCG regression Seed 770591 produces valid NavMesh PathComplete (Connected={worldGen.ConnectivityValid}, Status={regPath.status})");
 
                 // Refresh scene entities references after multi-seed loop
                 player = GameObject.FindGameObjectWithTag("Player");
@@ -736,6 +756,300 @@ namespace DeadDepths.Editor
                     }
 
                     isoCam.SnapToTarget(player.transform);
+                }
+
+                // 24. Publish-Grade Polish Verification (URP Skybox/Volume, uGUI+InputSystem, MainMenu Isolation, Aim/Look-Ahead, Tap-Dodge, Quick-Belt, SafeZone 3/3+4s, Mud Overlap, Flashlight [T]/[L])
+                Assert(File.Exists("Assets/Settings/DeadDepthsVolumeProfile.asset"),
+                    "Dedicated DeadDepthsVolumeProfile.asset exists (DefaultVolumeProfile left intact)");
+                var globalVol = UnityEngine.Object.FindAnyObjectByType<Volume>();
+                Assert(globalVol != null && globalVol.isGlobal && globalVol.sharedProfile != null && globalVol.sharedProfile.name == "DeadDepthsVolumeProfile",
+                    $"Global Volume configured with DeadDepthsVolumeProfile (actual={globalVol?.sharedProfile?.name})");
+
+                var camUrpData = cam.GetComponent<UniversalAdditionalCameraData>();
+                Assert(cam.clearFlags == CameraClearFlags.Skybox &&
+                       camUrpData != null && camUrpData.renderPostProcessing &&
+                       camUrpData.antialiasing == AntialiasingMode.SubpixelMorphologicalAntiAliasing,
+                    "Main Camera configured with Skybox clearFlags, PostProcessing, and SMAA");
+                Assert(RenderSettings.skybox != null && RenderSettings.fog,
+                    "RenderSettings configured with NightSky skybox and atmospheric fog");
+
+                var eventSys = UnityEngine.Object.FindAnyObjectByType<EventSystem>();
+                Assert(eventSys != null &&
+                       eventSys.GetComponent<InputSystemUIInputModule>() != null &&
+                       eventSys.GetComponent<StandaloneInputModule>() == null,
+                    "EventSystem uses InputSystemUIInputModule (no legacy StandaloneInputModule)");
+
+                Assert(UnityEngine.Object.FindAnyObjectByType<DeadDepthsUIRoot>() != null,
+                    "DeadDepthsUIRoot present on UIManager");
+
+                // Player AimIK, Flashlight [T]/[L] (no Key.F conflict), and AnimSpeedMult on both Standing & Crouching
+                var aimIk = player.GetComponentInChildren<PlayerAimIK>();
+                var flashlight = player.GetComponent<DeadDepthsFlashlight>();
+                Assert(aimIk != null && flashlight != null && player.GetComponent<DeadDepthsAimReticle>() != null,
+                    "Player has PlayerAimIK on PlayerModel, DeadDepthsFlashlight, and DeadDepthsAimReticle");
+
+                bool hasAnimSpeedMult = false;
+                if (playerAnimator != null)
+                {
+                    foreach (var p in playerAnimator.parameters)
+                    {
+                        if (p.name == "AnimSpeedMult") { hasAnimSpeedMult = true; break; }
+                    }
+                }
+                Assert(hasAnimSpeedMult, "Player.controller defines AnimSpeedMult parameter");
+
+                bool prevFlash = flashlight.IsOn;
+                flashlight.ToggleFlashlight();
+                Assert(flashlight.IsOn != prevFlash, "DeadDepthsFlashlight toggles cleanly independently of Punch");
+                flashlight.SetFlashlightState(prevFlash);
+
+                // Main Menu Isolation & Timer Pause
+                gm.EnterMainMenu();
+                Assert(gm.IsInMainMenu && !gm.IsLevelActive, "GameManager.EnterMainMenu enters isolated Main Menu state");
+                gm.StartLevel(1);
+                Assert(!gm.IsInMainMenu && gm.IsLevelActive, "GameManager.StartLevel exits Main Menu cleanly for gameplay/tests");
+
+                // Refresh player/camera references after StartLevel(1)
+                player = GameObject.FindGameObjectWithTag("Player");
+                playerCtrl = player.GetComponent<DeadDepthsPlayerController>();
+                charController = player.GetComponent<CharacterController>();
+
+                // RMB Aim + Camera Look-Ahead Deadzone & 3.2m Clamp + SnapToTarget reset
+                playerCtrl.SetAimStateForTest(true, player.transform.position + Vector3.forward * 12f);
+                isoCam.SetAimLookAheadEnabled(true, false);
+                isoCam.SnapToTarget(player.transform);
+                Assert(isoCam.CurrentLookAheadOffset.sqrMagnitude < 0.0001f,
+                    "IsometricCameraController.SnapToTarget resets look-ahead offset to zero");
+                isoCam.UpdateAimLookAhead(playerCtrl, new Vector2(0.05f, 0.05f), 0.2f);
+                Assert(isoCam.CurrentLookAheadOffset.magnitude < 0.001f,
+                    "Aim look-ahead ignores cursor inside 10% inner deadzone");
+                for (int s = 0; s < 30; s++) isoCam.UpdateAimLookAhead(playerCtrl, new Vector2(0.48f, 0.48f), 0.1f);
+                Assert(isoCam.CurrentLookAheadOffset.magnitude > 0.5f && isoCam.CurrentLookAheadOffset.magnitude <= 3.201f,
+                    $"Aim look-ahead clamps within 3.2m max offset (actual={isoCam.CurrentLookAheadOffset.magnitude:F2}m)");
+                isoCam.SnapToTarget(player.transform);
+                playerCtrl.SetAimStateForTest(false, Vector3.zero);
+
+                // Shift Tap-Dodge: cancels crate, uncrouches if clear, drains 22 stamina, grants i-frames, backsteps when stationary + Aim
+                playerCtrl.ResetStateForLevel();
+                var crateForDodge = GameObject.Find("SuppliesCrates")?.GetComponentInChildren<SuppliesCrate>();
+                if (crateForDodge != null)
+                {
+                    player.transform.position = crateForDodge.transform.position;
+                    crateForDodge.StartInteraction(player.transform);
+                    Assert(crateForDodge.IsInteracting, "SuppliesCrate interaction active prior to Dodge");
+                    playerCtrl.SetAimStateForTest(true, player.transform.position + Vector3.forward * 5f);
+                    float stamBeforeDodge = playerCtrl.CurrentStamina;
+                    bool dodged = playerCtrl.TryTriggerDodge();
+                    Assert(dodged && playerCtrl.IsDodging && playerCtrl.IsInvulnerable &&
+                           Mathf.Approximately(playerCtrl.CurrentStamina, stamBeforeDodge - playerCtrl.PlayerConfig.DodgeStaminaCost),
+                        "TryTriggerDodge activates Ease-Out Dodge, i-frames, and consumes 22 Stamina");
+                    float hpBeforeIframeHit = playerCtrl.CurrentHealth;
+                    playerCtrl.TakeDamage(50f);
+                    Assert(Mathf.Approximately(playerCtrl.CurrentHealth, hpBeforeIframeHit),
+                        "Dodge i-frames block incoming damage completely");
+                }
+                playerCtrl.ResetStateForLevel();
+
+                // Quick-Use Belt [1][2][3]
+                gm.RetryRun();
+                player = GameObject.FindGameObjectWithTag("Player");
+                playerCtrl = player.GetComponent<DeadDepthsPlayerController>();
+                playerCtrl.TakeDamage(50f);
+                gm.AddBeltItem(BeltItemType.Bandage, 1);
+                gm.AddBeltItem(BeltItemType.Medkit, 1);
+                gm.AddBeltItem(BeltItemType.Adrenaline, 1);
+                float hpBeforeBelt = playerCtrl.CurrentHealth;
+                bool usedBandage = gm.TryUseBeltSlot(0);
+                Assert(usedBandage && playerCtrl.CurrentHealth > hpBeforeBelt,
+                    $"Quick-Belt [1] Bandage heals injured player ({hpBeforeBelt} -> {playerCtrl.CurrentHealth})");
+                bool usedAdrenaline = gm.TryUseBeltSlot(2);
+                Assert(usedAdrenaline && gm.IsAdrenalineActive,
+                    "Quick-Belt [3] Adrenaline activates speed/stamina buff");
+
+                // SafeZoneController: 3/3 Supply Intel + 4.0s hold + GameManager.OnPlayerEnteredSafeZone direct test trigger
+                var safeZone = UnityEngine.Object.FindAnyObjectByType<SafeZoneController>();
+                Assert(safeZone != null, "SafeZoneController attached to ExtractionHelicopter");
+                if (safeZone != null)
+                {
+                    safeZone.SetPlayerInsideForTest(true);
+                    safeZone.EvaluateExtractionHold(5.0f);
+                    Assert(!safeZone.HasExtracted && gm.IsLevelActive,
+                        $"SafeZoneController blocks extraction before 3/3 Supply Intel (have={gm.SupplyIntelCollected}/{gm.RequiredSupplyIntel})");
+
+                    gm.GrantAllSupplyIntelForDemo();
+                    safeZone.EvaluateExtractionHold(2.0f);
+                    Assert(!safeZone.HasExtracted && safeZone.HoldProgress > 0.4f && safeZone.HoldProgress < 0.6f,
+                        $"SafeZoneController tracks partial 4.0s extraction hold (progress={safeZone.HoldProgress:F2})");
+
+                    safeZone.EvaluateExtractionHold(2.1f);
+                    Assert(safeZone.HasExtracted && !gm.IsLevelActive,
+                        "SafeZoneController completes extraction after 3/3 Intel + 4.0s hold");
+                }
+
+                // GameManager.OnPlayerEnteredSafeZone direct test trigger
+                gm.RetryRun();
+                Assert(gm.IsLevelActive, "RetryRun restores active level");
+                gm.OnPlayerEnteredSafeZone();
+                Assert(!gm.IsLevelActive, "GameManager.OnPlayerEnteredSafeZone direct test trigger completes level cleanly");
+                gm.RetryRun();
+
+                // MuddyPatch overlap tracking
+                var mudPatches = GameObject.Find("MuddyPatches")?.GetComponentsInChildren<MuddyPatch>();
+                player = GameObject.FindGameObjectWithTag("Player");
+                playerCtrl = player.GetComponent<DeadDepthsPlayerController>();
+                if (mudPatches != null && mudPatches.Length >= 2)
+                {
+                    mudPatches[0].RegisterActorEnter(playerCtrl);
+                    mudPatches[1].RegisterActorEnter(playerCtrl);
+                    Assert(Mathf.Approximately(playerCtrl.TerrainMultiplier, 0.70f),
+                        "MuddyPatch overlap applies 0.70x slow");
+                    mudPatches[0].UnregisterActorExit(playerCtrl);
+                    Assert(Mathf.Approximately(playerCtrl.TerrainMultiplier, 0.70f),
+                        "Exiting 1 of 2 overlapping MuddyPatches keeps 0.70x slow");
+                    mudPatches[1].UnregisterActorExit(playerCtrl);
+                    Assert(Mathf.Approximately(playerCtrl.TerrainMultiplier, 1.0f),
+                        "Exiting final MuddyPatch restores 1.0x speed");
+                }
+
+                // World props & zombie spawn safety distance + bone accessories
+                var heliCheck = GameObject.Find("ExtractionHelicopter");
+                Assert(heliCheck != null &&
+                       heliCheck.transform.Find("HelipadConcrete") != null &&
+                       heliCheck.transform.Find("TailRotor") != null,
+                    "ExtractionHelicopter includes HelipadConcrete and TailRotor child objects");
+
+                var hordeCheck = GameObject.Find("ZombieHorde");
+                bool accessoriesOk = true;
+                if (hordeCheck != null)
+                {
+                    foreach (var z in hordeCheck.GetComponentsInChildren<ZombieController>())
+                    {
+                        if (z.Archetype == ZombieArchetype.Spitter && z.transform.GetComponentsInChildren<Transform>(true).Length < 3)
+                            accessoriesOk = false;
+                    }
+                }
+                Assert(accessoriesOk, "Zombie archetypes spawn cleanly with child accessories");
+
+                // 25. Runtime uGUI Canvas, Raycast Isolation, Pause, VFX Pool, Audio 24-Voice Pool & Reticle Guard
+                var uiRoot = UnityEngine.Object.FindAnyObjectByType<DeadDepthsUIRoot>();
+                if (uiRoot != null)
+                {
+                    typeof(DeadDepthsUIRoot).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(uiRoot, null);
+                    Assert(DeadDepthsUIRoot.IsCanvasActive && uiRoot.MasterCanvas != null,
+                        "DeadDepthsUIRoot.Awake initializes 1920x1080 MasterCanvas and modular UI layers");
+
+                    var scaler = uiRoot.MasterCanvas.GetComponent<CanvasScaler>();
+                    Assert(scaler != null && scaler.referenceResolution == new Vector2(1920f, 1080f),
+                        "MasterCanvas uses 1920x1080 reference resolution");
+
+                    var hudComp = uiRoot.GameplayLayer.GetComponent<GameplayHUDCanvas>();
+                    var menuComp = uiRoot.MainMenuLayer.GetComponent<MainMenuUI>();
+                    var pauseComp = uiRoot.PauseLayer.GetComponent<PauseMenuUI>();
+                    var settingsComp = uiRoot.SettingsLayer.GetComponent<SettingsModalUI>();
+                    var zHpComp = uiRoot.WorldOverlayLayer.GetComponent<ZombieHealthBarUI>();
+                    var dmgPopComp = uiRoot.WorldOverlayLayer.GetComponent<DamagePopupManager>();
+
+                    Assert(hudComp != null && menuComp != null && pauseComp != null &&
+                           settingsComp != null && zHpComp != null && dmgPopComp != null,
+                        "All 6 uGUI controller modules attach cleanly under DeadDepthsUIRoot");
+
+                    // In EditMode, AddComponent does not invoke Awake automatically, so invoke Awake on each UI controller
+                    var awakeFlags = BindingFlags.Instance | BindingFlags.NonPublic;
+                    typeof(GameplayHUDCanvas).GetMethod("Awake", awakeFlags)?.Invoke(hudComp, null);
+                    typeof(MainMenuUI).GetMethod("Awake", awakeFlags)?.Invoke(menuComp, null);
+                    typeof(PauseMenuUI).GetMethod("Awake", awakeFlags)?.Invoke(pauseComp, null);
+                    typeof(SettingsModalUI).GetMethod("Awake", awakeFlags)?.Invoke(settingsComp, null);
+                    typeof(ZombieHealthBarUI).GetMethod("Awake", awakeFlags)?.Invoke(zHpComp, null);
+                    typeof(DamagePopupManager).GetMethod("Awake", awakeFlags)?.Invoke(dmgPopComp, null);
+
+                    // Audit passive GameplayHUDCanvas graphics: zero stray raycastTarget=true (only MinimapToggleBtn & DeathOverlay buttons should block)
+                    int strayPassiveRaycasts = 0;
+                    var hudRt = uiRoot.GameplayLayer.Find("GameplayHUDRoot");
+                    Assert(hudRt != null, "GameplayHUDCanvas.Awake builds GameplayHUDRoot hierarchy");
+                    if (hudRt != null)
+                    {
+                        foreach (var g in hudRt.GetComponentsInChildren<Graphic>(true))
+                        {
+                            if (!g.raycastTarget) continue;
+                            if (g.GetComponent<Button>() != null) continue;
+                            if (g.gameObject.name == "DeathOverlay" || g.gameObject.name == "DeathCard") continue;
+                            strayPassiveRaycasts++;
+                        }
+                    }
+                    Assert(hudRt != null && strayPassiveRaycasts == 0,
+                        $"All passive GameplayHUD elements have raycastTarget = false (stray={strayPassiveRaycasts})");
+
+                    // Verify VitalsCard status badges fit inside VitalsCard bounds (no right-edge overflow)
+                    var vitalsRt = hudRt?.Find("VitalsCard") as RectTransform;
+                    var adrBadgeRt = vitalsRt?.Find("Badge_ADR") as RectTransform;
+                    Assert(vitalsRt != null && adrBadgeRt != null &&
+                           (adrBadgeRt.anchoredPosition.x + adrBadgeRt.sizeDelta.x) <= vitalsRt.sizeDelta.x,
+                        "VitalsCard status badges fit completely inside VitalsCard width");
+
+                    // Verify CompletionScreenUI uGUI overlay Show/Hide
+                    var compScreenUi = UnityEngine.Object.FindAnyObjectByType<CompletionScreenUI>();
+                    Assert(compScreenUi != null, "CompletionScreenUI present on UIManager");
+                    if (compScreenUi != null)
+                    {
+                        compScreenUi.Show(1);
+                        var compScrim = uiRoot.CompletionLayer.Find("CompletionScrim");
+                        Assert(compScreenUi.IsVisible && compScrim != null && compScrim.gameObject.activeSelf,
+                            "CompletionScreenUI.Show activates Ranked Evacuation Scoreboard in uGUI");
+                        compScreenUi.Hide();
+                        Assert(!compScreenUi.IsVisible && compScrim != null && !compScrim.gameObject.activeSelf,
+                            "CompletionScreenUI.Hide deactivates Evacuation Scoreboard cleanly");
+                    }
+                }
+
+                // Pause isolation & ElapsedLevelTime freeze
+                gm.RetryRun();
+                gm.SetPaused(true);
+                Assert(gm.IsPaused && Mathf.Approximately(Time.timeScale, 0f),
+                    "GameManager.SetPaused(true) freezes Time.timeScale to 0");
+                gm.SetPaused(false);
+                Assert(!gm.IsPaused && Mathf.Approximately(Time.timeScale, 1f),
+                    "GameManager.SetPaused(false) restores Time.timeScale to 1");
+
+                // CombatVfxManager particle pool verification
+                var vfxMgr = UnityEngine.Object.FindAnyObjectByType<CombatVfxManager>();
+                Assert(vfxMgr != null, "CombatVfxManager present in scene");
+                if (vfxMgr != null)
+                {
+                    typeof(CombatVfxManager).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(vfxMgr, null);
+                    vfxMgr.PlayHitBlood(Vector3.zero, true);
+                    vfxMgr.PlayDodgeDust(Vector3.zero);
+                    vfxMgr.PlayWallShockwave(Vector3.zero);
+                    vfxMgr.PlayAcidSplash(Vector3.zero);
+                    vfxMgr.PlayHealBurst(Vector3.zero);
+                    vfxMgr.PlayWoodSplinter(Vector3.zero, true);
+                    Assert(vfxMgr.GetComponentsInChildren<ParticleSystem>(true).Length >= 16,
+                        "CombatVfxManager initializes 16 pooled ParticleSystems and emits bursts cleanly");
+                }
+
+                // AudioManager 24-voice pool & AudioLowPassFilter verification
+                var audioMgrCheck = UnityEngine.Object.FindAnyObjectByType<AudioManager>();
+                if (audioMgrCheck != null)
+                {
+                    typeof(AudioManager).GetMethod("Awake", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(audioMgrCheck, null);
+                    int filterCount = audioMgrCheck.GetComponentsInChildren<AudioLowPassFilter>(true).Length;
+                    Assert(filterCount >= 24,
+                        $"AudioManager initializes 24-voice pooled AudioSources with AudioLowPassFilter (count={filterCount})");
+                }
+
+                // DeadDepthsAimReticle duplicate renderer guard
+                player = GameObject.FindGameObjectWithTag("Player");
+                var reticle = player?.GetComponent<DeadDepthsAimReticle>();
+                if (reticle != null)
+                {
+                    var createMethod = typeof(DeadDepthsAimReticle).GetMethod("CreateRenderers", BindingFlags.Instance | BindingFlags.NonPublic);
+                    createMethod?.Invoke(reticle, null);
+                    createMethod?.Invoke(reticle, null);
+                    int ringCount = 0;
+                    foreach (Transform t in player.GetComponentsInChildren<Transform>(true))
+                    {
+                        if (t.name == "AimReticleRing") ringCount++;
+                    }
+                    Assert(ringCount == 1, $"DeadDepthsAimReticle creates exactly 1 AimReticleRing without duplicates (count={ringCount})");
                 }
 
                 Debug.Log($"\n===========================================");

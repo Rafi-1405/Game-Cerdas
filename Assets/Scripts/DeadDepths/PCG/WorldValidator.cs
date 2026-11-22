@@ -41,8 +41,10 @@ namespace DeadDepths.PCG
                         if (!visited[nx, ny])
                         {
                             CellType type = grid[nx, ny];
-                            // Impassable cell types
-                            if (type != CellType.TreeBoundary && type != CellType.StructureWall)
+                            // Impassable cell types (BlockingObject has solid colliders in NavMesh)
+                            if (type != CellType.TreeBoundary &&
+                                type != CellType.StructureWall &&
+                                type != CellType.BlockingObject)
                             {
                                 visited[nx, ny] = true;
                                 queue.Enqueue(new Vector2Int(nx, ny));

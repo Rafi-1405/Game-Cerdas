@@ -2,6 +2,7 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using DeadDepths.Audio;
 using DeadDepths.Core;
@@ -14,11 +15,13 @@ using UTS.Audio;
 namespace DeadDepths.Editor
 {
     /// <summary>
-    /// Editor utility that builds and configures the DeadDepths master scene.
-    /// ASD-STE100: This editor tool creates the main scene and assigns components.
+    /// Editor utility that builds and configures the DeadDepths master scene,
+    /// URP Volume Profile, Skybox/Fog, Prefabs with IK & Flashlight, and uGUI/EventSystem.
     /// </summary>
     public static class DeadDepthsSceneBuilder
     {
+        private const string VolumeProfilePath = "Assets/Settings/DeadDepthsVolumeProfile.asset";
+
         [MenuItem("DeadDepths/Build Main Scene")]
         public static void BuildScene()
         {
@@ -28,32 +31,56 @@ namespace DeadDepths.Editor
             string scenePath = "Assets/Scenes/DeadDepths.unity";
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            // 1. Directional Light (Isometric lighting)
+            // 1. Moonlight Directional Light
             GameObject lightGo = new GameObject("Directional Light");
             var light = lightGo.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.color = new Color(0.95f, 0.95f, 0.98f);
-            light.intensity = 1.25f;
+            light.color = new Color(0.68f, 0.78f, 0.98f);
+            light.intensity = 0.72f;
             light.shadows = LightShadows.Soft;
             lightGo.transform.rotation = Quaternion.Euler(52f, -35f, 0f);
 
-            // 2. Camera Setup
+            // 1b. Night Skybox, Ambient Trilight & Atmospheric Fog
+            var nightSkyMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/SurvivalUpgrade/Sky/NightSky.mat");
+            if (nightSkyMat != null)
+            {
+                RenderSettings.skybox = nightSkyMat;
+            }
+            RenderSettings.ambientMode = AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.18f, 0.22f, 0.32f);
+            RenderSettings.ambientEquatorColor = new Color(0.11f, 0.14f, 0.20f);
+            RenderSettings.ambientGroundColor = new Color(0.06f, 0.07f, 0.10f);
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogColor = new Color(0.04f, 0.06f, 0.10f);
+            RenderSettings.fogDensity = 0.014f;
+
+            // 1c. Global URP Post-Processing Volume (Dedicated DeadDepthsVolumeProfile.asset)
+            var volumeProfile = CreateOrUpdateDeadDepthsVolumeProfile();
+            GameObject volumeGo = new GameObject("Global Volume");
+            var volume = volumeGo.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.priority = 1f;
+            volume.sharedProfile = volumeProfile;
+
+            // 2. Camera Setup (Skybox + SMAA + PostProcessing)
             GameObject camGo = new GameObject("Main Camera");
             camGo.tag = "MainCamera";
             var cam = camGo.AddComponent<Camera>();
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.06f, 0.08f, 0.11f);
+            cam.clearFlags = CameraClearFlags.Skybox;
+            cam.backgroundColor = new Color(0.04f, 0.06f, 0.10f);
             cam.fieldOfView = 50f;
             cam.nearClipPlane = 0.3f;
             cam.farClipPlane = 500f;
             camGo.AddComponent<AudioListener>();
 
-            // Universal Additional Camera Data if URP
             var camData = camGo.AddComponent<UniversalAdditionalCameraData>();
             camData.renderPostProcessing = true;
+            camData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+            camData.antialiasingQuality = AntialiasingQuality.High;
 
-            var isoCam = camGo.AddComponent<IsometricCameraController>();
-            var fadeCtrl = camGo.AddComponent<ObstructionFadeController>();
+            camGo.AddComponent<IsometricCameraController>();
+            camGo.AddComponent<ObstructionFadeController>();
             camGo.transform.position = new Vector3(0f, 22f, -22f);
             camGo.transform.rotation = Quaternion.Euler(52f, 45f, 0f);
 
@@ -73,55 +100,68 @@ namespace DeadDepths.Editor
             GameObject playerPrefab = CreateOrUpdatePlayerPrefab();
             GameObject zombiePrefab = CreateOrUpdateZombiePrefab();
 
-            // 5. Core Game Manager & Procedural Systems
+            // 5. Core Game Manager, VFX & Procedural Systems
             GameObject coreGo = new GameObject("GameManager");
-            var gm = coreGo.AddComponent<GameManager>();
-            var diff = coreGo.AddComponent<DifficultyController>();
-            var tracker = coreGo.AddComponent<PlayerPerformanceTracker>();
+            coreGo.AddComponent<GameManager>();
+            coreGo.AddComponent<DifficultyController>();
+            coreGo.AddComponent<PlayerPerformanceTracker>();
             var worldGen = coreGo.AddComponent<WorldGenerator>();
-            var navBaker = coreGo.AddComponent<NavMeshRuntimeBaker>();
+            coreGo.AddComponent<NavMeshRuntimeBaker>();
+            var vfxMgr = coreGo.AddComponent<CombatVfxManager>();
+
+            var litShaderAsset = Shader.Find("Universal Render Pipeline/Lit");
+            var particleUnlitShaderAsset = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit");
+            var unlitShaderAsset = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default");
+
+            if (vfxMgr != null)
+            {
+                var vfxSo = new SerializedObject(vfxMgr);
+                var pProp = vfxSo.FindProperty("bundledParticleShader");
+                if (pProp != null) pProp.objectReferenceValue = particleUnlitShaderAsset;
+                var fProp = vfxSo.FindProperty("bundledFallbackShader");
+                if (fProp != null) fProp.objectReferenceValue = unlitShaderAsset;
+                vfxSo.ApplyModifiedProperties();
+            }
 
             // Configure WorldGenerator references
             var genSo = new SerializedObject(worldGen);
             if (playerPrefab != null) genSo.FindProperty("playerPrefab").objectReferenceValue = playerPrefab;
             if (zombiePrefab != null) genSo.FindProperty("zombiePrefab").objectReferenceValue = zombiePrefab;
+            var genLitProp = genSo.FindProperty("bundledLitShader");
+            if (genLitProp != null) genLitProp.objectReferenceValue = litShaderAsset;
+            var genPartProp = genSo.FindProperty("bundledParticleUnlitShader");
+            if (genPartProp != null) genPartProp.objectReferenceValue = particleUnlitShaderAsset;
+            var genUnlitProp = genSo.FindProperty("bundledUnlitShader");
+            if (genUnlitProp != null) genUnlitProp.objectReferenceValue = unlitShaderAsset;
 
-            var groundMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_Ground01.mat");
-            if (groundMat != null) genSo.FindProperty("groundMaterial").objectReferenceValue = groundMat;
+            AssignMaterialProperty(genSo, "groundMaterial", "Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_Ground01.mat");
+            AssignMaterialProperty(genSo, "wallMaterial", "Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_BricksWeathered.mat");
+            AssignMaterialProperty(genSo, "cabinFloorMaterial", "Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_WoodFlooring.mat");
+            AssignMaterialProperty(genSo, "mudMaterial", "Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_Clay.mat");
+            AssignMaterialProperty(genSo, "crateMaterial", "Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_WoodFlooring.mat");
+            AssignMaterialProperty(genSo, "barkMaterial", "Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_Dry02.mat");
+            AssignMaterialProperty(genSo, "leafMaterial", "Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_SoilMoss.mat");
+            AssignMaterialProperty(genSo, "blockerMaterial", "Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_Plywood.mat");
+            AssignMaterialProperty(genSo, "unbreakableBlockerMaterial", "Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_GabionWall.mat");
+            AssignMaterialProperty(genSo, "helicopterMaterial", "Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_Ceiling.mat");
+            AssignMaterialProperty(genSo, "helipadMaterial", "Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_TilesConcave.mat");
 
-            var wallMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_BricksWeathered.mat");
-            if (wallMat != null) genSo.FindProperty("wallMaterial").objectReferenceValue = wallMat;
-
-            var mudMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_Clay.mat");
-            if (mudMat != null) genSo.FindProperty("mudMaterial").objectReferenceValue = mudMat;
-
-            var crateMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_WoodFlooring.mat");
-            if (crateMat != null) genSo.FindProperty("crateMaterial").objectReferenceValue = crateMat;
-
-            var barkMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_Dry02.mat");
-            if (barkMat != null) genSo.FindProperty("barkMaterial").objectReferenceValue = barkMat;
-
-            var leafMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_SoilMoss.mat");
-            if (leafMat != null) genSo.FindProperty("leafMaterial").objectReferenceValue = leafMat;
-
-            var blockerMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_Plywood.mat");
-            if (blockerMat != null) genSo.FindProperty("blockerMaterial").objectReferenceValue = blockerMat;
-
-            var unbreakableBlockerMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_GabionWall.mat");
-            if (unbreakableBlockerMat != null) genSo.FindProperty("unbreakableBlockerMaterial").objectReferenceValue = unbreakableBlockerMat;
-
-            var heliMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_Ceiling.mat");
-            if (heliMat != null) genSo.FindProperty("helicopterMaterial").objectReferenceValue = heliMat;
+            AssignPrefabProperty(genSo, "medkitItemPrefab", "Assets/SurvivalUpgrade/Items/Prefabs/Medkit.prefab");
+            AssignPrefabProperty(genSo, "bandageItemPrefab", "Assets/SurvivalUpgrade/Items/Prefabs/Bandage.prefab");
+            AssignPrefabProperty(genSo, "firstAidItemPrefab", "Assets/SurvivalUpgrade/Items/Prefabs/FirstAidKit.prefab");
 
             genSo.ApplyModifiedProperties();
 
-            // 6. In-Game UI Systems
+            // 6. In-Game UI Systems (Legacy IMGUI reflection bridge + Publish-Grade uGUI Root + InputSystem EventSystem)
             GameObject uiGo = new GameObject("UIManager");
             uiGo.AddComponent<DeadDepthsHUD>();
             uiGo.AddComponent<CrateProgressBarUI>();
             uiGo.AddComponent<ItemNotificationManager>();
             uiGo.AddComponent<CompletionScreenUI>();
             uiGo.AddComponent<DeadDepthsDebugMode>();
+            uiGo.AddComponent<DeadDepthsUIRoot>();
+
+            DeadDepthsUIRoot.EnsureInputSystemEventSystem();
 
             // 7. Save Scene
             EditorSceneManager.SaveScene(scene, scenePath);
@@ -135,6 +175,73 @@ namespace DeadDepths.Editor
             EditorBuildSettings.scenes = newScenes;
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+        }
+
+        private static void AssignMaterialProperty(SerializedObject so, string propName, string assetPath)
+        {
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(assetPath);
+            var prop = so.FindProperty(propName);
+            if (mat != null && prop != null) prop.objectReferenceValue = mat;
+        }
+
+        private static void AssignPrefabProperty(SerializedObject so, string propName, string assetPath)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            var prop = so.FindProperty(propName);
+            if (prefab != null && prop != null) prop.objectReferenceValue = prefab;
+        }
+
+        private static VolumeProfile CreateOrUpdateDeadDepthsVolumeProfile()
+        {
+            string settingsDir = "Assets/Settings";
+            if (!Directory.Exists(settingsDir)) Directory.CreateDirectory(settingsDir);
+
+            var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(VolumeProfilePath);
+            if (profile == null)
+            {
+                profile = ScriptableObject.CreateInstance<VolumeProfile>();
+                AssetDatabase.CreateAsset(profile, VolumeProfilePath);
+            }
+            else
+            {
+                // Remove existing sub-assets cleanly before re-populating
+                foreach (var comp in profile.components)
+                {
+                    if (comp != null) Object.DestroyImmediate(comp, true);
+                }
+                profile.components.Clear();
+            }
+
+            var tonemapping = profile.Add<Tonemapping>(true);
+            tonemapping.mode.Override(TonemappingMode.ACES);
+
+            var bloom = profile.Add<Bloom>(true);
+            bloom.threshold.Override(0.92f);
+            bloom.intensity.Override(0.55f);
+            bloom.scatter.Override(0.65f);
+
+            var vignette = profile.Add<Vignette>(true);
+            vignette.color.Override(new Color(0.02f, 0.03f, 0.06f, 1f));
+            vignette.intensity.Override(0.28f);
+            vignette.smoothness.Override(0.45f);
+
+            var colorAdj = profile.Add<ColorAdjustments>(true);
+            colorAdj.postExposure.Override(0.22f);
+            colorAdj.contrast.Override(12f);
+            colorAdj.colorFilter.Override(new Color(0.93f, 0.96f, 1.0f, 1f));
+            colorAdj.saturation.Override(-8f);
+
+            foreach (var comp in profile.components)
+            {
+                if (comp != null && !AssetDatabase.Contains(comp))
+                {
+                    AssetDatabase.AddObjectToAsset(comp, profile);
+                }
+            }
+
+            EditorUtility.SetDirty(profile);
+            AssetDatabase.SaveAssets();
+            return profile;
         }
 
         [MenuItem("DeadDepths/Build Windows Standalone")]
@@ -174,6 +281,15 @@ namespace DeadDepths.Editor
             cc.center = new Vector3(0f, 0.9f, 0f);
 
             root.AddComponent<DeadDepthsPlayerController>();
+            root.AddComponent<DeadDepthsFlashlight>();
+            var reticle = root.AddComponent<DeadDepthsAimReticle>();
+            var retSo = new SerializedObject(reticle);
+            var retShaderProp = retSo.FindProperty("bundledLineShader");
+            if (retShaderProp != null)
+            {
+                retShaderProp.objectReferenceValue = Shader.Find("Sprites/Default") ?? Shader.Find("Universal Render Pipeline/Unlit");
+                retSo.ApplyModifiedProperties();
+            }
 
             var modelFbx = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/CharacterUpgrade/Models/PlayerChar.fbx");
             if (modelFbx != null)
@@ -188,6 +304,11 @@ namespace DeadDepths.Editor
                 var animCtrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/CharacterUpgrade/Controllers/Player.controller");
                 if (animCtrl != null) anim.runtimeAnimatorController = animCtrl;
                 anim.applyRootMotion = false;
+
+                if (model.GetComponent<PlayerAimIK>() == null)
+                {
+                    model.AddComponent<PlayerAimIK>();
+                }
             }
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
