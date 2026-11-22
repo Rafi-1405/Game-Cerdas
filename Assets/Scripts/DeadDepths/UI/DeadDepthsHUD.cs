@@ -249,9 +249,9 @@ namespace DeadDepths.UI
             // 4. God Mode Active Banner (Top-Center, fits cleanly between Debug Panels at 1024px)
             if (player.IsGodMode)
             {
-                Rect godRect = new Rect((Screen.width - 300f) * 0.5f, 14f, 300f, 26f);
+                Rect godRect = new Rect((Screen.width - 240f) * 0.5f, 14f, 240f, 26f);
                 GUI.DrawTexture(godRect, texGodBadge);
-                GUI.Label(godRect, "GOD MODE ON (SPEED + INVULN + NOCLIP)", godBadgeStyle);
+                GUI.Label(godRect, "GOD MODE ON (NOCLIP)", godBadgeStyle);
             }
 
             // 5. Center Interaction Prompts or Death Retry Overlay

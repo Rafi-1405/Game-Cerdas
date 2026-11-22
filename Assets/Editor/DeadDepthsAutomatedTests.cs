@@ -6,11 +6,13 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.AI;
 using DeadDepths.AI;
+using DeadDepths.Audio;
 using DeadDepths.Core;
 using DeadDepths.Interactive;
 using DeadDepths.PCG;
 using DeadDepths.Player;
 using DeadDepths.UI;
+using UTS.Audio;
 
 namespace DeadDepths.Editor
 {
@@ -533,6 +535,208 @@ namespace DeadDepths.Editor
                     "All DeadDepths.UI GUIStyle & runtime Texture2D fields are marked [NonSerialized]");
                 Assert(allUiTexturesInitializedCleanly,
                     "All DeadDepths.UI components initialize runtime Texture2Ds and reset GUIStyles cleanly");
+
+                // 21. Workstream A: Yughues Materials, 2-Submesh Tree, MainRotor, GreenSmoke ParticleSystem & Audio Cues
+                Assert(worldGen.BarkMaterial != null && worldGen.BarkMaterial.name == "M_YFGM_Dry02",
+                    $"WorldGenerator BarkMaterial wired to M_YFGM_Dry02 (actual={worldGen.BarkMaterial?.name})");
+                Assert(worldGen.LeafMaterial != null && worldGen.LeafMaterial.name == "M_YFGM_SoilMoss",
+                    $"WorldGenerator LeafMaterial wired to M_YFGM_SoilMoss (actual={worldGen.LeafMaterial?.name})");
+                Assert(worldGen.BlockerMaterial != null && worldGen.BlockerMaterial.name == "M_YFAM_Plywood",
+                    $"WorldGenerator BlockerMaterial wired to M_YFAM_Plywood (actual={worldGen.BlockerMaterial?.name})");
+                Assert(worldGen.UnbreakableBlockerMaterial != null && worldGen.UnbreakableBlockerMaterial.name == "M_YFAM_GabionWall",
+                    $"WorldGenerator UnbreakableBlockerMaterial wired to M_YFAM_GabionWall (actual={worldGen.UnbreakableBlockerMaterial?.name})");
+                Assert(worldGen.HelicopterMaterial != null && worldGen.HelicopterMaterial.name == "M_YFAM_Ceiling",
+                    $"WorldGenerator HelicopterMaterial wired to M_YFAM_Ceiling (actual={worldGen.HelicopterMaterial?.name})");
+
+                var treeBoundary = GameObject.Find("TreeBoundary");
+                var firstTree = treeBoundary != null && treeBoundary.transform.childCount > 0
+                    ? treeBoundary.transform.GetChild(0)
+                    : null;
+                var firstTreeMf = firstTree != null ? firstTree.GetComponent<MeshFilter>() : null;
+                var firstTreeMr = firstTree != null ? firstTree.GetComponent<MeshRenderer>() : null;
+                Assert(firstTreeMf != null && firstTreeMf.sharedMesh != null && firstTreeMf.sharedMesh.subMeshCount == 2,
+                    $"Procedural tree mesh split into 2 submeshes (subMeshCount={firstTreeMf?.sharedMesh?.subMeshCount})");
+                Assert(firstTreeMr != null && firstTreeMr.sharedMaterials.Length == 2 &&
+                       firstTreeMr.sharedMaterials[0] == worldGen.BarkMaterial &&
+                       firstTreeMr.sharedMaterials[1] == worldGen.LeafMaterial,
+                    "Tree MeshRenderer assigns [barkMaterial, leafMaterial] across submeshes 0 and 1");
+
+                var blockerGroup = GameObject.Find("BlockingObjects");
+                if (blockerGroup != null)
+                {
+                    bool blockerMatsOk = true;
+                    foreach (Transform bChild in blockerGroup.transform)
+                    {
+                        var bMr = bChild.GetComponent<Renderer>();
+                        if (bChild.name == "Breakable_Barricade" && bMr.sharedMaterial != worldGen.BlockerMaterial)
+                            blockerMatsOk = false;
+                        if (bChild.name == "Unbreakable_Pillar" && bMr.sharedMaterial != worldGen.UnbreakableBlockerMaterial)
+                            blockerMatsOk = false;
+                    }
+                    Assert(blockerMatsOk, "BlockingObjects differentiate Breakable_Barricade (Plywood) vs Unbreakable_Pillar (GabionWall)");
+                }
+
+                var heliAfterRetry = GameObject.Find("ExtractionHelicopter");
+                var mainRotor = heliAfterRetry != null ? heliAfterRetry.transform.Find("MainRotor") : null;
+                var rotorMf = mainRotor != null ? mainRotor.GetComponent<MeshFilter>() : null;
+                Assert(mainRotor != null && rotorMf != null && rotorMf.sharedMesh != null,
+                    "ExtractionHelicopter contains separate MainRotor child with rotor mesh");
+
+                var smokeCanister = heliAfterRetry != null ? heliAfterRetry.transform.Find("GreenSmokeCanister") : null;
+                var smokePs = smokeCanister != null ? smokeCanister.GetComponent<ParticleSystem>() : null;
+                var smokePsRend = smokeCanister != null ? smokeCanister.GetComponent<ParticleSystemRenderer>() : null;
+                Assert(smokePs != null && smokePsRend != null && smokePsRend.sharedMaterial != null &&
+                       smokePs.main.scalingMode == ParticleSystemScalingMode.Shape &&
+                       smokePsRend.sharedMaterial.HasProperty("_Surface") &&
+                       Mathf.Approximately(smokePsRend.sharedMaterial.GetFloat("_Surface"), 1f) &&
+                       smokePsRend.sharedMaterial.renderQueue >= (int)UnityEngine.Rendering.RenderQueue.Transparent,
+                    "GreenSmokeCanister has configured URP Transparent ParticleSystem green smoke flare with Shape scaling");
+
+                // Verify outward triangle winding across all procedural meshes
+                bool AllTrianglesOutward(Mesh m)
+                {
+                    if (m == null) return false;
+                    Vector3[] verts = m.vertices;
+                    Vector3[] norms = m.normals;
+                    for (int sub = 0; sub < m.subMeshCount; sub++)
+                    {
+                        int[] tris = m.GetTriangles(sub);
+                        for (int t = 0; t + 2 < tris.Length; t += 3)
+                        {
+                            Vector3 e1 = verts[tris[t + 1]] - verts[tris[t]];
+                            Vector3 e2 = verts[tris[t + 2]] - verts[tris[t]];
+                            Vector3 faceCross = Vector3.Cross(e1, e2);
+                            if (faceCross.sqrMagnitude < 1e-10f) continue;
+                            Vector3 avgNorm = (norms[tris[t]] + norms[tris[t + 1]] + norms[tris[t + 2]]).normalized;
+                            if (Vector3.Dot(faceCross, avgNorm) <= 0f) return false;
+                        }
+                    }
+                    return true;
+                }
+                Assert(AllTrianglesOutward(ProceduralGeometry.CreateTreeMesh()) &&
+                       AllTrianglesOutward(ProceduralGeometry.CreateCrateMesh()) &&
+                       AllTrianglesOutward(ProceduralGeometry.CreateHelicopterMesh()) &&
+                       AllTrianglesOutward(ProceduralGeometry.CreateHelicopterRotorMesh()) &&
+                       AllTrianglesOutward(ProceduralGeometry.CreateMudPatchMesh()),
+                    "All ProceduralGeometry meshes (Tree, Crate, Helicopter, Rotor, MudPatch) have outward clockwise triangle winding");
+
+                var audioMgr = UnityEngine.Object.FindAnyObjectByType<AudioManager>();
+                Assert(audioMgr != null && audioMgr.SoundLibrary != null &&
+                       audioMgr.SoundLibrary.Get(SfxCue.Wind)?.clips?.Length > 0 &&
+                       audioMgr.SoundLibrary.Get(SfxCue.FootGrass)?.clips?.Length > 0,
+                    "AudioManager SoundLibrary contains Wind ambient & FootGrass footstep clips");
+
+                // 22. Workstream B: ZombieController StateChangeLog & CurrentTargetLabel
+                ZombieController.ClearStateChangeLog();
+                Assert(ZombieController.StateChangeLog.Count == 0, "ZombieController.ClearStateChangeLog resets transition ring buffer");
+                ZombieController patrolWalker = null;
+                foreach (var z in zombies)
+                {
+                    if (z != null && !z.IsDead && z.Archetype == ZombieArchetype.Walker && z.CurrentState == ZombieState.IdlePatrol)
+                    {
+                        patrolWalker = z;
+                        break;
+                    }
+                }
+                Assert(patrolWalker != null, "Found patrolling Walker to verify StateChangeLog");
+                if (patrolWalker != null)
+                {
+                    patrolWalker.TakeDamage(5f, player.transform.position);
+                    Assert(patrolWalker.CurrentState == ZombieState.Chase &&
+                           patrolWalker.CurrentTargetLabel == "Player" &&
+                           ZombieController.StateChangeLog.Count >= 1 &&
+                           ZombieController.StateChangeLog[ZombieController.StateChangeLog.Count - 1].ToState == ZombieState.Chase,
+                        "ZombieController records IdlePatrol -> Chase transition in StateChangeLog and updates CurrentTargetLabel");
+
+                    // Verify Dead transition & ring buffer capacity cap (10)
+                    for (int logIdx = 0; logIdx < 12; logIdx++)
+                    {
+                        patrolWalker.TransitionToState(logIdx % 2 == 0 ? ZombieState.Search : ZombieState.Chase, "RingTest");
+                    }
+                    patrolWalker.TakeDamage(999f, player.transform.position);
+                    Assert(patrolWalker.CurrentState == ZombieState.Dead &&
+                           patrolWalker.CurrentTargetLabel == "None" &&
+                           ZombieController.StateChangeLog.Count == 10 &&
+                           ZombieController.StateChangeLog[ZombieController.StateChangeLog.Count - 1].ToState == ZombieState.Dead,
+                        "ZombieController StateChangeLog stays bounded at 10 entries and logs Dead transition with Target=None");
+                }
+
+                // 23. Workstream A: ObstructionFadeController URP Transparent Swap & Restore (1-slot Wall, 2-slot Tree & Particle Skip)
+                var fadeCtrl = cam.GetComponent<ObstructionFadeController>();
+                Assert(fadeCtrl != null, "ObstructionFadeController attached to Main Camera");
+                if (fadeCtrl != null && wallObj != null)
+                {
+                    var wallRend = wallObj.GetComponent<Renderer>();
+                    Material origWallMat = wallRend.sharedMaterial;
+                    Vector3 wallCenter = wallObj.transform.position;
+
+                    cam.transform.position = wallCenter + new Vector3(0f, 3.0f, -5.0f);
+                    player.transform.position = wallCenter + new Vector3(0f, 0f, 5.0f);
+                    Physics.SyncTransforms();
+
+                    fadeCtrl.UpdateFade(0.5f);
+                    Material fadedMat = wallRend.sharedMaterial;
+                    bool swappedToTransparent = fadedMat != null &&
+                                                fadedMat != origWallMat &&
+                                                fadedMat.HasProperty("_Surface") &&
+                                                Mathf.Approximately(fadedMat.GetFloat("_Surface"), 1f) &&
+                                                fadedMat.renderQueue >= (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                    Assert(swappedToTransparent,
+                        $"ObstructionFadeController swaps Opaque URP material to Transparent clone when obstructing (queue={fadedMat?.renderQueue})");
+
+                    // Move player in front of wall so it no longer obstructs
+                    player.transform.position = wallCenter + new Vector3(0f, 0f, -2.0f);
+                    Physics.SyncTransforms();
+                    for (int step = 0; step < 5; step++)
+                    {
+                        fadeCtrl.UpdateFade(0.5f);
+                    }
+                    Assert(wallRend.sharedMaterial == origWallMat,
+                        "ObstructionFadeController restores OriginalSharedMaterial once obstruction clears");
+
+                    // Verify 2-submesh BoundaryTree swap & restore
+                    if (firstTree != null && firstTreeMr != null)
+                    {
+                        Vector3 treeCenter = firstTree.position + Vector3.up * 2.0f;
+                        cam.transform.position = treeCenter + new Vector3(0f, 2.0f, -5.0f);
+                        player.transform.position = treeCenter + new Vector3(0f, 0f, 5.0f);
+                        Physics.SyncTransforms();
+
+                        fadeCtrl.UpdateFade(0.5f);
+                        Material[] fadedTreeMats = firstTreeMr.sharedMaterials;
+                        bool treeSwapped = fadedTreeMats.Length == 2 &&
+                                           fadedTreeMats[0] != worldGen.BarkMaterial &&
+                                           fadedTreeMats[1] != worldGen.LeafMaterial &&
+                                           Mathf.Approximately(fadedTreeMats[0].GetFloat("_Surface"), 1f) &&
+                                           Mathf.Approximately(fadedTreeMats[1].GetFloat("_Surface"), 1f);
+                        Assert(treeSwapped, "ObstructionFadeController swaps both Bark & Leaf submesh materials on BoundaryTree");
+
+                        player.transform.position = treeCenter + new Vector3(0f, 0f, -2.0f);
+                        Physics.SyncTransforms();
+                        for (int step = 0; step < 5; step++)
+                        {
+                            fadeCtrl.UpdateFade(0.5f);
+                        }
+                        Assert(firstTreeMr.sharedMaterials[0] == worldGen.BarkMaterial &&
+                               firstTreeMr.sharedMaterials[1] == worldGen.LeafMaterial,
+                            "ObstructionFadeController restores both Bark & Leaf OriginalSharedMaterials on BoundaryTree");
+                    }
+
+                    // Verify ParticleSystemRenderer is never overridden when ExtractionHelicopter obstructs camera
+                    if (heliAfterRetry != null && smokePsRend != null)
+                    {
+                        Material origSmokeMat = smokePsRend.sharedMaterial;
+                        Vector3 heliCenter = heliAfterRetry.transform.position + Vector3.up * 1.5f;
+                        cam.transform.position = heliCenter + new Vector3(0f, 2.0f, -6.0f);
+                        player.transform.position = heliCenter + new Vector3(0f, 0f, 6.0f);
+                        Physics.SyncTransforms();
+                        fadeCtrl.UpdateFade(0.5f);
+                        Assert(smokePsRend.sharedMaterial == origSmokeMat,
+                            "ObstructionFadeController skips ParticleSystemRenderer on GreenSmokeCanister");
+                    }
+
+                    isoCam.SnapToTarget(player.transform);
+                }
 
                 Debug.Log($"\n===========================================");
                 Debug.Log($"TEST SUMMARY: PASSED={passed}, FAILED={failed}");

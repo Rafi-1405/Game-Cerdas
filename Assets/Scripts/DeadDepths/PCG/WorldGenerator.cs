@@ -29,6 +29,17 @@ namespace DeadDepths.PCG
         [SerializeField] private Material crateMaterial;
         [SerializeField] private Material helicopterMaterial;
         [SerializeField] private Material blockerMaterial;
+        [SerializeField] private Material unbreakableBlockerMaterial;
+
+        public Material GroundMaterial => groundMaterial;
+        public Material MudMaterial => mudMaterial;
+        public Material BarkMaterial => barkMaterial;
+        public Material LeafMaterial => leafMaterial;
+        public Material WallMaterial => wallMaterial;
+        public Material CrateMaterial => crateMaterial;
+        public Material HelicopterMaterial => helicopterMaterial;
+        public Material BlockerMaterial => blockerMaterial;
+        public Material UnbreakableBlockerMaterial => unbreakableBlockerMaterial;
 
         [Header("Prefabs / Templates")]
         [SerializeField] private GameObject zombiePrefab;
@@ -132,6 +143,10 @@ namespace DeadDepths.PCG
             {
                 blockerMaterial = new Material(litShader) { color = new Color(0.42f, 0.40f, 0.38f) };
             }
+            if (unbreakableBlockerMaterial == null)
+            {
+                unbreakableBlockerMaterial = blockerMaterial;
+            }
         }
 
         /// <summary>
@@ -157,7 +172,8 @@ namespace DeadDepths.PCG
 
             worldRoot = new GameObject($"GeneratedWorld_Level_{levelNumber}").transform;
 
-            // Reset counters
+            // Reset counters & AI debug state log
+            ZombieController.ClearStateChangeLog();
             clusters.Clear();
             corridors.Clear();
             StartClusterId = -1;
@@ -600,7 +616,7 @@ namespace DeadDepths.PCG
                     var mf = tree.AddComponent<MeshFilter>();
                     mf.sharedMesh = treeMesh;
                     var mr = tree.AddComponent<MeshRenderer>();
-                    mr.sharedMaterials = new Material[] { leafMaterial };
+                    mr.sharedMaterials = new Material[] { barkMaterial, leafMaterial };
 
                     var col = tree.AddComponent<CapsuleCollider>();
                     col.radius = 0.65f;
@@ -883,7 +899,9 @@ namespace DeadDepths.PCG
                 }
 
                 var mr = blocker.GetComponent<Renderer>();
-                mr.sharedMaterial = blockerMaterial;
+                mr.sharedMaterial = isBreakable
+                    ? blockerMaterial
+                    : (unbreakableBlockerMaterial != null ? unbreakableBlockerMaterial : blockerMaterial);
 
                 var comp = blocker.AddComponent<BlockingObject>();
                 comp.BlockerConfig.IsBreakable = isBreakable;
@@ -966,6 +984,40 @@ namespace DeadDepths.PCG
             }
         }
 
+        private static Texture2D cachedSmokeTexture;
+
+        private static Texture2D GetOrCreateSmokeTexture()
+        {
+            if (cachedSmokeTexture != null) return cachedSmokeTexture;
+
+            const int res = 64;
+            cachedSmokeTexture = new Texture2D(res, res, TextureFormat.RGBA32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear
+            };
+
+            Vector2 center = new Vector2(0.5f, 0.5f);
+            Color[] pixels = new Color[res * res];
+            for (int y = 0; y < res; y++)
+            {
+                float v = (y + 0.5f) / res;
+                for (int x = 0; x < res; x++)
+                {
+                    float u = (x + 0.5f) / res;
+                    float d = Vector2.Distance(new Vector2(u, v), center) * 2f;
+                    float a = Mathf.Clamp01(1f - d);
+                    a = a * a * (3f - 2f * a);
+                    pixels[y * res + x] = new Color(1f, 1f, 1f, a);
+                }
+            }
+
+            cachedSmokeTexture.SetPixels(pixels);
+            cachedSmokeTexture.Apply();
+            return cachedSmokeTexture;
+        }
+
         private void CreateExtractionHelicopter(Vector3 pos)
         {
             GameObject heliObj = new GameObject("ExtractionHelicopter");
@@ -981,19 +1033,115 @@ namespace DeadDepths.PCG
             col.size = new Vector3(3.5f, 3f, 7f);
             col.center = new Vector3(0f, 1.5f, 0f);
 
-            // Add rescue green smoke flare
+            // Split MainRotor child so ExtractionHelicopter spins blades independently at 720 deg/s
+            GameObject rotorObj = new GameObject("MainRotor");
+            rotorObj.transform.SetParent(heliObj.transform, false);
+            rotorObj.transform.localPosition = new Vector3(0f, 2.95f, 0f);
+            var rotorMf = rotorObj.AddComponent<MeshFilter>();
+            rotorMf.sharedMesh = ProceduralGeometry.CreateHelicopterRotorMesh();
+            var rotorMr = rotorObj.AddComponent<MeshRenderer>();
+            rotorMr.sharedMaterial = helicopterMaterial;
+
+            // Add rescue green smoke flare with URP ParticleSystem plume
             GameObject flare = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             flare.name = "GreenSmokeCanister";
             flare.transform.SetParent(heliObj.transform, false);
             flare.transform.localPosition = new Vector3(3.5f, 0.3f, 0f);
             flare.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
+            var flareCol = flare.GetComponent<Collider>();
+            if (flareCol != null)
+            {
+                if (Application.isPlaying) Destroy(flareCol);
+                else DestroyImmediate(flareCol);
+            }
             var flareRend = flare.GetComponent<Renderer>();
+            Color smokeColor = new Color(0.12f, 1.0f, 0.40f, 0.85f);
             flareRend.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"))
             {
-                color = new Color(0.1f, 1f, 0.3f)
+                color = new Color(0.1f, 0.85f, 0.3f)
             };
 
+            var ps = flare.AddComponent<ParticleSystem>();
+            var main = ps.main;
+            main.loop = true;
+            main.playOnAwake = true;
+            main.scalingMode = ParticleSystemScalingMode.Shape;
+            main.startLifetime = 4.0f;
+            main.startSpeed = new ParticleSystem.MinMaxCurve(6.5f, 9.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.7f, 1.1f);
+            main.startRotation = new ParticleSystem.MinMaxCurve(0f, 360f * Mathf.Deg2Rad);
+            main.startColor = smokeColor;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.gravityModifier = -0.14f;
+
+            var emission = ps.emission;
+            emission.rateOverTime = 40f;
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = 3.2f;
+            shape.radius = 0.35f;
+            shape.rotation = new Vector3(-90f, 0f, 0f);
+
+            var forceOverLifetime = ps.forceOverLifetime;
+            forceOverLifetime.enabled = true;
+            forceOverLifetime.space = ParticleSystemSimulationSpace.World;
+            forceOverLifetime.x = new ParticleSystem.MinMaxCurve(0f);
+            forceOverLifetime.y = new ParticleSystem.MinMaxCurve(1.4f);
+            forceOverLifetime.z = new ParticleSystem.MinMaxCurve(0f);
+
+            var sizeOverLifetime = ps.sizeOverLifetime;
+            sizeOverLifetime.enabled = true;
+            AnimationCurve sizeCurve = new AnimationCurve();
+            sizeCurve.AddKey(0f, 0.45f);
+            sizeCurve.AddKey(0.25f, 0.95f);
+            sizeCurve.AddKey(0.6f, 1.85f);
+            sizeCurve.AddKey(1f, 3.0f);
+            sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, sizeCurve);
+
+            var rotationOverLifetime = ps.rotationOverLifetime;
+            rotationOverLifetime.enabled = true;
+            rotationOverLifetime.z = new ParticleSystem.MinMaxCurve(-35f * Mathf.Deg2Rad, 35f * Mathf.Deg2Rad);
+
+            var colorOverLifetime = ps.colorOverLifetime;
+            colorOverLifetime.enabled = true;
+            Gradient grad = new Gradient();
+            grad.SetKeys(
+                new GradientColorKey[] {
+                    new GradientColorKey(smokeColor, 0f),
+                    new GradientColorKey(new Color(0.2f, 1f, 0.5f), 0.4f),
+                    new GradientColorKey(new Color(0.25f, 0.85f, 0.45f), 1f)
+                },
+                new GradientAlphaKey[] {
+                    new GradientAlphaKey(0f, 0f),
+                    new GradientAlphaKey(0.95f, 0.08f),
+                    new GradientAlphaKey(0.85f, 0.65f),
+                    new GradientAlphaKey(0f, 1f)
+                }
+            );
+            colorOverLifetime.color = grad;
+
+            var psRend = flare.GetComponent<ParticleSystemRenderer>();
+            if (psRend != null)
+            {
+                psRend.renderMode = ParticleSystemRenderMode.Billboard;
+                Material smokeMat = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit"));
+                smokeMat.color = smokeColor;
+                if (smokeMat.HasProperty("_BaseColor")) smokeMat.SetColor("_BaseColor", smokeColor);
+                if (smokeMat.HasProperty("_Surface")) smokeMat.SetFloat("_Surface", 1f);
+                if (smokeMat.HasProperty("_Blend")) smokeMat.SetFloat("_Blend", 0f);
+                if (smokeMat.HasProperty("_SrcBlend")) smokeMat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                if (smokeMat.HasProperty("_DstBlend")) smokeMat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                if (smokeMat.HasProperty("_ZWrite")) smokeMat.SetFloat("_ZWrite", 0f);
+                smokeMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                smokeMat.SetOverrideTag("RenderType", "Transparent");
+                smokeMat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+                smokeMat.mainTexture = GetOrCreateSmokeTexture();
+                psRend.sharedMaterial = smokeMat;
+            }
+
             var light = flare.AddComponent<Light>();
+            light.type = LightType.Point;
             light.color = new Color(0.2f, 1f, 0.4f);
             light.intensity = 2.5f;
             light.range = 8.0f;

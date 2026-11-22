@@ -15,7 +15,7 @@ namespace DeadDepths.PCG
         public const float GoldenAngle = 137.507764f * Mathf.Deg2Rad;
 
         /// <summary>
-        /// Creates a procedural pine / forest tree with trunk and phyllotaxis foliage layers.
+        /// Creates a procedural pine / forest tree with trunk (submesh 0) and phyllotaxis foliage layers (submesh 1).
         /// </summary>
         public static Mesh CreateTreeMesh(float height = 6.0f, float trunkRadius = 0.35f, int foliageTiers = 4)
         {
@@ -23,9 +23,10 @@ namespace DeadDepths.PCG
             List<Vector3> vertices = new List<Vector3>();
             List<Vector3> normals = new List<Vector3>();
             List<Vector2> uvs = new List<Vector2>();
-            List<int> triangles = new List<int>();
+            List<int> trunkTriangles = new List<int>();
+            List<int> foliageTriangles = new List<int>();
 
-            // 1. Trunk (Cylinder with taper)
+            // 1. Trunk (Cylinder with taper) -> Submesh 0
             int segments = 8;
             float trunkHeight = height * 0.45f;
             for (int i = 0; i <= segments; i++)
@@ -52,16 +53,16 @@ namespace DeadDepths.PCG
                 int b2 = (i + 1) * 2;
                 int t2 = b2 + 1;
 
-                triangles.Add(b1);
-                triangles.Add(t1);
-                triangles.Add(b2);
+                trunkTriangles.Add(b1);
+                trunkTriangles.Add(t1);
+                trunkTriangles.Add(b2);
 
-                triangles.Add(b2);
-                triangles.Add(t1);
-                triangles.Add(t2);
+                trunkTriangles.Add(b2);
+                trunkTriangles.Add(t1);
+                trunkTriangles.Add(t2);
             }
 
-            // 2. Foliage Tiers (Cones arranged by Fibonacci / golden ratio distribution)
+            // 2. Foliage Tiers (Cones arranged by Fibonacci / golden ratio distribution) -> Submesh 1
             float baseFoliageHeight = height * 0.25f;
             float foliageSpan = height - baseFoliageHeight;
 
@@ -107,22 +108,24 @@ namespace DeadDepths.PCG
                     int v1 = tierBaseIndex + 1 + s;
                     int v2 = tierBaseIndex + 1 + s + 1;
 
-                    // Cone surface
-                    triangles.Add(tierBaseIndex);
-                    triangles.Add(v1);
-                    triangles.Add(v2);
+                    // Cone surface (clockwise from outside)
+                    foliageTriangles.Add(tierBaseIndex);
+                    foliageTriangles.Add(v2);
+                    foliageTriangles.Add(v1);
 
-                    // Underside surface
-                    triangles.Add(undersideCenterIndex);
-                    triangles.Add(v2);
-                    triangles.Add(v1);
+                    // Underside surface (clockwise from below)
+                    foliageTriangles.Add(undersideCenterIndex);
+                    foliageTriangles.Add(v1);
+                    foliageTriangles.Add(v2);
                 }
             }
 
             mesh.SetVertices(vertices);
             mesh.SetNormals(normals);
             mesh.SetUVs(0, uvs);
-            mesh.SetTriangles(triangles, 0);
+            mesh.subMeshCount = 2;
+            mesh.SetTriangles(trunkTriangles, 0);
+            mesh.SetTriangles(foliageTriangles, 1);
             mesh.RecalculateBounds();
             return mesh;
         }
@@ -197,13 +200,32 @@ namespace DeadDepths.PCG
             AddBox(v, n, uv, tri, new Vector3(1.0f, 0.7f, 1.0f), new Vector3(0.12f, 0.9f, 0.12f));
             AddBox(v, n, uv, tri, new Vector3(1.0f, 0.7f, -1.0f), new Vector3(0.12f, 0.9f, 0.12f));
 
-            // 5. Main Rotor Mast & Blades
+            // 5. Main Rotor Mast (blades are generated separately via CreateHelicopterRotorMesh for MainRotor child)
             Vector3 mastPos = cabinOffset + new Vector3(0f, cabinH * 0.5f + 0.35f, 0f);
             AddBox(v, n, uv, tri, mastPos, new Vector3(0.3f, 0.7f, 0.3f));
 
-            Vector3 bladePos = mastPos + new Vector3(0f, 0.4f, 0f);
-            AddBox(v, n, uv, tri, bladePos, new Vector3(7.5f, 0.08f, 0.45f));
-            AddBox(v, n, uv, tri, bladePos, new Vector3(0.45f, 0.08f, 7.5f));
+            mesh.SetVertices(v);
+            mesh.SetNormals(n);
+            mesh.SetUVs(0, uv);
+            mesh.SetTriangles(tri, 0);
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        /// <summary>
+        /// Creates a centered procedural main rotor hub and blades mesh so the MainRotor child can spin around local +Y.
+        /// </summary>
+        public static Mesh CreateHelicopterRotorMesh()
+        {
+            Mesh mesh = new Mesh { name = "Procedural_HelicopterRotor" };
+            List<Vector3> v = new List<Vector3>();
+            List<Vector3> n = new List<Vector3>();
+            List<Vector2> uv = new List<Vector2>();
+            List<int> tri = new List<int>();
+
+            AddBox(v, n, uv, tri, Vector3.zero, new Vector3(0.55f, 0.2f, 0.55f));
+            AddBox(v, n, uv, tri, Vector3.zero, new Vector3(7.5f, 0.08f, 0.45f));
+            AddBox(v, n, uv, tri, Vector3.zero, new Vector3(0.45f, 0.08f, 7.5f));
 
             mesh.SetVertices(v);
             mesh.SetNormals(n);
@@ -302,12 +324,12 @@ namespace DeadDepths.PCG
             uv.Add(new Vector2(0f, 1f));
 
             tri.Add(baseIdx);
-            tri.Add(baseIdx + 2);
             tri.Add(baseIdx + 1);
+            tri.Add(baseIdx + 2);
 
             tri.Add(baseIdx);
-            tri.Add(baseIdx + 3);
             tri.Add(baseIdx + 2);
+            tri.Add(baseIdx + 3);
         }
     }
 }

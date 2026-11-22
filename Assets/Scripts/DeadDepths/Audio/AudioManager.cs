@@ -23,6 +23,7 @@ namespace DeadDepths.Audio
 
         [SerializeField] private Config audioConfig = new Config();
         [SerializeField] private SurvivalSoundLibrary soundLibrary;
+        public SurvivalSoundLibrary SoundLibrary => soundLibrary;
 
         public static AudioManager Instance { get; private set; }
 
@@ -42,6 +43,11 @@ namespace DeadDepths.Audio
             {
                 Destroy(gameObject);
             }
+        }
+
+        private void Start()
+        {
+            PlayAmbientLoop(SfxCue.Wind);
         }
 
         private void OnDestroy()
@@ -77,6 +83,31 @@ namespace DeadDepths.Audio
         public void SetSoundLibrary(SurvivalSoundLibrary library)
         {
             soundLibrary = library;
+        }
+
+        /// <summary>
+        /// Starts a continuous looping ambient cue on the dedicated ambient audio source.
+        /// </summary>
+        public void PlayAmbientLoop(SfxCue cue)
+        {
+            if (ambientSource == null) return;
+            if (soundLibrary == null) LoadDefaultSoundLibrary();
+            if (soundLibrary == null) return;
+
+            var cueSet = soundLibrary.Get(cue);
+            if (cueSet == null) return;
+
+            AudioClip clip = cueSet.Next();
+            if (clip == null) return;
+
+            bool clipChanged = ambientSource.clip != clip;
+            ambientSource.clip = clip;
+            ambientSource.volume = Mathf.Clamp01(cueSet.volume * audioConfig.AmbientVolume * audioConfig.MasterVolume);
+            ambientSource.loop = true;
+            if (clipChanged || !ambientSource.isPlaying)
+            {
+                ambientSource.Play();
+            }
         }
 
         /// <summary>

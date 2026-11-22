@@ -39,6 +39,7 @@ namespace DeadDepths.UI
 
         [NonSerialized] private GUIStyle headerStyle;
         [NonSerialized] private GUIStyle bodyStyle;
+        [NonSerialized] private GUIStyle compactStyle;
         [NonSerialized] private GUIStyle tagStyle;
         [NonSerialized] private GUIStyle buttonStyle;
 
@@ -119,6 +120,7 @@ namespace DeadDepths.UI
         {
             headerStyle = null;
             bodyStyle = null;
+            compactStyle = null;
             tagStyle = null;
             buttonStyle = null;
         }
@@ -174,7 +176,7 @@ namespace DeadDepths.UI
         private void RefreshZombieCache()
         {
             cachedZombies.Clear();
-            var found = FindObjectsByType<ZombieController>(FindObjectsSortMode.None);
+            var found = FindObjectsByType<ZombieController>(FindObjectsInactive.Exclude);
             if (found != null) cachedZombies.AddRange(found);
         }
 
@@ -263,8 +265,8 @@ namespace DeadDepths.UI
         {
             float panelX = 14f;
             float panelY = 14f;
-            float panelW = 335f;
-            float panelH = showAiPanel ? Mathf.Min(Screen.height - 105f, 470f) : 108f;
+            float panelW = 365f;
+            float panelH = showAiPanel ? Mathf.Min(Screen.height - 95f, 540f) : 108f;
 
             GUI.DrawTexture(new Rect(panelX - 1, panelY - 1, panelW + 2, panelH + 2), texBorder);
             GUI.DrawTexture(new Rect(panelX, panelY, panelW, panelH), texPanelBg);
@@ -345,17 +347,45 @@ namespace DeadDepths.UI
                 return Vector3.Distance(a.transform.position, pPos).CompareTo(Vector3.Distance(b.transform.position, pPos));
             });
 
-            int maxRows = Mathf.Min(12, cachedZombies.Count);
-            for (int i = 0; i < maxRows && y < panelY + panelH - 22f; i++)
+            // Reserve bottom space for AI State Change Log
+            float logReserveH = 136f;
+            int maxRows = Mathf.Min(8, cachedZombies.Count);
+            for (int i = 0; i < maxRows && y < panelY + panelH - logReserveH; i++)
             {
                 var z = cachedZombies[i];
                 if (z.IsDead) continue;
                 float dist = Vector3.Distance(z.transform.position, pPos);
                 string sub = string.IsNullOrEmpty(z.SubPhaseName) ? "" : $"({z.SubPhaseName})";
                 string los = z.HasLineOfSightToPlayer ? "LOS" : "---";
-                string row = $"#{i + 1:00} [{z.Archetype,-7}] {z.CurrentState}{sub,-11} HP:{z.CurrentHealth:0}/{z.AiConfig.MaxHealth:0} {dist:0.0}m {los}";
-                GUI.Label(new Rect(panelX + 10f, y, panelW - 20f, 18f), row, bodyStyle);
+                string row = $"#{i + 1:00} [{z.Archetype,-7}] {z.CurrentState}{sub} Tgt:{z.CurrentTargetLabel} {z.CurrentHealth:0}/{z.AiConfig.MaxHealth:0} {dist:0.0}m {los}";
+                GUI.Label(new Rect(panelX + 10f, y, panelW - 20f, 18f), row, compactStyle);
                 y += 18f;
+            }
+
+            // AI State Change Log (Slide 82 requirement)
+            y += 6f;
+            if (y < panelY + panelH - 28f)
+            {
+                GUI.Label(new Rect(panelX + 10f, y, panelW - 20f, 18f), "AI STATE CHANGE LOG (Recent):", headerStyle);
+                y += 18f;
+
+                var log = ZombieController.StateChangeLog;
+                if (log.Count == 0)
+                {
+                    GUI.Label(new Rect(panelX + 10f, y, panelW - 20f, 18f), "(No FSM transitions recorded yet)", compactStyle);
+                }
+                else
+                {
+                    int shown = 0;
+                    for (int i = log.Count - 1; i >= 0 && shown < 6 && y < panelY + panelH - 18f; i--)
+                    {
+                        var entry = log[i];
+                        string line = $"[{entry.Time:0.0}s] {entry.Archetype}: {entry.FromState}->{entry.ToState} ({entry.Reason})";
+                        GUI.Label(new Rect(panelX + 10f, y, panelW - 20f, 18f), line, compactStyle);
+                        y += 17f;
+                        shown++;
+                    }
+                }
             }
         }
 
@@ -365,10 +395,10 @@ namespace DeadDepths.UI
             if (wg == null) return;
             EnsureMinimapTexture();
 
-            float panelW = 265f;
-            float panelH = 495f;
-            float panelX = Screen.width - panelW - 14f;
+            float panelW = 280f;
             float panelY = 48f;
+            float panelH = Mathf.Min(540f, Screen.height - panelY - 12f);
+            float panelX = Screen.width - panelW - 14f;
 
             GUI.DrawTexture(new Rect(panelX - 1, panelY - 1, panelW + 2, panelH + 2), texBorder);
             GUI.DrawTexture(new Rect(panelX, panelY, panelW, panelH), texPanelBg);
@@ -377,7 +407,7 @@ namespace DeadDepths.UI
             GUI.Label(new Rect(panelX + 10f, y, panelW - 20f, 20f), "MAP, WALL & RESOURCE DEBUG", headerStyle);
             y += 22f;
 
-            var crates = FindObjectsByType<SuppliesCrate>(FindObjectsSortMode.None);
+            var crates = FindObjectsByType<SuppliesCrate>(FindObjectsInactive.Exclude);
             int openedCrates = 0;
             foreach (var c in crates)
             {
@@ -388,6 +418,13 @@ namespace DeadDepths.UI
             var tracker = PlayerPerformanceTracker.Instance;
             float livePerf = tracker != null ? PerformanceEvaluator.EvaluatePerformance(tracker, out _) : 0.5f;
             string tier = diff != null ? diff.CurrentTier.ToString() : "Balanced";
+            var profile = diff != null ? diff.CurrentProfile : null;
+            string ddaProfileLine = profile != null
+                ? $"Profile: Z={profile.TotalZombies} (W:{Mathf.RoundToInt(profile.WalkerProportion * 100f)}% S:{Mathf.RoundToInt(profile.SpitterProportion * 100f)}% C:{Mathf.RoundToInt(profile.ChargerProportion * 100f)}%)"
+                : "Profile: Default";
+            string ddaSupplyLine = profile != null
+                ? $"Heals={profile.HealingSuppliesCount} | Blockers={profile.BlockingObjectsCount} | Loot={Mathf.RoundToInt(profile.LootQualityFactor * 100f)}%"
+                : "Heals/Blockers: N/A";
 
             string[] lines = new string[]
             {
@@ -399,20 +436,24 @@ namespace DeadDepths.UI
                 $"Blockers: {wg.TotalBlockersSpawned} ({wg.BreakableBlockersSpawned} breakable)",
                 $"Resources (Crates): {openedCrates}/{wg.TotalCratesSpawned} opened",
                 $"Mud Patches: {wg.TotalMudPatchesSpawned} | BFS: {(wg.ConnectivityValid ? "VALID" : "FAIL")}",
-                $"DDA: {tier} | Perf Score: {livePerf:F2}"
+                $"DDA: {tier} | Perf Score: {livePerf:F2}",
+                ddaProfileLine,
+                ddaSupplyLine
             };
 
             foreach (var line in lines)
             {
-                GUI.Label(new Rect(panelX + 10f, y, panelW - 20f, 18f), line, bodyStyle);
+                GUI.Label(new Rect(panelX + 10f, y, panelW - 20f, 18f), line, compactStyle);
                 y += 18f;
             }
 
             y += 6f;
 
-            // Draw Live Grid Minimap
-            float mapSize = panelW - 24f;
-            Rect mapRect = new Rect(panelX + 12f, y, mapSize, mapSize);
+            // Draw Live Grid Minimap (clamped to fit available vertical panel space)
+            float availableMapH = (panelY + panelH) - y - 40f;
+            float mapSize = Mathf.Clamp(availableMapH, 120f, panelW - 24f);
+            float mapX = panelX + (panelW - mapSize) * 0.5f;
+            Rect mapRect = new Rect(mapX, y, mapSize, mapSize);
             GUI.DrawTexture(new Rect(mapRect.x - 1, mapRect.y - 1, mapRect.width + 2, mapRect.height + 2), texBorder);
             if (minimapTexture != null)
             {
@@ -488,12 +529,12 @@ namespace DeadDepths.UI
                 Vector3 headScreen = cam.WorldToScreenPoint(zPos + Vector3.up * 2.2f);
                 if (headScreen.z <= 0f) continue;
 
-                // 1. Floating State & HP tag
+                // 1. Floating State, Target & HP tag
                 float sx = headScreen.x;
                 float sy = Screen.height - headScreen.y;
                 string sub = string.IsNullOrEmpty(z.SubPhaseName) ? "" : $":{z.SubPhaseName}";
-                string tag = $"[{z.Archetype}] {z.CurrentState}{sub} ({z.CurrentHealth:0}/{z.AiConfig.MaxHealth:0})";
-                GUI.Label(new Rect(sx - 90f, sy - 18f, 180f, 20f), tag, tagStyle);
+                string tag = $"[{z.Archetype}] {z.CurrentState}{sub} -> {z.CurrentTargetLabel} ({z.CurrentHealth:0}/{z.AiConfig.MaxHealth:0})";
+                GUI.Label(new Rect(sx - 120f, sy - 18f, 240f, 20f), tag, tagStyle);
 
                 // 2. Vision Cone (FOV) edges
                 float halfAngle = z.AiConfig.VisionAngle * 0.5f;
@@ -527,7 +568,7 @@ namespace DeadDepths.UI
                     }
                 }
 
-                // 5. LastKnownPlayerPos marker during Search state
+                // 5. LastKnownPlayerPos marker during Search state, or Patrol destination during IdlePatrol
                 if (z.CurrentState == ZombieState.Search)
                 {
                     Vector3 lkpScreen = cam.WorldToScreenPoint(z.LastKnownPlayerPos + Vector3.up * 0.5f);
@@ -535,6 +576,15 @@ namespace DeadDepths.UI
                     {
                         DrawWorldLine(cam, zPos + Vector3.up * 0.5f, z.LastKnownPlayerPos + Vector3.up * 0.5f, new Color(1f, 0.35f, 1f, 0.7f), 1.5f);
                         GUI.Label(new Rect(lkpScreen.x - 45f, Screen.height - lkpScreen.y - 10f, 90f, 18f), "[SEARCH TARGET]", tagStyle);
+                    }
+                }
+                else if (z.CurrentState == ZombieState.IdlePatrol && z.HasPatrolTarget)
+                {
+                    Vector3 patrolScreen = cam.WorldToScreenPoint(z.CurrentPatrolTarget + Vector3.up * 0.3f);
+                    if (patrolScreen.z > 0f)
+                    {
+                        DrawWorldLine(cam, zPos + Vector3.up * 0.3f, z.CurrentPatrolTarget + Vector3.up * 0.3f, new Color(0.45f, 1f, 0.7f, 0.65f), 1.25f);
+                        GUI.Label(new Rect(patrolScreen.x - 48f, Screen.height - patrolScreen.y - 10f, 96f, 18f), "[PATROL DEST]", tagStyle);
                     }
                 }
             }
@@ -617,7 +667,7 @@ namespace DeadDepths.UI
             }
 
             // Scene View AI Zombie Gizmos
-            var zombies = FindObjectsByType<ZombieController>(FindObjectsSortMode.None);
+            var zombies = FindObjectsByType<ZombieController>(FindObjectsInactive.Exclude);
             foreach (var z in zombies)
             {
                 if (z == null || z.IsDead) continue;
@@ -635,6 +685,12 @@ namespace DeadDepths.UI
                 {
                     Gizmos.color = Color.magenta;
                     Gizmos.DrawWireSphere(z.LastKnownPlayerPos + Vector3.up * 0.5f, 0.6f);
+                }
+                else if (z.CurrentState == ZombieState.IdlePatrol && z.HasPatrolTarget)
+                {
+                    Gizmos.color = new Color(0.45f, 1f, 0.7f, 0.85f);
+                    Gizmos.DrawLine(pos, z.CurrentPatrolTarget + Vector3.up * 0.3f);
+                    Gizmos.DrawWireSphere(z.CurrentPatrolTarget + Vector3.up * 0.3f, 0.4f);
                 }
 
                 if (z.Agent != null && z.Agent.enabled && z.Agent.hasPath)
@@ -671,6 +727,19 @@ namespace DeadDepths.UI
                     alignment = TextAnchor.MiddleLeft
                 };
                 bodyStyle.normal.textColor = new Color(0.92f, 0.95f, 1f);
+            }
+
+            if (compactStyle == null)
+            {
+                compactStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 10,
+                    fontStyle = FontStyle.Normal,
+                    alignment = TextAnchor.MiddleLeft,
+                    wordWrap = false,
+                    clipping = TextClipping.Clip
+                };
+                compactStyle.normal.textColor = new Color(0.92f, 0.95f, 1f);
             }
 
             if (tagStyle == null)

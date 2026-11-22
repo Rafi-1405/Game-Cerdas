@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using DeadDepths.Audio;
@@ -66,7 +67,53 @@ namespace DeadDepths.AI
         public NavMeshAgent Agent => agent;
         public Vector3 LastKnownPlayerPos => lastKnownPlayerPos;
         public Vector3 CurrentPatrolTarget => currentPatrolTarget;
+        public bool HasPatrolTarget => hasPatrolTarget;
         public bool HasLineOfSightToPlayer { get; private set; }
+
+        public string CurrentTargetLabel
+        {
+            get
+            {
+                if (IsDead || CurrentState == ZombieState.Dead) return "None";
+                switch (CurrentState)
+                {
+                    case ZombieState.Chase:
+                    case ZombieState.Attack:
+                        return "Player";
+                    case ZombieState.Search:
+                        return "LKP";
+                    case ZombieState.IdlePatrol:
+                        return hasPatrolTarget ? "Patrol" : "None";
+                    default:
+                        return "None";
+                }
+            }
+        }
+
+        public struct StateChangeEntry
+        {
+            public float Time;
+            public string ZombieName;
+            public ZombieArchetype Archetype;
+            public ZombieState FromState;
+            public ZombieState ToState;
+            public string Reason;
+        }
+
+        private const int MaxStateLogEntries = 10;
+        private static readonly List<StateChangeEntry> stateChangeLog = new List<StateChangeEntry>(MaxStateLogEntries);
+        public static IReadOnlyList<StateChangeEntry> StateChangeLog => stateChangeLog;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            stateChangeLog.Clear();
+        }
+
+        public static void ClearStateChangeLog()
+        {
+            stateChangeLog.Clear();
+        }
 
         public string SubPhaseName
         {
@@ -126,6 +173,7 @@ namespace DeadDepths.AI
 
             ConfigureArchetypeSettings();
             CurrentHealth = aiConfig.MaxHealth;
+            FindPlayer();
         }
 
         private void EnforceAnimatorNoRootMotion()
@@ -160,12 +208,14 @@ namespace DeadDepths.AI
             spawnPosition = transform.position;
             lastKnownPlayerPos = transform.position;
             CurrentState = ZombieState.IdlePatrol;
+            stateTimer = 0f;
             spitterPhase = SpitterPhase.None;
             chargerPhase = ChargerPhase.None;
             hasPatrolTarget = false;
 
             ConfigureArchetypeSettings();
             CurrentHealth = aiConfig.MaxHealth;
+            FindPlayer();
 
             if (arch == ZombieArchetype.Charger)
             {
@@ -370,7 +420,7 @@ namespace DeadDepths.AI
             if (HasLineOfSightToPlayer)
             {
                 lastKnownPlayerPos = playerTarget.position;
-                TransitionToState(ZombieState.Chase);
+                TransitionToState(ZombieState.Chase, "Player spotted (LOS)");
                 if (AudioManager.Instance != null && UnityEngine.Random.value < 0.3f)
                 {
                     AudioManager.Instance.PlayCue(SfxCue.ZombieGroan, transform.position);
@@ -419,7 +469,7 @@ namespace DeadDepths.AI
         {
             if (playerTarget == null || (playerController != null && playerController.IsDead))
             {
-                TransitionToState(ZombieState.IdlePatrol);
+                TransitionToState(ZombieState.IdlePatrol, "Target dead/lost");
                 return;
             }
 
@@ -441,7 +491,7 @@ namespace DeadDepths.AI
             if (canEngage)
             {
                 lastKnownPlayerPos = playerTarget.position;
-                TransitionToState(ZombieState.Attack);
+                TransitionToState(ZombieState.Attack, "In attack range");
                 return;
             }
 
@@ -456,7 +506,7 @@ namespace DeadDepths.AI
                 stateTimer += Time.deltaTime;
                 if (stateTimer > 4.0f)
                 {
-                    TransitionToState(ZombieState.Search);
+                    TransitionToState(ZombieState.Search, "Lost LOS > 4s");
                 }
             }
         }
@@ -466,7 +516,7 @@ namespace DeadDepths.AI
             if (HasLineOfSightToPlayer)
             {
                 lastKnownPlayerPos = playerTarget.position;
-                TransitionToState(ZombieState.Chase);
+                TransitionToState(ZombieState.Chase, "Reacquired LOS");
                 return;
             }
 
@@ -483,7 +533,7 @@ namespace DeadDepths.AI
             if (stateTimer > 5.0f || (reachedLastKnown && stateTimer > 2.0f))
             {
                 hasPatrolTarget = false;
-                TransitionToState(ZombieState.IdlePatrol);
+                TransitionToState(ZombieState.IdlePatrol, "Search timeout");
             }
         }
 
@@ -503,7 +553,7 @@ namespace DeadDepths.AI
                     }
                     if (agent.isOnNavMesh) agent.isStopped = false;
                 }
-                TransitionToState(ZombieState.IdlePatrol);
+                TransitionToState(ZombieState.IdlePatrol, "Target dead/null");
                 return;
             }
 
@@ -528,7 +578,7 @@ namespace DeadDepths.AI
             bool hasDirectLOS = HasUnobstructedLineOfSightToPlayer(transform.position + Vector3.up * 1.1f, playerTarget.position + Vector3.up * 1.0f);
             if (dist > aiConfig.AttackRange * 1.3f || !hasDirectLOS)
             {
-                TransitionToState(ZombieState.Chase);
+                TransitionToState(ZombieState.Chase, "Target out of melee range");
                 return;
             }
 
@@ -634,7 +684,7 @@ namespace DeadDepths.AI
                     {
                         spitterPhase = SpitterPhase.None;
                         if (agent != null && agent.enabled && agent.isOnNavMesh) agent.isStopped = false;
-                        TransitionToState(ZombieState.Chase);
+                        TransitionToState(ZombieState.Chase, "Spit recovery complete");
                     }
                     break;
             }
@@ -832,7 +882,7 @@ namespace DeadDepths.AI
                             }
                             if (agent.isOnNavMesh) agent.isStopped = false;
                         }
-                        TransitionToState(ZombieState.Chase);
+                        TransitionToState(ZombieState.Chase, "Stun recovered");
                     }
                     break;
             }
@@ -856,15 +906,35 @@ namespace DeadDepths.AI
         }
         #endregion
 
-        private void TransitionToState(ZombieState newState)
+        public void TransitionToState(ZombieState newState, string reason = "Condition")
         {
             if (CurrentState == newState) return;
-            if (CurrentState == ZombieState.Attack && chargerTelegraph != null)
+            ZombieState prevState = CurrentState;
+            if (prevState == ZombieState.Attack && chargerTelegraph != null)
             {
                 chargerTelegraph.HideTelegraph();
             }
             CurrentState = newState;
             stateTimer = 0f;
+            RecordStateChange(prevState, newState, reason);
+        }
+
+        private void RecordStateChange(ZombieState fromState, ZombieState toState, string reason)
+        {
+            if (stateChangeLog.Count >= MaxStateLogEntries)
+            {
+                stateChangeLog.RemoveAt(0);
+            }
+
+            stateChangeLog.Add(new StateChangeEntry
+            {
+                Time = Time.time,
+                ZombieName = gameObject.name,
+                Archetype = archetype,
+                FromState = fromState,
+                ToState = toState,
+                Reason = string.IsNullOrEmpty(reason) ? "-" : reason
+            });
         }
 
         public void TakeDamage(float amount, Vector3? attackerPos = null)
@@ -909,8 +979,9 @@ namespace DeadDepths.AI
             // Alert zombie to Chase if hit while patrolling or searching
             if (CurrentHealth > 0f && (CurrentState == ZombieState.IdlePatrol || CurrentState == ZombieState.Search))
             {
+                if (playerTarget == null) FindPlayer();
                 if (playerTarget != null) lastKnownPlayerPos = playerTarget.position;
-                TransitionToState(ZombieState.Chase);
+                TransitionToState(ZombieState.Chase, "Damaged by player");
             }
 
             if (CurrentHealth <= 0f)
@@ -944,6 +1015,10 @@ namespace DeadDepths.AI
                 chargerTelegraph.HideTelegraph();
             }
 
+            if (CurrentState != ZombieState.Dead)
+            {
+                RecordStateChange(CurrentState, ZombieState.Dead, "Health <= 0");
+            }
             CurrentState = ZombieState.Dead;
             if (agent != null && agent.enabled)
             {

@@ -98,6 +98,21 @@ namespace DeadDepths.Editor
             var crateMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_WoodFlooring.mat");
             if (crateMat != null) genSo.FindProperty("crateMaterial").objectReferenceValue = crateMat;
 
+            var barkMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_Dry02.mat");
+            if (barkMat != null) genSo.FindProperty("barkMaterial").objectReferenceValue = barkMat;
+
+            var leafMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_SoilMoss.mat");
+            if (leafMat != null) genSo.FindProperty("leafMaterial").objectReferenceValue = leafMat;
+
+            var blockerMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_Plywood.mat");
+            if (blockerMat != null) genSo.FindProperty("blockerMaterial").objectReferenceValue = blockerMat;
+
+            var unbreakableBlockerMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_GabionWall.mat");
+            if (unbreakableBlockerMat != null) genSo.FindProperty("unbreakableBlockerMaterial").objectReferenceValue = unbreakableBlockerMat;
+
+            var heliMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_Ceiling.mat");
+            if (heliMat != null) genSo.FindProperty("helicopterMaterial").objectReferenceValue = heliMat;
+
             genSo.ApplyModifiedProperties();
 
             // 6. In-Game UI Systems

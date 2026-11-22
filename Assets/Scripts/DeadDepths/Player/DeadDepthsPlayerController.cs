@@ -76,6 +76,7 @@ namespace DeadDepths.Player
         private float verticalVelocity = 0f;
         private float terrainMultiplier = 1.0f;
         private float nextPunchTime = 0f;
+        private float footstepTimer = 0f;
         private SuppliesCrate activeTargetCrate;
         private bool isInteractingWithCrate = false;
         private Coroutine activePunchRoutine;
@@ -253,6 +254,7 @@ namespace DeadDepths.Player
             IsSprinting = false;
             CurrentSpeed = 0f;
             nextPunchTime = 0f;
+            footstepTimer = 0f;
             isInteractingWithCrate = false;
             activeTargetCrate = null;
 
@@ -353,6 +355,25 @@ namespace DeadDepths.Player
 
                 Vector3 finalMove = (worldMoveDir * CurrentSpeed) + (Vector3.up * verticalVelocity);
                 charController.Move(finalMove * Time.deltaTime);
+
+                // Footstep cadence audio feedback when moving on ground
+                if (hasMoveInput && charController.isGrounded)
+                {
+                    footstepTimer -= Time.deltaTime;
+                    if (footstepTimer <= 0f)
+                    {
+                        float baseInterval = IsSprinting ? 0.32f : (IsCrouching ? 0.58f : 0.45f);
+                        footstepTimer = baseInterval / Mathf.Max(0.5f, effectiveTerrain);
+                        if (AudioManager.Instance != null)
+                        {
+                            AudioManager.Instance.PlayCue(SfxCue.FootGrass, transform.position);
+                        }
+                    }
+                }
+                else
+                {
+                    footstepTimer = Mathf.Min(footstepTimer, 0.08f);
+                }
             }
 
             // Sync Animator Speed parameter with Player.controller thresholds:
