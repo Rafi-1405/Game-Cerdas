@@ -80,7 +80,29 @@ namespace DeadDepths.UI
         }
         private readonly List<ToastEntry> toastPool = new List<ToastEntry>(4);
 
+        private static readonly string[] CompassDirs = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+
         private DeadDepthsPlayerController boundPlayer;
+        private DeadDepthsFlashlight boundFlashlight;
+        private Camera cachedMainCamera;
+
+        // Dirty-check caches to avoid per-frame TMP string allocations
+        private int lastHpInt = -1;
+        private int lastMaxHpInt = -1;
+        private bool lastGodMode = false;
+        private int lastStamPct = -1;
+        private int lastSector = -1;
+        private int lastScore = -1;
+        private int lastTimerTenths = -1;
+        private int lastIntelHave = -1;
+        private int lastIntelReq = -1;
+        private int lastEvacDistMeters = -2;
+        private int lastEvacDirIdx = -1;
+        private int lastBeltCount0 = -1, lastBeltCount1 = -1, lastBeltCount2 = -1;
+        private int lastFlashlightState = -1;
+        private float lastVignetteAlpha = -1f;
+        private int lastDeathScore = -1;
+        private int lastDeathSector = -1;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -500,6 +522,10 @@ namespace DeadDepths.UI
             {
                 if (boundPlayer != null) boundPlayer.OnHealthChanged -= OnPlayerHealthChanged;
                 boundPlayer = current;
+                boundFlashlight = boundPlayer != null ? boundPlayer.GetComponent<DeadDepthsFlashlight>() : null;
+                lastFlashlightState = -1;
+                lastHpInt = -1;
+                lastStamPct = -1;
                 if (boundPlayer != null)
                 {
                     lastRecordedHp = boundPlayer.CurrentHealth;
@@ -547,13 +573,30 @@ namespace DeadDepths.UI
 
             if (hpText != null)
             {
-                hpText.text = boundPlayer.IsGodMode
-                    ? $"HP {Mathf.CeilToInt(boundPlayer.CurrentHealth)} / {Mathf.CeilToInt(boundPlayer.MaxHealth)} [GOD]"
-                    : $"HP {Mathf.CeilToInt(boundPlayer.CurrentHealth)} / {Mathf.CeilToInt(boundPlayer.MaxHealth)}";
+                int curHpInt = Mathf.CeilToInt(boundPlayer.CurrentHealth);
+                int maxHpInt = Mathf.CeilToInt(boundPlayer.MaxHealth);
+                bool god = boundPlayer.IsGodMode;
+                if (curHpInt != lastHpInt || maxHpInt != lastMaxHpInt || god != lastGodMode)
+                {
+                    lastHpInt = curHpInt;
+                    lastMaxHpInt = maxHpInt;
+                    lastGodMode = god;
+                    hpText.text = god
+                        ? $"HP {curHpInt} / {maxHpInt} [GOD]"
+                        : $"HP {curHpInt} / {maxHpInt}";
+                }
             }
 
             if (stamFillImg != null) stamFillImg.fillAmount = stamRatio;
-            if (stamText != null) stamText.text = $"STAMINA {Mathf.CeilToInt(stamRatio * 100f)}%";
+            if (stamText != null)
+            {
+                int stamPct = Mathf.CeilToInt(stamRatio * 100f);
+                if (stamPct != lastStamPct)
+                {
+                    lastStamPct = stamPct;
+                    stamText.text = $"STAMINA {stamPct}%";
+                }
+            }
 
             // Hurt flash + Low-HP pulse vignette
             if (hurtFlashAlpha > 0f)
@@ -565,30 +608,48 @@ namespace DeadDepths.UI
             if (hurtVignette != null)
             {
                 float a = Mathf.Clamp01(Mathf.Max(hurtFlashAlpha, lowHpPulse));
-                hurtVignette.color = new Color(1f, 1f, 1f, a);
+                if (Mathf.Abs(a - lastVignetteAlpha) > 0.002f)
+                {
+                    lastVignetteAlpha = a;
+                    hurtVignette.color = new Color(1f, 1f, 1f, a);
+                }
             }
 
-            if (badgeAim != null) badgeAim.SetActive(boundPlayer.IsAiming);
-            if (badgeCrouch != null) badgeCrouch.SetActive(boundPlayer.IsCrouching);
-            var flashlight = boundPlayer.GetComponent<DeadDepthsFlashlight>();
+            if (badgeAim != null && badgeAim.activeSelf != boundPlayer.IsAiming)
+                badgeAim.SetActive(boundPlayer.IsAiming);
+            if (badgeCrouch != null && badgeCrouch.activeSelf != boundPlayer.IsCrouching)
+                badgeCrouch.SetActive(boundPlayer.IsCrouching);
             if (badgeLight != null)
             {
-                bool on = flashlight != null && flashlight.IsOn;
-                badgeLight.SetActive(true);
-                if (badgeLightText != null) badgeLightText.text = on ? "LIGHT ON" : "LIGHT OFF";
+                int lightState = (boundFlashlight != null && boundFlashlight.IsOn) ? 1 : 0;
+                if (!badgeLight.activeSelf) badgeLight.SetActive(true);
+                if (lightState != lastFlashlightState)
+                {
+                    lastFlashlightState = lightState;
+                    if (badgeLightText != null) badgeLightText.text = lightState == 1 ? "LIGHT ON" : "LIGHT OFF";
+                }
             }
             if (badgeAdrenaline != null)
             {
-                badgeAdrenaline.SetActive(GameManager.Instance != null && GameManager.Instance.IsAdrenalineActive);
+                bool adrActive = GameManager.Instance != null && GameManager.Instance.IsAdrenalineActive;
+                if (badgeAdrenaline.activeSelf != adrActive) badgeAdrenaline.SetActive(adrActive);
             }
 
             // Death Overlay
             if (deathOverlay != null)
             {
-                deathOverlay.SetActive(boundPlayer.IsDead);
+                if (deathOverlay.activeSelf != boundPlayer.IsDead)
+                    deathOverlay.SetActive(boundPlayer.IsDead);
                 if (boundPlayer.IsDead && deathStatsText != null && GameManager.Instance != null)
                 {
-                    deathStatsText.text = $"FINAL SCORE: {GameManager.Instance.TotalScore}   |   SECTOR: {GameManager.Instance.CurrentLevel}";
+                    int sc = GameManager.Instance.TotalScore;
+                    int lv = GameManager.Instance.CurrentLevel;
+                    if (sc != lastDeathScore || lv != lastDeathSector)
+                    {
+                        lastDeathScore = sc;
+                        lastDeathSector = lv;
+                        deathStatsText.text = $"FINAL SCORE: {sc}   |   SECTOR: {lv}";
+                    }
                 }
             }
         }
@@ -600,27 +661,43 @@ namespace DeadDepths.UI
             int score = gm != null ? gm.TotalScore : 0;
             float elapsed = PlayerPerformanceTracker.Instance != null ? PlayerPerformanceTracker.Instance.ElapsedLevelTime : 0f;
 
-            if (sectorScoreText != null)
+            if (sectorScoreText != null && (level != lastSector || score != lastScore))
+            {
+                lastSector = level;
+                lastScore = score;
                 sectorScoreText.text = $"SECTOR {level}   |   {score} PTS";
+            }
 
             if (timerText != null)
             {
-                int mins = Mathf.FloorToInt(elapsed / 60f);
-                float secs = elapsed % 60f;
-                timerText.text = $"<mspace=0.58em>{mins:00}:{secs:04.1}</mspace>";
+                int tenths = Mathf.FloorToInt(elapsed * 10f);
+                if (tenths != lastTimerTenths)
+                {
+                    lastTimerTenths = tenths;
+                    int mins = tenths / 600;
+                    float secs = (tenths % 600) * 0.1f;
+                    timerText.text = $"<mspace=0.58em>{mins:00}:{secs:04.1}</mspace>";
+                }
             }
 
             if (objDetailText != null && gm != null)
             {
-                if (!gm.HasRequiredSupplyIntel)
+                int have = gm.SupplyIntelCollected;
+                int req = gm.RequiredSupplyIntel;
+                if (have != lastIntelHave || req != lastIntelReq)
                 {
-                    objDetailText.text = $"SUPPLY INTEL: {gm.SupplyIntelCollected} / {gm.RequiredSupplyIntel}";
-                    objDetailText.color = new Color(1f, 0.88f, 0.35f);
-                }
-                else
-                {
-                    objDetailText.text = "REACH & HOLD HELIPAD (4.0s)";
-                    objDetailText.color = new Color(0.35f, 0.96f, 0.56f);
+                    lastIntelHave = have;
+                    lastIntelReq = req;
+                    if (!gm.HasRequiredSupplyIntel)
+                    {
+                        objDetailText.text = $"SUPPLY INTEL: {have} / {req}";
+                        objDetailText.color = new Color(1f, 0.88f, 0.35f);
+                    }
+                    else
+                    {
+                        objDetailText.text = "REACH & HOLD HELIPAD (4.0s)";
+                        objDetailText.color = new Color(0.35f, 0.96f, 0.56f);
+                    }
                 }
             }
 
@@ -629,16 +706,21 @@ namespace DeadDepths.UI
                 Vector3 delta = WorldGenerator.Instance.ExtractionPosition - boundPlayer.transform.position;
                 delta.y = 0f;
                 float dist = delta.magnitude;
+                int distMeters = dist < 4f ? -1 : Mathf.RoundToInt(dist);
                 float ang = Mathf.Atan2(delta.x, delta.z) * Mathf.Rad2Deg;
                 if (ang < 0f) ang += 360f;
-                string[] dirs = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
-                string dir = dirs[Mathf.RoundToInt(ang / 45f) % 8];
-                objDistText.text = dist < 4f ? "EVAC HELIPAD: ON PAD" : $"EVAC HELIPAD: {dist:0}m {dir}";
+                int dirIdx = Mathf.RoundToInt(ang / 45f) % 8;
+                if (distMeters != lastEvacDistMeters || dirIdx != lastEvacDirIdx)
+                {
+                    lastEvacDistMeters = distMeters;
+                    lastEvacDirIdx = dirIdx;
+                    objDistText.text = distMeters < 0 ? "EVAC HELIPAD: ON PAD" : $"EVAC HELIPAD: {distMeters}m {CompassDirs[dirIdx]}";
+                }
             }
 
             bool devOn = (DeadDepthsDebugMode.Instance != null && DeadDepthsDebugMode.Instance.IsDebugVisible) ||
                          (boundPlayer != null && boundPlayer.IsGodMode);
-            if (devPill != null) devPill.SetActive(devOn);
+            if (devPill != null && devPill.activeSelf != devOn) devPill.SetActive(devOn);
         }
 
         private void UpdateBelt()
@@ -646,53 +728,45 @@ namespace DeadDepths.UI
             var gm = GameManager.Instance;
             if (gm == null) return;
 
-            int[] counts = { gm.BandageCount, gm.MedkitCount, gm.AdrenalineCount };
-            for (int i = 0; i < 3; i++)
+            UpdateBeltSlotUI(0, gm.BandageCount, ref lastBeltCount0, gm.GetBeltCooldownRatio(0));
+            UpdateBeltSlotUI(1, gm.MedkitCount, ref lastBeltCount1, gm.GetBeltCooldownRatio(1));
+            UpdateBeltSlotUI(2, gm.AdrenalineCount, ref lastBeltCount2, gm.GetBeltCooldownRatio(2));
+        }
+
+        private void UpdateBeltSlotUI(int i, int count, ref int cachedCount, float cdRatio)
+        {
+            if (count != cachedCount)
             {
-                if (beltCountTexts[i] != null) beltCountTexts[i].text = counts[i].ToString();
-                if (beltCooldownOverlays[i] != null) beltCooldownOverlays[i].fillAmount = gm.GetBeltCooldownRatio(i);
+                cachedCount = count;
+                if (beltCountTexts[i] != null) beltCountTexts[i].text = count.ToString();
                 if (beltSlotFrames[i] != null)
                 {
-                    beltSlotFrames[i].color = counts[i] > 0
+                    beltSlotFrames[i].color = count > 0
                         ? new Color(0.18f, 0.22f, 0.28f, 1f)
                         : new Color(0.09f, 0.11f, 0.14f, 0.72f);
                 }
             }
+            if (beltCooldownOverlays[i] != null) beltCooldownOverlays[i].fillAmount = cdRatio;
         }
 
         private void UpdateCrateAndExtractionOverlays()
         {
             if (boundPlayer == null || boundPlayer.IsDead)
             {
-                if (cratePromptPanel != null) cratePromptPanel.SetActive(false);
-                if (evacHoldPanel != null) evacHoldPanel.SetActive(false);
-                if (evacCompassArrow != null) evacCompassArrow.gameObject.SetActive(false);
+                if (cratePromptPanel != null && cratePromptPanel.activeSelf) cratePromptPanel.SetActive(false);
+                if (evacHoldPanel != null && evacHoldPanel.activeSelf) evacHoldPanel.SetActive(false);
+                if (evacCompassArrow != null && evacCompassArrow.gameObject.activeSelf) evacCompassArrow.gameObject.SetActive(false);
                 return;
             }
 
-            // Crate search prompt & progress ring
-            SuppliesCrate nearbyCrate = null;
-            float bestDist = float.MaxValue;
-            Collider[] cols = Physics.OverlapSphere(boundPlayer.transform.position, boundPlayer.PlayerConfig.InteractionScanRadius);
-            foreach (var c in cols)
-            {
-                var crate = c.GetComponentInParent<SuppliesCrate>();
-                if (crate != null && !crate.IsOpened)
-                {
-                    float d = Vector3.Distance(boundPlayer.transform.position, crate.transform.position);
-                    float maxD = Mathf.Min(boundPlayer.PlayerConfig.InteractionScanRadius, crate.CrateConfig.InteractionDistance);
-                    if (d <= maxD && d < bestDist)
-                    {
-                        bestDist = d;
-                        nearbyCrate = crate;
-                    }
-                }
-            }
+            // Reuse player's non-alloc crate scan result instead of running a duplicate Physics.OverlapSphere
+            SuppliesCrate nearbyCrate = boundPlayer.NearbyCrate;
+            if (nearbyCrate != null && nearbyCrate.IsOpened) nearbyCrate = null;
 
             if (cratePromptPanel != null)
             {
                 bool showCrate = nearbyCrate != null;
-                cratePromptPanel.SetActive(showCrate);
+                if (cratePromptPanel.activeSelf != showCrate) cratePromptPanel.SetActive(showCrate);
                 if (showCrate)
                 {
                     float ratio = nearbyCrate.IsInteracting
@@ -711,7 +785,7 @@ namespace DeadDepths.UI
             if (evacHoldPanel != null)
             {
                 bool showEvac = safeZone != null && safeZone.IsPlayerInsideZone && !safeZone.HasExtracted;
-                evacHoldPanel.SetActive(showEvac);
+                if (evacHoldPanel.activeSelf != showEvac) evacHoldPanel.SetActive(showEvac);
                 if (showEvac)
                 {
                     if (safeZone.HasRequiredIntel)
@@ -739,12 +813,13 @@ namespace DeadDepths.UI
             }
 
             // Screen-Edge Evac Compass Arrow when Helipad is offscreen
-            if (evacCompassArrow != null && WorldGenerator.Instance != null && Camera.main != null)
+            if (cachedMainCamera == null) cachedMainCamera = Camera.main;
+            if (evacCompassArrow != null && WorldGenerator.Instance != null && cachedMainCamera != null)
             {
                 Vector3 evacWorld = WorldGenerator.Instance.ExtractionPosition + Vector3.up * 1.2f;
-                Vector3 vp = Camera.main.WorldToViewportPoint(evacWorld);
+                Vector3 vp = cachedMainCamera.WorldToViewportPoint(evacWorld);
                 bool offscreen = vp.z < 0f || vp.x < 0.06f || vp.x > 0.94f || vp.y < 0.06f || vp.y > 0.94f;
-                evacCompassArrow.gameObject.SetActive(offscreen);
+                if (evacCompassArrow.gameObject.activeSelf != offscreen) evacCompassArrow.gameObject.SetActive(offscreen);
                 if (offscreen)
                 {
                     if (vp.z < 0f) { vp.x = 1f - vp.x; vp.y = 1f - vp.y; }

@@ -28,6 +28,7 @@ namespace DeadDepths.UI
         private const int PoolCapacity = 32;
         private ActivePopup[] pool;
         private DeadDepthsUIRoot uiRoot;
+        private Camera cachedMainCamera;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -132,13 +133,15 @@ namespace DeadDepths.UI
             p.Label.text = text;
             p.Label.color = color;
             p.Label.gameObject.SetActive(true);
-            PositionPopup(ref p, Camera.main);
+            if (cachedMainCamera == null) cachedMainCamera = Camera.main;
+            PositionPopup(ref p, cachedMainCamera);
         }
 
         private void Update()
         {
             if (pool == null) return;
-            Camera cam = Camera.main;
+            if (cachedMainCamera == null) cachedMainCamera = Camera.main;
+            Camera cam = cachedMainCamera;
             float dt = Time.unscaledDeltaTime;
             bool reducedMotion = SettingsModalUI.IsReducedMotionEnabled;
 

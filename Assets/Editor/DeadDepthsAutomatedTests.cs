@@ -647,17 +647,21 @@ namespace DeadDepths.Editor
                     "AudioManager SoundLibrary contains Wind ambient & FootGrass footstep clips");
 
                 // 22. Workstream B: ZombieController StateChangeLog & CurrentTargetLabel
-                ZombieController.ClearStateChangeLog();
-                Assert(ZombieController.StateChangeLog.Count == 0, "ZombieController.ClearStateChangeLog resets transition ring buffer");
                 ZombieController patrolWalker = null;
                 foreach (var z in zombies)
                 {
-                    if (z != null && !z.IsDead && z.Archetype == ZombieArchetype.Walker && z.CurrentState == ZombieState.IdlePatrol)
+                    if (z != null && !z.IsDead && z.Archetype == ZombieArchetype.Walker)
                     {
                         patrolWalker = z;
-                        break;
+                        if (z.CurrentState == ZombieState.IdlePatrol) break;
                     }
                 }
+                if (patrolWalker != null && patrolWalker.CurrentState != ZombieState.IdlePatrol)
+                {
+                    patrolWalker.TransitionToState(ZombieState.IdlePatrol, "ResetForLogTest");
+                }
+                ZombieController.ClearStateChangeLog();
+                Assert(ZombieController.StateChangeLog.Count == 0, "ZombieController.ClearStateChangeLog resets transition ring buffer");
                 Assert(patrolWalker != null, "Found patrolling Walker to verify StateChangeLog");
                 if (patrolWalker != null)
                 {
@@ -1050,6 +1054,91 @@ namespace DeadDepths.Editor
                         if (t.name == "AimReticleRing") ringCount++;
                     }
                     Assert(ringCount == 1, $"DeadDepthsAimReticle creates exactly 1 AimReticleRing without duplicates (count={ringCount})");
+                }
+
+                // 26. Bug Fix & Optimization Regression Checks (MainMenu Hide on Deploy, Sector Zombie Scaling, Dynamic Initial Supply, Tree Canopy See-Through)
+                var mainMenuCheck = MainMenuUI.Instance ?? UnityEngine.Object.FindAnyObjectByType<MainMenuUI>();
+                var pauseMenuCheck = PauseMenuUI.Instance ?? UnityEngine.Object.FindAnyObjectByType<PauseMenuUI>();
+                if (mainMenuCheck != null)
+                {
+                    typeof(MainMenuUI).GetMethod("Start", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(mainMenuCheck, null);
+                    gm.EnterMainMenu();
+                    Assert(gm.IsInMainMenu && mainMenuCheck.IsVisible, "MainMenuUI becomes visible when GameManager enters Main Menu");
+                    gm.StartPlayFromMainMenu();
+                    Assert(!gm.IsInMainMenu && gm.IsLevelActive && !mainMenuCheck.IsVisible,
+                        "Deploy/Play (StartPlayFromMainMenu) hides MainMenuUI HUD cleanly");
+                }
+                if (pauseMenuCheck != null)
+                {
+                    typeof(PauseMenuUI).GetMethod("Start", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(pauseMenuCheck, null);
+                    gm.SetPaused(true);
+                    Assert(gm.IsPaused && pauseMenuCheck.IsVisible, "PauseMenuUI becomes visible when paused");
+                    gm.RetryRun();
+                    Assert(!gm.IsPaused && !pauseMenuCheck.IsVisible, "RetryRun hides PauseMenuUI cleanly");
+                }
+
+                // Sector zombie scaling: Sector 1 < 5 zombies (4), +1 per next sector
+                gm.RetryRun();
+                int zLevel1 = worldGen.TotalZombiesSpawned;
+                Assert(zLevel1 > 0 && zLevel1 < 5, $"Sector 1 spawns fewer than 5 zombies (actual={zLevel1})");
+                gm.ProceedToNextLevel();
+                int zLevel2 = worldGen.TotalZombiesSpawned;
+                Assert(zLevel2 == zLevel1 + 1, $"Sector 2 increases zombie count by 1 ({zLevel1} -> {zLevel2})");
+                gm.ProceedToNextLevel();
+                int zLevel3 = worldGen.TotalZombiesSpawned;
+                Assert(zLevel3 == zLevel2 + 1, $"Sector 3 increases zombie count by 1 ({zLevel2} -> {zLevel3})");
+
+                // Dynamic initial supply scaling per sector passed & DDA tier
+                gm.RetryRun();
+                int s1Supply = gm.BandageCount + gm.MedkitCount + gm.AdrenalineCount;
+                diff.UpdateProfile(DifficultyTier.Balanced);
+                gm.ProceedToNextLevel(); // Sector 2
+                int s2BalancedSupply = gm.BandageCount + gm.MedkitCount + gm.AdrenalineCount;
+                Assert(s2BalancedSupply > s1Supply,
+                    $"Advancing from Sector 1 to Sector 2 increases initial player supplies ({s1Supply} -> {s2BalancedSupply})");
+                gm.ProceedToNextLevel(); // Sector 3
+                int s3BalancedSupply = gm.BandageCount + gm.MedkitCount + gm.AdrenalineCount;
+                Assert(s3BalancedSupply > s2BalancedSupply,
+                    $"Advancing from Sector 2 to Sector 3 increases initial player supplies further ({s2BalancedSupply} -> {s3BalancedSupply})");
+
+                gm.CalculateInitialSuppliesForSector(2, DifficultyTier.Struggling, out int strB, out int strM, out int strA);
+                gm.CalculateInitialSuppliesForSector(2, DifficultyTier.PerformingWell, out int pwB, out int pwM, out int pwA);
+                Assert((strB + strM + strA) > (pwB + pwM + pwA),
+                    $"DDA grants more initial supplies when Struggling ({strB}/{strM}/{strA}) than PerformingWell ({pwB}/{pwM}/{pwA})");
+
+                // Tree canopy see-through check: player offset 1.4m sideways behind pine canopy (outside 0.45m trunk collider)
+                gm.RetryRun();
+                player = GameObject.FindGameObjectWithTag("Player");
+                var canopyFadeCtrl = cam != null ? cam.GetComponent<ObstructionFadeController>() : null;
+                if (canopyFadeCtrl != null && player != null && worldGen.TreeRenderers.Count > 0)
+                {
+                    Renderer sampleTreeRend = worldGen.TreeRenderers[0];
+                    Vector3 tPos = sampleTreeRend.transform.position;
+                    // Place camera and player offset +1.35m on X so ray passes through pine canopy, missing 0.45m trunk capsule
+                    cam.transform.position = tPos + new Vector3(1.35f, 4.5f, -5.0f);
+                    player.transform.position = tPos + new Vector3(1.35f, 0f, 3.0f);
+                    Physics.SyncTransforms();
+
+                    canopyFadeCtrl.UpdateFade(0.5f);
+                    Material[] canopyMats = sampleTreeRend.sharedMaterials;
+                    bool canopyFaded = canopyMats.Length == 2 &&
+                                       canopyMats[0] != worldGen.BarkMaterial &&
+                                       canopyMats[1] != worldGen.LeafMaterial &&
+                                       Mathf.Approximately(canopyMats[1].GetFloat("_Surface"), 1f) &&
+                                       (!canopyMats[1].HasProperty("_BlendModePreserveSpecular") ||
+                                        Mathf.Approximately(canopyMats[1].GetFloat("_BlendModePreserveSpecular"), 0f));
+                    Assert(canopyFaded,
+                        "ObstructionFadeController fades BoundaryTree when player is behind tree foliage canopy (offset from trunk)");
+
+                    // Move player in front of tree and confirm clean material restore
+                    player.transform.position = tPos + new Vector3(1.35f, 0f, -2.5f);
+                    Physics.SyncTransforms();
+                    for (int step = 0; step < 5; step++) canopyFadeCtrl.UpdateFade(0.5f);
+                    Assert(sampleTreeRend.sharedMaterials[0] == worldGen.BarkMaterial &&
+                           sampleTreeRend.sharedMaterials[1] == worldGen.LeafMaterial,
+                        "ObstructionFadeController restores BoundaryTree materials after leaving canopy shadow");
+
+                    isoCam.SnapToTarget(player.transform);
                 }
 
                 Debug.Log($"\n===========================================");

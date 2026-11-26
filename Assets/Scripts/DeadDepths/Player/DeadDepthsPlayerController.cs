@@ -105,12 +105,23 @@ namespace DeadDepths.Player
         public Vector3 LastValidAimDir { get; private set; } = Vector3.forward;
         public Vector3 CursorScreenPosition { get; private set; }
         public bool IsInteractingWithCrate => isInteractingWithCrate;
+        public SuppliesCrate NearbyCrate => activeTargetCrate;
 
         public bool IsPunchingAnimActive =>
             animator != null && Application.isPlaying && animator.GetCurrentAnimatorStateInfo(0).IsName("Punch");
 
+        private static readonly int HashSpeed = Animator.StringToHash("Speed");
+        private static readonly int HashCrouching = Animator.StringToHash("Crouching");
+        private static readonly int HashPunch = Animator.StringToHash("Punch");
+        private static readonly int HashDead = Animator.StringToHash("Dead");
+        private static readonly int HashAnimSpeedMult = Animator.StringToHash("AnimSpeedMult");
+
         private CharacterController charController;
         private Animator animator;
+        private bool hasAnimSpeedMultParam = false;
+        private bool animParamChecked = false;
+        private Camera cachedMainCamera;
+        private readonly Collider[] crateOverlapBuffer = new Collider[16];
         private DeadDepthsFlashlight flashlight;
         private float verticalVelocity = 0f;
         private float terrainMultiplier = 1.0f;
@@ -270,7 +281,7 @@ namespace DeadDepths.Player
                 ResetTransientInputStates();
                 if (animator != null)
                 {
-                    animator.SetFloat("Speed", 0f);
+                    animator.SetFloat(HashSpeed, 0f);
                     SetAnimatorSpeedMultiplier(1.0f);
                 }
                 return;
@@ -419,7 +430,8 @@ namespace DeadDepths.Player
 #endif
             CursorScreenPosition = screenPos;
 
-            Camera cam = Camera.main;
+            if (cachedMainCamera == null) cachedMainCamera = Camera.main;
+            Camera cam = cachedMainCamera;
             if (cam == null) return;
 
             Ray ray = cam.ScreenPointToRay(screenPos);
@@ -574,7 +586,7 @@ namespace DeadDepths.Player
             }
             if (animator != null)
             {
-                animator.SetBool("Crouching", IsCrouching);
+                animator.SetBool(HashCrouching, IsCrouching);
             }
         }
 
@@ -730,11 +742,11 @@ namespace DeadDepths.Player
             if (animator != null)
             {
                 EnforceAnimatorNoRootMotion();
-                animator.SetBool("Dead", false);
-                animator.SetBool("Crouching", false);
-                animator.SetFloat("Speed", 0f);
+                animator.SetBool(HashDead, false);
+                animator.SetBool(HashCrouching, false);
+                animator.SetFloat(HashSpeed, 0f);
                 SetAnimatorSpeedMultiplier(1.0f);
-                animator.ResetTrigger("Punch");
+                animator.ResetTrigger(HashPunch);
                 if (Application.isPlaying)
                 {
                     animator.Play("Standing", 0, 0f);
@@ -888,11 +900,11 @@ namespace DeadDepths.Player
                 SetAnimatorSpeedMultiplier(animSpeedMult);
                 if (Time.deltaTime > 0f)
                 {
-                    animator.SetFloat("Speed", targetAnimSpeed, 0.08f, Time.deltaTime);
+                    animator.SetFloat(HashSpeed, targetAnimSpeed, 0.08f, Time.deltaTime);
                 }
                 else
                 {
-                    animator.SetFloat("Speed", targetAnimSpeed);
+                    animator.SetFloat(HashSpeed, targetAnimSpeed);
                 }
             }
 
@@ -928,7 +940,7 @@ namespace DeadDepths.Player
             if (animator != null)
             {
                 SetAnimatorSpeedMultiplier(dodgeIsBackstep ? -1.1f : 1.25f);
-                animator.SetFloat("Speed", 5.2f);
+                animator.SetFloat(HashSpeed, 5.2f);
             }
 
             if (dodgeTimer >= playerConfig.DodgeDuration)
@@ -939,16 +951,34 @@ namespace DeadDepths.Player
             }
         }
 
+        private void CacheAnimatorParameters()
+        {
+            if (animator == null)
+            {
+                hasAnimSpeedMultParam = false;
+                animParamChecked = false;
+                return;
+            }
+            if (animParamChecked) return;
+            hasAnimSpeedMultParam = false;
+            foreach (var p in animator.parameters)
+            {
+                if (p.nameHash == HashAnimSpeedMult && p.type == AnimatorControllerParameterType.Float)
+                {
+                    hasAnimSpeedMultParam = true;
+                    break;
+                }
+            }
+            animParamChecked = true;
+        }
+
         private void SetAnimatorSpeedMultiplier(float value)
         {
             if (animator == null) return;
-            foreach (var p in animator.parameters)
+            if (!animParamChecked) CacheAnimatorParameters();
+            if (hasAnimSpeedMultParam)
             {
-                if (p.name == "AnimSpeedMult" && p.type == AnimatorControllerParameterType.Float)
-                {
-                    animator.SetFloat("AnimSpeedMult", value);
-                    return;
-                }
+                animator.SetFloat(HashAnimSpeedMult, value);
             }
         }
 
@@ -1012,12 +1042,12 @@ namespace DeadDepths.Player
             {
                 if (Application.isPlaying && animator.GetCurrentAnimatorStateInfo(0).IsName("Punch"))
                 {
-                    animator.ResetTrigger("Punch");
+                    animator.ResetTrigger(HashPunch);
                     animator.CrossFadeInFixedTime("Punch", 0.05f, 0, 0f);
                 }
                 else
                 {
-                    animator.SetTrigger("Punch");
+                    animator.SetTrigger(HashPunch);
                 }
             }
 
@@ -1168,12 +1198,14 @@ namespace DeadDepths.Player
 
         private void HandleCrateInteraction()
         {
-            Collider[] cols = Physics.OverlapSphere(transform.position, playerConfig.InteractionScanRadius);
+            int hitCount = Physics.OverlapSphereNonAlloc(transform.position, playerConfig.InteractionScanRadius, crateOverlapBuffer);
             SuppliesCrate nearestCrate = null;
             float nearestDist = float.MaxValue;
 
-            foreach (var col in cols)
+            for (int i = 0; i < hitCount; i++)
             {
+                Collider col = crateOverlapBuffer[i];
+                if (col == null) continue;
                 var crate = col.GetComponentInParent<SuppliesCrate>();
                 if (crate != null && !crate.IsOpened)
                 {
@@ -1309,8 +1341,8 @@ namespace DeadDepths.Player
 
             if (animator != null)
             {
-                animator.ResetTrigger("Punch");
-                animator.SetBool("Dead", true);
+                animator.ResetTrigger(HashPunch);
+                animator.SetBool(HashDead, true);
             }
 
             if (AudioManager.Instance != null)

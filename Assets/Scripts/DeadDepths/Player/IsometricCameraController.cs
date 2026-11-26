@@ -54,6 +54,7 @@ namespace DeadDepths.Player
         private float shakeDuration = 0f;
         private bool hasSnappedToTarget = false;
         private float menuOrbitAngle = 35f;
+        private Camera cachedCamera;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -64,6 +65,7 @@ namespace DeadDepths.Player
         private void Awake()
         {
             if (Instance == null) Instance = this;
+            cachedCamera = GetComponent<Camera>();
             ApplyFallbackDefaults();
             LoadSettings();
         }
@@ -199,10 +201,10 @@ namespace DeadDepths.Player
 
             var playerCtrl = DeadDepthsPlayerController.Instance;
             Vector2 vpOffset = Vector2.zero;
-            var cam = GetComponent<Camera>();
-            if (cam != null && playerCtrl != null)
+            if (cachedCamera == null) cachedCamera = GetComponent<Camera>();
+            if (cachedCamera != null && playerCtrl != null)
             {
-                Vector3 vp = cam.ScreenToViewportPoint(playerCtrl.CursorScreenPosition);
+                Vector3 vp = cachedCamera.ScreenToViewportPoint(playerCtrl.CursorScreenPosition);
                 vpOffset = new Vector2(vp.x - 0.5f, vp.y - 0.5f);
             }
             UpdateAimLookAhead(playerCtrl, vpOffset, Time.deltaTime);

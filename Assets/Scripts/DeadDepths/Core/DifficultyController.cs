@@ -28,9 +28,19 @@ namespace DeadDepths.Core
         [Serializable]
         public class DdaPresetConfig
         {
+            [Header("Sector Zombie Scaling")]
+            [Tooltip("Base zombie count for Sector 1 (strictly less than 5).")]
+            public int BaseSectorOneZombies = 4;
+
+            [Tooltip("Additional zombies added for each subsequent sector.")]
+            public int ZombiesPerSectorIncrement = 1;
+
+            [Tooltip("Upper cap for procedural zombie spawning in high sectors.")]
+            public int MaxZombiesCap = 26;
+
             public LevelDifficultyProfile Struggling = new LevelDifficultyProfile
             {
-                TotalZombies = 12,
+                TotalZombies = 3,
                 WalkerProportion = 0.80f,
                 SpitterProportion = 0.12f,
                 ChargerProportion = 0.08f,
@@ -41,7 +51,7 @@ namespace DeadDepths.Core
 
             public LevelDifficultyProfile Balanced = new LevelDifficultyProfile
             {
-                TotalZombies = 18,
+                TotalZombies = 4,
                 WalkerProportion = 0.65f,
                 SpitterProportion = 0.20f,
                 ChargerProportion = 0.15f,
@@ -52,7 +62,7 @@ namespace DeadDepths.Core
 
             public LevelDifficultyProfile PerformingWell = new LevelDifficultyProfile
             {
-                TotalZombies = 26,
+                TotalZombies = 4,
                 WalkerProportion = 0.45f,
                 SpitterProportion = 0.30f,
                 ChargerProportion = 0.25f,
@@ -70,18 +80,43 @@ namespace DeadDepths.Core
 
         public DifficultyTier CurrentTier { get; private set; } = DifficultyTier.Balanced;
         public LevelDifficultyProfile CurrentProfile { get; private set; }
+        public int ActiveLevelZombieCount { get; private set; } = 4;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            Instance = null;
+        }
 
         private void Awake()
         {
+            ApplyFallbackDefaults();
             if (Instance == null)
             {
                 Instance = this;
                 CurrentProfile = ddaConfig.Balanced;
+                ActiveLevelZombieCount = GetZombieCountForLevel(1);
             }
             else
             {
                 Destroy(gameObject);
             }
+        }
+
+        private void OnValidate()
+        {
+            ApplyFallbackDefaults();
+        }
+
+        private void ApplyFallbackDefaults()
+        {
+            if (ddaConfig == null) ddaConfig = new DdaPresetConfig();
+            if (ddaConfig.BaseSectorOneZombies <= 0 || ddaConfig.BaseSectorOneZombies >= 5)
+                ddaConfig.BaseSectorOneZombies = 4;
+            if (ddaConfig.ZombiesPerSectorIncrement <= 0)
+                ddaConfig.ZombiesPerSectorIncrement = 1;
+            if (ddaConfig.MaxZombiesCap < 10)
+                ddaConfig.MaxZombiesCap = 26;
         }
 
         private void OnDestroy()
@@ -90,10 +125,29 @@ namespace DeadDepths.Core
         }
 
         /// <summary>
+        /// Returns the target zombie count for a given sector:
+        /// Sector 1 spawns fewer than 5 zombies (default 4), increasing by 1 per next sector.
+        /// </summary>
+        public int GetZombieCountForLevel(int levelNumber)
+        {
+            ApplyFallbackDefaults();
+            int lvl = Mathf.Max(1, levelNumber);
+            int baseCount = Mathf.Clamp(ddaConfig.BaseSectorOneZombies, 3, 4);
+            int increment = Mathf.Max(1, ddaConfig.ZombiesPerSectorIncrement);
+            int scaled = baseCount + (lvl - 1) * increment;
+            if (lvl == 1)
+            {
+                return Mathf.Clamp(scaled, 3, 4);
+            }
+            return Mathf.Clamp(scaled, 3, ddaConfig.MaxZombiesCap);
+        }
+
+        /// <summary>
         /// Updates the difficulty profile for the next level based on the evaluated score.
         /// </summary>
         public LevelDifficultyProfile UpdateProfile(DifficultyTier tier)
         {
+            ApplyFallbackDefaults();
             CurrentTier = tier;
             switch (tier)
             {
@@ -112,27 +166,53 @@ namespace DeadDepths.Core
         }
 
         /// <summary>
+        /// Calculates integer enemy counts for a specific sector using lower-sector scaling
+        /// (< 5 zombies in Sector 1, +1 per next sector) and the DDA archetype proportions.
+        /// </summary>
+        public void CalculateEnemyCountsForLevel(LevelDifficultyProfile profile, int levelNumber, out int walkers, out int spitters, out int chargers)
+        {
+            int total = GetZombieCountForLevel(levelNumber);
+            ActiveLevelZombieCount = total;
+            if (profile != null)
+            {
+                profile.TotalZombies = total;
+            }
+            CalculateEnemyCountsInternal(profile, total, out walkers, out spitters, out chargers);
+        }
+
+        /// <summary>
         /// Calculates integer enemy counts from proportions while respecting total budget.
         /// </summary>
         public void CalculateEnemyCounts(LevelDifficultyProfile profile, out int walkers, out int spitters, out int chargers)
         {
-            int total = Mathf.Max(3, profile.TotalZombies);
-            float sum = profile.WalkerProportion + profile.SpitterProportion + profile.ChargerProportion;
+            int total = Mathf.Max(3, profile != null ? profile.TotalZombies : GetZombieCountForLevel(1));
+            ActiveLevelZombieCount = total;
+            CalculateEnemyCountsInternal(profile, total, out walkers, out spitters, out chargers);
+        }
+
+        private static void CalculateEnemyCountsInternal(LevelDifficultyProfile profile, int total, out int walkers, out int spitters, out int chargers)
+        {
+            total = Mathf.Max(3, total);
+            float wProp = profile != null ? profile.WalkerProportion : 0.65f;
+            float sProp = profile != null ? profile.SpitterProportion : 0.20f;
+            float cProp = profile != null ? profile.ChargerProportion : 0.15f;
+
+            float sum = wProp + sProp + cProp;
             if (sum <= 0f) sum = 1f;
 
-            float normW = profile.WalkerProportion / sum;
-            float normS = profile.SpitterProportion / sum;
-            float normC = profile.ChargerProportion / sum;
+            float normS = sProp / sum;
+            float normC = cProp / sum;
 
             spitters = Mathf.RoundToInt(total * normS);
             chargers = Mathf.RoundToInt(total * normC);
             walkers = total - spitters - chargers;
 
-            if (walkers < 1)
+            while (walkers < 1)
             {
-                walkers = 1;
-                if (spitters > chargers && spitters > 1) spitters--;
-                else if (chargers > 1) chargers--;
+                walkers++;
+                if (spitters >= chargers && spitters > 0) spitters--;
+                else if (chargers > 0) chargers--;
+                else break;
             }
         }
     }

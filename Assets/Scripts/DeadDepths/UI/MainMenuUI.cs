@@ -14,6 +14,7 @@ namespace DeadDepths.UI
     public class MainMenuUI : MonoBehaviour
     {
         public static MainMenuUI Instance { get; private set; }
+        public bool IsVisible => menuRoot != null && menuRoot.activeSelf;
 
         private DeadDepthsUIRoot uiRoot;
         private GameObject menuRoot;
@@ -37,6 +38,22 @@ namespace DeadDepths.UI
             uiRoot = GetComponentInParent<DeadDepthsUIRoot>();
             BuildUI();
             SyncVisibility(false);
+        }
+
+        private void OnEnable()
+        {
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.OnMainMenuChanged -= SyncVisibility;
+                GameManager.Instance.OnMainMenuChanged += SyncVisibility;
+                SyncVisibility(GameManager.Instance.IsInMainMenu);
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (GameManager.Instance != null)
+                GameManager.Instance.OnMainMenuChanged -= SyncVisibility;
         }
 
         private void Start()
@@ -104,6 +121,11 @@ namespace DeadDepths.UI
                 new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(72f, y), new Vector2(360f, 60f),
                 new Color(0.16f, 0.50f, 0.30f, 1f), new Color(0.24f, 0.68f, 0.42f, 1f), () =>
                 {
+                    SyncVisibility(false);
+                    if (SettingsModalUI.Instance != null && SettingsModalUI.Instance.IsOpen)
+                    {
+                        SettingsModalUI.Instance.Close();
+                    }
                     GameManager.Instance?.StartPlayFromMainMenu();
                 });
             y -= 78f;

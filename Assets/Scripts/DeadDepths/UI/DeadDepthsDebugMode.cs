@@ -441,8 +441,9 @@ namespace DeadDepths.UI
             float livePerf = tracker != null ? PerformanceEvaluator.EvaluatePerformance(tracker, out _) : 0.5f;
             string tier = diff != null ? diff.CurrentTier.ToString() : "Balanced";
             var profile = diff != null ? diff.CurrentProfile : null;
+            int activeZCount = diff != null ? diff.ActiveLevelZombieCount : wg.TotalZombiesSpawned;
             string ddaProfileLine = profile != null
-                ? $"Profile: Z={profile.TotalZombies} (W:{Mathf.RoundToInt(profile.WalkerProportion * 100f)}% S:{Mathf.RoundToInt(profile.SpitterProportion * 100f)}% C:{Mathf.RoundToInt(profile.ChargerProportion * 100f)}%)"
+                ? $"Profile: Z={activeZCount} (W:{Mathf.RoundToInt(profile.WalkerProportion * 100f)}% S:{Mathf.RoundToInt(profile.SpitterProportion * 100f)}% C:{Mathf.RoundToInt(profile.ChargerProportion * 100f)}%)"
                 : "Profile: Default";
             string ddaSupplyLine = profile != null
                 ? $"Heals={profile.HealingSuppliesCount} | Blockers={profile.BlockingObjectsCount} | Loot={Mathf.RoundToInt(profile.LootQualityFactor * 100f)}%"

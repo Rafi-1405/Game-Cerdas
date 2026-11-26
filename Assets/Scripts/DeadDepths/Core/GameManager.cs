@@ -37,6 +37,18 @@ namespace DeadDepths.Core
             public float AdrenalineStamina = 40f;
             public float AdrenalineDuration = 6.0f;
 
+            [Header("Dynamic Sector Initial Supply Scaling")]
+            public int BaseInitialBandages = 1;
+            public int BaseInitialMedkits = 0;
+            public int BaseInitialAdrenaline = 0;
+            public int BandagesPerSectorPassed = 1;
+            public int MedkitsPerSectorPassed = 1;
+            public int AdrenalineSectorInterval = 2;
+            public int StrugglingBonusBandages = 1;
+            public int StrugglingBonusMedkits = 1;
+            public int StrugglingBonusAdrenaline = 1;
+            public int MaxBeltStack = 9;
+
             [Header("Scoring")]
             public int WalkerKillScore = 100;
             public int SpitterKillScore = 150;
@@ -141,6 +153,14 @@ namespace DeadDepths.Core
             if (managerConfig.MedkitHeal <= 0f) managerConfig.MedkitHeal = 50f;
             if (managerConfig.AdrenalineStamina <= 0f) managerConfig.AdrenalineStamina = 40f;
             if (managerConfig.AdrenalineDuration <= 0f) managerConfig.AdrenalineDuration = 6.0f;
+            if (managerConfig.BaseInitialBandages <= 0) managerConfig.BaseInitialBandages = 1;
+            if (managerConfig.BandagesPerSectorPassed <= 0) managerConfig.BandagesPerSectorPassed = 1;
+            if (managerConfig.MedkitsPerSectorPassed <= 0) managerConfig.MedkitsPerSectorPassed = 1;
+            if (managerConfig.AdrenalineSectorInterval <= 0) managerConfig.AdrenalineSectorInterval = 2;
+            if (managerConfig.StrugglingBonusBandages <= 0) managerConfig.StrugglingBonusBandages = 1;
+            if (managerConfig.StrugglingBonusMedkits <= 0) managerConfig.StrugglingBonusMedkits = 1;
+            if (managerConfig.StrugglingBonusAdrenaline <= 0) managerConfig.StrugglingBonusAdrenaline = 1;
+            if (managerConfig.MaxBeltStack <= 0) managerConfig.MaxBeltStack = 9;
         }
 
         private void LoadPersistentRecords()
@@ -298,6 +318,10 @@ namespace DeadDepths.Core
         public void StartPlayFromMainMenu()
         {
             AudioManager.Instance?.PlayCue(SfxCue.UI);
+            if (SettingsModalUI.Instance != null && SettingsModalUI.Instance.IsOpen)
+            {
+                SettingsModalUI.Instance.Close();
+            }
             RetryRun();
         }
 
@@ -326,13 +350,12 @@ namespace DeadDepths.Core
 
         /// <summary>
         /// Starts and generates a level using the current DDA configuration.
-        /// Keeps TotalScore when advancing levels and exits Main Menu if active.
+        /// Keeps TotalScore when advancing levels, scales initial supplies for passed sectors,
+        /// and always hides Main Menu / Pause overlays cleanly.
         /// </summary>
         public void StartLevel(int levelNumber)
         {
             if (Instance == null) Instance = this;
-            bool wasInMenu = IsInMainMenu;
-            bool wasPaused = IsPaused;
 
             CurrentLevel = Mathf.Max(1, levelNumber);
             IsInMainMenu = false;
@@ -346,6 +369,10 @@ namespace DeadDepths.Core
             AdrenalineBuffRemaining = 0f;
             Array.Clear(beltCooldownRemaining, 0, beltCooldownRemaining.Length);
             Time.timeScale = 1f;
+
+            // Hide Main Menu and Pause overlays immediately before regenerating world
+            OnMainMenuChanged?.Invoke(false);
+            OnPauseChanged?.Invoke(false);
 
             if (CurrentLevel > BestSector)
             {
@@ -365,6 +392,13 @@ namespace DeadDepths.Core
             if (perfTracker == null) perfTracker = PlayerPerformanceTracker.Instance ?? FindAnyObjectByType<PlayerPerformanceTracker>();
 
             var profile = diffController != null ? diffController.CurrentProfile : new DifficultyController.LevelDifficultyProfile();
+            DifficultyTier activeTier = diffController != null ? diffController.CurrentTier : DifficultyTier.Balanced;
+
+            // Apply dynamic initial supply scaling for each sector passed (Sector 2+)
+            if (CurrentLevel > 1)
+            {
+                ApplySectorInitialSupplies(CurrentLevel, activeTier);
+            }
 
             if (worldGen != null)
             {
@@ -375,9 +409,6 @@ namespace DeadDepths.Core
             {
                 perfTracker.SetTimePaused(false);
             }
-
-            if (wasInMenu) OnMainMenuChanged?.Invoke(false);
-            if (wasPaused) OnPauseChanged?.Invoke(false);
 
             OnObjectiveUpdated?.Invoke();
             OnBeltUpdated?.Invoke();
@@ -390,8 +421,6 @@ namespace DeadDepths.Core
         public void RetryRun()
         {
             if (Instance == null) Instance = this;
-            IsInMainMenu = false;
-            IsPaused = false;
             TotalScore = 0;
             LevelScore = 0;
             TotalZombiesKilled = 0;
@@ -417,11 +446,67 @@ namespace DeadDepths.Core
 
         private void ResetBeltForNewRun()
         {
-            BandageCount = 1;
-            MedkitCount = 0;
-            AdrenalineCount = 0;
+            ApplyFallbackDefaults();
+            BandageCount = Mathf.Clamp(managerConfig.BaseInitialBandages, 0, managerConfig.MaxBeltStack);
+            MedkitCount = Mathf.Clamp(managerConfig.BaseInitialMedkits, 0, managerConfig.MaxBeltStack);
+            AdrenalineCount = Mathf.Clamp(managerConfig.BaseInitialAdrenaline, 0, managerConfig.MaxBeltStack);
             AdrenalineBuffRemaining = 0f;
             Array.Clear(beltCooldownRemaining, 0, beltCooldownRemaining.Length);
+        }
+
+        /// <summary>
+        /// Calculates the minimum initial Quick-Use Belt supplies for a sector based on
+        /// sectors passed and the current DDA difficulty tier.
+        /// </summary>
+        public void CalculateInitialSuppliesForSector(int levelNumber, DifficultyTier tier, out int bandages, out int medkits, out int adrenaline)
+        {
+            ApplyFallbackDefaults();
+            int maxStack = managerConfig.MaxBeltStack;
+            int sectorsPassed = Mathf.Max(0, levelNumber - 1);
+
+            if (sectorsPassed == 0)
+            {
+                bandages = Mathf.Clamp(managerConfig.BaseInitialBandages, 0, maxStack);
+                medkits = Mathf.Clamp(managerConfig.BaseInitialMedkits, 0, maxStack);
+                adrenaline = Mathf.Clamp(managerConfig.BaseInitialAdrenaline, 0, maxStack);
+                return;
+            }
+
+            int ddaBandageBonus = tier == DifficultyTier.Struggling ? managerConfig.StrugglingBonusBandages : 0;
+            int ddaMedkitBonus = tier == DifficultyTier.Struggling ? managerConfig.StrugglingBonusMedkits : 0;
+            int ddaAdrenalineBonus = tier == DifficultyTier.Struggling ? managerConfig.StrugglingBonusAdrenaline : 0;
+
+            int interval = Mathf.Max(1, managerConfig.AdrenalineSectorInterval);
+            int baseBandages = managerConfig.BaseInitialBandages + sectorsPassed * managerConfig.BandagesPerSectorPassed;
+            int baseMedkits = tier == DifficultyTier.PerformingWell
+                ? managerConfig.BaseInitialMedkits + (sectorsPassed / 2) * managerConfig.MedkitsPerSectorPassed
+                : managerConfig.BaseInitialMedkits + sectorsPassed * managerConfig.MedkitsPerSectorPassed;
+            int baseAdrenaline = managerConfig.BaseInitialAdrenaline + ((sectorsPassed + interval - 1) / interval);
+
+            bandages = Mathf.Clamp(baseBandages + ddaBandageBonus, 1, maxStack);
+            medkits = Mathf.Clamp(baseMedkits + ddaMedkitBonus, 0, maxStack);
+            adrenaline = Mathf.Clamp(baseAdrenaline + ddaAdrenalineBonus, 0, maxStack);
+        }
+
+        private void ApplySectorInitialSupplies(int levelNumber, DifficultyTier tier)
+        {
+            CalculateInitialSuppliesForSector(levelNumber, tier, out int targetBandages, out int targetMedkits, out int targetAdrenaline);
+
+            int addedBandages = Mathf.Max(0, targetBandages - BandageCount);
+            int addedMedkits = Mathf.Max(0, targetMedkits - MedkitCount);
+            int addedAdrenaline = Mathf.Max(0, targetAdrenaline - AdrenalineCount);
+
+            BandageCount = Mathf.Min(managerConfig.MaxBeltStack, Mathf.Max(BandageCount, targetBandages));
+            MedkitCount = Mathf.Min(managerConfig.MaxBeltStack, Mathf.Max(MedkitCount, targetMedkits));
+            AdrenalineCount = Mathf.Min(managerConfig.MaxBeltStack, Mathf.Max(AdrenalineCount, targetAdrenaline));
+
+            var notif = ItemNotificationManager.Instance;
+            if (notif != null)
+            {
+                if (addedBandages > 0) notif.PostNotification("Sector Resupply: Bandage", addedBandages);
+                if (addedMedkits > 0) notif.PostNotification("Sector Resupply: Medkit", addedMedkits);
+                if (addedAdrenaline > 0) notif.PostNotification("Sector Resupply: Adrenaline", addedAdrenaline);
+            }
         }
 
         public void AddSupplyIntel(int amount = 1)

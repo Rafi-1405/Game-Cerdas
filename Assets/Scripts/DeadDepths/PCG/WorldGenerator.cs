@@ -67,6 +67,7 @@ namespace DeadDepths.PCG
         private readonly List<ClusterInfo> clusters = new List<ClusterInfo>();
         private readonly List<CorridorEdge> corridors = new List<CorridorEdge>();
         private readonly List<Material> transientMaterials = new List<Material>();
+        private readonly List<Renderer> treeRenderers = new List<Renderer>();
 
         public Vector3 PlayerSpawnPosition { get; private set; }
         public Vector3 ExtractionPosition { get; private set; }
@@ -78,6 +79,7 @@ namespace DeadDepths.PCG
         public int GridHeight => mapConfig.GridHeight;
         public IReadOnlyList<ClusterInfo> Clusters => clusters;
         public IReadOnlyList<CorridorEdge> Corridors => corridors;
+        public IReadOnlyList<Renderer> TreeRenderers => treeRenderers;
         public int StartClusterId { get; private set; } = -1;
         public int EvacuationClusterId { get; private set; } = -1;
         public int TotalTreesSpawned { get; private set; }
@@ -222,6 +224,7 @@ namespace DeadDepths.PCG
             ZombieController.ClearStateChangeLog();
             clusters.Clear();
             corridors.Clear();
+            treeRenderers.Clear();
             StartClusterId = -1;
             EvacuationClusterId = -1;
             TotalTreesSpawned = 0;
@@ -296,7 +299,7 @@ namespace DeadDepths.PCG
             }
 
             SpawnPlayerActor(PlayerSpawnPosition);
-            SpawnZombies(w, h, startCell, extractionCell, ddaProfile);
+            SpawnZombies(levelNumber, w, h, startCell, extractionCell, ddaProfile);
 
             Debug.Log($"[WorldGenerator] Level {levelNumber} generated | Seed={LastSeed} | Clusters={clusters.Count} | Corridors={corridors.Count} | Trees={TotalTreesSpawned} | Walls={TotalWallsSpawned} | Blockers={TotalBlockersSpawned} | Crates={TotalCratesSpawned} | Zombies={TotalZombiesSpawned} | Connected={ConnectivityValid}");
         }
@@ -636,6 +639,7 @@ namespace DeadDepths.PCG
                     mf.sharedMesh = treeMesh;
                     var mr = tree.AddComponent<MeshRenderer>();
                     mr.sharedMaterials = new Material[] { barkMaterial, leafMaterial };
+                    treeRenderers.Add(mr);
 
                     var col = tree.AddComponent<CapsuleCollider>();
                     col.radius = 0.45f;
@@ -1414,7 +1418,7 @@ namespace DeadDepths.PCG
             }
         }
 
-        private void SpawnZombies(int w, int h, Vector2Int startCell, Vector2Int extractionCell, DifficultyController.LevelDifficultyProfile ddaProfile)
+        private void SpawnZombies(int levelNumber, int w, int h, Vector2Int startCell, Vector2Int extractionCell, DifficultyController.LevelDifficultyProfile ddaProfile)
         {
             GameObject hordeGroup = new GameObject("ZombieHorde");
             hordeGroup.transform.SetParent(worldRoot, false);
@@ -1423,13 +1427,15 @@ namespace DeadDepths.PCG
             var diff = DifficultyController.Instance ?? FindAnyObjectByType<DifficultyController>();
             if (diff != null)
             {
-                diff.CalculateEnemyCounts(ddaProfile, out walkers, out spitters, out chargers);
+                diff.CalculateEnemyCountsForLevel(ddaProfile, levelNumber, out walkers, out spitters, out chargers);
             }
             else
             {
-                walkers = Mathf.RoundToInt(ddaProfile.TotalZombies * ddaProfile.WalkerProportion);
-                spitters = Mathf.RoundToInt(ddaProfile.TotalZombies * ddaProfile.SpitterProportion);
-                chargers = Mathf.Max(1, ddaProfile.TotalZombies - walkers - spitters);
+                int lvl = Mathf.Max(1, levelNumber);
+                int total = lvl == 1 ? 4 : Mathf.Clamp(4 + (lvl - 1), 3, 26);
+                spitters = Mathf.RoundToInt(total * ddaProfile.SpitterProportion);
+                chargers = Mathf.RoundToInt(total * ddaProfile.ChargerProportion);
+                walkers = Mathf.Max(1, total - spitters - chargers);
             }
 
             int totalDesired = walkers + spitters + chargers;

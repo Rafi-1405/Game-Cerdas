@@ -12,6 +12,7 @@ namespace DeadDepths.UI
     public class PauseMenuUI : MonoBehaviour
     {
         public static PauseMenuUI Instance { get; private set; }
+        public bool IsVisible => panelRoot != null && panelRoot.activeSelf;
 
         private DeadDepthsUIRoot uiRoot;
         private GameObject panelRoot;
@@ -38,7 +39,16 @@ namespace DeadDepths.UI
         private void OnEnable()
         {
             if (GameManager.Instance != null)
+            {
+                GameManager.Instance.OnPauseChanged -= SyncVisibility;
                 GameManager.Instance.OnPauseChanged += SyncVisibility;
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (GameManager.Instance != null)
+                GameManager.Instance.OnPauseChanged -= SyncVisibility;
         }
 
         private void Start()

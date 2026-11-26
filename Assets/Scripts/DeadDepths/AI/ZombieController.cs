@@ -105,10 +105,19 @@ namespace DeadDepths.AI
         private static readonly List<StateChangeEntry> stateChangeLog = new List<StateChangeEntry>(MaxStateLogEntries);
         public static IReadOnlyList<StateChangeEntry> StateChangeLog => stateChangeLog;
 
+        private static readonly List<ZombieController> activeZombies = new List<ZombieController>(32);
+        public static IReadOnlyList<ZombieController> ActiveZombies => activeZombies;
+
+        private static readonly RaycastHit[] losHitBuffer = new RaycastHit[16];
+        private static readonly int HashSpeed = Animator.StringToHash("Speed");
+        private static readonly int HashAttack = Animator.StringToHash("Attack");
+        private static readonly int HashDead = Animator.StringToHash("Dead");
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
             stateChangeLog.Clear();
+            activeZombies.Clear();
         }
 
         public static void ClearStateChangeLog()
@@ -164,6 +173,21 @@ namespace DeadDepths.AI
         private float subPhaseTimer = 0f;
 
         private float corpseTimer = 0f;
+        private float nextPathUpdateTime = 0f;
+        private Vector3 lastNavDestination = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+
+        private void OnEnable()
+        {
+            if (!activeZombies.Contains(this))
+            {
+                activeZombies.Add(this);
+            }
+        }
+
+        private void OnDisable()
+        {
+            activeZombies.Remove(this);
+        }
 
         private void Awake()
         {
@@ -509,11 +533,11 @@ namespace DeadDepths.AI
 
                 if (Time.deltaTime > 0f)
                 {
-                    animator.SetFloat("Speed", actualWorldSpeed, 0.1f, Time.deltaTime);
+                    animator.SetFloat(HashSpeed, actualWorldSpeed, 0.1f, Time.deltaTime);
                 }
                 else
                 {
-                    animator.SetFloat("Speed", actualWorldSpeed);
+                    animator.SetFloat(HashSpeed, actualWorldSpeed);
                 }
             }
         }
@@ -534,8 +558,7 @@ namespace DeadDepths.AI
                 : aiConfig.VisionRange;
 
             Vector3 dir = playerTarget.position - transform.position;
-            float dist = dir.magnitude;
-            if (dist > effectiveVisionRange) return false;
+            if (dir.sqrMagnitude > effectiveVisionRange * effectiveVisionRange) return false;
 
             Vector3 flatDir = new Vector3(dir.x, 0f, dir.z);
             if (flatDir.sqrMagnitude > 0.001f)
@@ -556,22 +579,32 @@ namespace DeadDepths.AI
             float dist = delta.magnitude;
             if (dist <= 0.01f) return true;
 
-            RaycastHit[] hits = Physics.RaycastAll(fromPos, delta / dist, dist, ~0, QueryTriggerInteraction.Ignore);
-            if (hits == null || hits.Length == 0) return true;
+            int hitCount = Physics.RaycastNonAlloc(fromPos, delta / dist, losHitBuffer, dist, ~0, QueryTriggerInteraction.Ignore);
+            if (hitCount == 0) return true;
 
-            Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-            foreach (var hit in hits)
+            float closestBlockingDist = float.MaxValue;
+            float closestPlayerDist = float.MaxValue;
+
+            for (int i = 0; i < hitCount; i++)
             {
-                if (hit.collider == null) continue;
-                if (hit.collider.transform == transform || hit.collider.transform.IsChildOf(transform)) continue;
-                if (hit.collider.GetComponentInParent<ZombieController>() != null) continue;
-                if (hit.collider.transform == playerTarget || hit.collider.transform.IsChildOf(playerTarget))
+                Collider col = losHitBuffer[i].collider;
+                if (col == null) continue;
+                Transform colTr = col.transform;
+                if (colTr == transform || colTr.IsChildOf(transform)) continue;
+                if (col.GetComponentInParent<ZombieController>() != null) continue;
+
+                float hitDist = losHitBuffer[i].distance;
+                if (colTr == playerTarget || colTr.IsChildOf(playerTarget))
                 {
-                    return true;
+                    if (hitDist < closestPlayerDist) closestPlayerDist = hitDist;
                 }
-                return false;
+                else
+                {
+                    if (hitDist < closestBlockingDist) closestBlockingDist = hitDist;
+                }
             }
-            return true;
+
+            return closestBlockingDist >= closestPlayerDist;
         }
 
         private void UpdateIdlePatrol()
@@ -638,7 +671,12 @@ namespace DeadDepths.AI
             if (agent != null && agent.enabled && agent.isOnNavMesh)
             {
                 agent.isStopped = false;
-                agent.SetDestination(playerTarget.position);
+                if (Time.time >= nextPathUpdateTime || (playerTarget.position - lastNavDestination).sqrMagnitude > 0.16f)
+                {
+                    agent.SetDestination(playerTarget.position);
+                    lastNavDestination = playerTarget.position;
+                    nextPathUpdateTime = Time.time + 0.15f;
+                }
             }
 
             bool hasDirectLOS = HasUnobstructedLineOfSightToPlayer(transform.position + Vector3.up * 1.1f, playerTarget.position + Vector3.up * 1.0f);
@@ -680,7 +718,12 @@ namespace DeadDepths.AI
             if (agent != null && agent.enabled && agent.isOnNavMesh)
             {
                 agent.isStopped = false;
-                agent.SetDestination(lastKnownPlayerPos);
+                if (Time.time >= nextPathUpdateTime || (lastKnownPlayerPos - lastNavDestination).sqrMagnitude > 0.16f)
+                {
+                    agent.SetDestination(lastKnownPlayerPos);
+                    lastNavDestination = lastKnownPlayerPos;
+                    nextPathUpdateTime = Time.time + 0.25f;
+                }
             }
 
             stateTimer += Time.deltaTime;
@@ -756,7 +799,7 @@ namespace DeadDepths.AI
             {
                 nextAttackTime = Time.time + aiConfig.MeleeCooldown;
 
-                if (animator != null) animator.SetTrigger("Attack");
+                if (animator != null) animator.SetTrigger(HashAttack);
                 if (AudioManager.Instance != null) AudioManager.Instance.PlayCue(SfxCue.ZombieAttack, transform.position);
 
                 if (meleeHitRoutine != null) StopCoroutine(meleeHitRoutine);
@@ -814,7 +857,7 @@ namespace DeadDepths.AI
                     if (!spitterAnimTriggered && subPhaseTimer >= Mathf.Max(0f, aiConfig.SpitterPreparationDuration - 0.30f))
                     {
                         spitterAnimTriggered = true;
-                        if (animator != null) animator.SetTrigger("Attack");
+                        if (animator != null) animator.SetTrigger(HashAttack);
                     }
 
                     if (subPhaseTimer >= aiConfig.SpitterPreparationDuration)
@@ -822,7 +865,7 @@ namespace DeadDepths.AI
                         if (!spitterAnimTriggered && animator != null)
                         {
                             spitterAnimTriggered = true;
-                            animator.SetTrigger("Attack");
+                            animator.SetTrigger(HashAttack);
                         }
                         capturedSpitTarget = playerTarget.position + Vector3.up * 1.0f;
                         LaunchToxicProjectile(capturedSpitTarget);
@@ -943,7 +986,7 @@ namespace DeadDepths.AI
                         chargerPhase = ChargerPhase.Charging;
                         subPhaseTimer = 0f;
                         if (agent != null) agent.enabled = false;
-                        if (animator != null) animator.SetTrigger("Attack");
+                        if (animator != null) animator.SetTrigger(HashAttack);
                         CombatVfxManager.Instance?.PlayDodgeDust(transform.position);
                     }
                     break;
@@ -1076,6 +1119,7 @@ namespace DeadDepths.AI
             }
             CurrentState = newState;
             stateTimer = 0f;
+            nextPathUpdateTime = 0f;
             RecordStateChange(prevState, newState, reason);
         }
 
@@ -1185,7 +1229,7 @@ namespace DeadDepths.AI
                 agent.enabled = false;
             }
 
-            if (animator != null) animator.SetBool("Dead", true);
+            if (animator != null) animator.SetBool(HashDead, true);
 
             if (AudioManager.Instance != null)
             {

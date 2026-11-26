@@ -20,9 +20,8 @@ namespace DeadDepths.UI
 
         private const int MaxBars = 24;
         private BarWidget[] barPool;
-        private readonly List<ZombieController> zombieCache = new List<ZombieController>();
-        private float nextScanTime = 0f;
         private DeadDepthsUIRoot uiRoot;
+        private Camera cachedMainCamera;
 
         private void Awake()
         {
@@ -68,15 +67,8 @@ namespace DeadDepths.UI
                 return;
             }
 
-            if (Time.unscaledTime >= nextScanTime)
-            {
-                nextScanTime = Time.unscaledTime + 0.25f;
-                zombieCache.Clear();
-                var found = FindObjectsByType<ZombieController>(FindObjectsInactive.Exclude);
-                if (found != null) zombieCache.AddRange(found);
-            }
-
-            Camera cam = Camera.main;
+            if (cachedMainCamera == null) cachedMainCamera = Camera.main;
+            Camera cam = cachedMainCamera;
             if (cam == null)
             {
                 HideUnusedFrom(0);
@@ -86,10 +78,11 @@ namespace DeadDepths.UI
             float scale = uiRoot.MasterCanvas.scaleFactor;
             if (scale <= 0.001f) scale = 1f;
 
+            var zombies = ZombieController.ActiveZombies;
             int used = 0;
-            for (int i = 0; i < zombieCache.Count && used < MaxBars; i++)
+            for (int i = 0; i < zombies.Count && used < MaxBars; i++)
             {
-                var z = zombieCache[i];
+                var z = zombies[i];
                 if (z == null || z.IsDead) continue;
 
                 bool injured = z.CurrentHealth < z.AiConfig.MaxHealth - 0.1f;
