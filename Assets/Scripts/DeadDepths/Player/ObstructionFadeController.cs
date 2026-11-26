@@ -34,6 +34,9 @@ namespace DeadDepths.Player
         [SerializeField] private Config fadeConfig = new Config();
         public Config FadeConfig => fadeConfig;
         [SerializeField] private Transform playerTarget;
+        [SerializeField] private Material transparentVariantTemplate;
+
+        private WorldGenerator cachedWorldGen;
 
         private class FadedRendererState
         {
@@ -201,6 +204,11 @@ namespace DeadDepths.Player
         private void DetectObstructingTreeCanopies(Vector3 camPos, Vector3 torsoPos, Vector3 headPos)
         {
             var wg = WorldGenerator.Instance;
+            if (wg == null)
+            {
+                if (cachedWorldGen == null) cachedWorldGen = FindAnyObjectByType<WorldGenerator>();
+                wg = cachedWorldGen;
+            }
             if (wg == null) return;
 
             var trees = wg.TreeRenderers;

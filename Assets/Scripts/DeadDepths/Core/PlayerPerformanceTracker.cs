@@ -44,6 +44,7 @@ namespace DeadDepths.Core
         private bool isTimePaused = false;
 
         public float ElapsedLevelTime => activeElapsedTime;
+        public bool IsTimePaused => isTimePaused;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -74,6 +75,12 @@ namespace DeadDepths.Core
 
             var gm = GameManager.Instance;
             if (gm != null && (gm.IsInMainMenu || gm.IsPaused || !gm.IsLevelActive))
+            {
+                return;
+            }
+
+            if (DeadDepths.Player.DeadDepthsPlayerController.Instance != null &&
+                DeadDepths.Player.DeadDepthsPlayerController.Instance.IsDead)
             {
                 return;
             }

@@ -223,6 +223,7 @@ namespace DeadDepths.UI
             img.raycastTarget = true;
 
             var btn = go.AddComponent<Button>();
+            btn.navigation = new Navigation { mode = Navigation.Mode.None };
             btn.targetGraphic = img;
             ColorBlock cb = btn.colors;
             cb.normalColor = Color.white;
@@ -231,7 +232,14 @@ namespace DeadDepths.UI
             cb.selectedColor = highlightColor;
             cb.colorMultiplier = 1f;
             btn.colors = cb;
-            if (onClick != null) btn.onClick.AddListener(onClick);
+            btn.onClick.AddListener(() =>
+            {
+                if (EventSystem.current != null)
+                {
+                    EventSystem.current.SetSelectedGameObject(null);
+                }
+                onClick?.Invoke();
+            });
 
             var tmp = CreateText(rt, "Label", label, fontSize, FontStyles.Bold, new Color(0.95f, 0.97f, 1f), TextAlignmentOptions.Center,
                 Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);

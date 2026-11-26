@@ -56,6 +56,8 @@ namespace DeadDepths.PCG
         [SerializeField] private Shader bundledLitShader;
         [SerializeField] private Shader bundledParticleUnlitShader;
         [SerializeField] private Shader bundledUnlitShader;
+        [SerializeField] private Material emissionVariantTemplate;
+        [SerializeField] private Material particleTransparentTemplate;
         #endregion
 
         public static WorldGenerator Instance { get; private set; }
@@ -203,6 +205,7 @@ namespace DeadDepths.PCG
 
         public void GenerateWorld(int levelNumber, DifficultyController.LevelDifficultyProfile ddaProfile)
         {
+            if (Instance == null) Instance = this;
             if (navBaker == null) navBaker = GetComponent<NavMeshRuntimeBaker>();
             CleanupTransientMaterials();
             InitializeDefaultMaterials();
@@ -264,11 +267,11 @@ namespace DeadDepths.PCG
             PlayerSpawnPosition = CellToWorld(startCell.x, startCell.y);
             ExtractionPosition = CellToWorld(extractionCell.x, extractionCell.y);
 
-            CreateMudPatches(w, h, startCell, extractionCell);
-
             List<Vector2Int> structureDoorways = new List<Vector2Int>();
             List<Vector2Int> crateCells = new List<Vector2Int>();
             CreateAbandonedStructures(w, h, structureDoorways, crateCells);
+
+            CreateMudPatches(w, h, startCell, extractionCell);
 
             if (crateCells.Count < 3)
             {
@@ -705,65 +708,123 @@ namespace DeadDepths.PCG
             mudGroup.transform.SetParent(worldRoot, false);
 
             int placed = 0;
-            for (int attempt = 0; attempt < mapConfig.MudPatchCount * 10 && placed < mapConfig.MudPatchCount; attempt++)
+            for (int attempt = 0; attempt < mapConfig.MudPatchCount * 30 && placed < mapConfig.MudPatchCount; attempt++)
             {
                 if (clusters.Count == 0) break;
                 var cluster = clusters[UnityEngine.Random.Range(0, clusters.Count)];
                 if (cluster.Role == ClusterRole.Start) continue;
 
-                int ox = UnityEngine.Random.Range(-cluster.RadiusX / 2, cluster.RadiusX / 2 + 1);
-                int oy = UnityEngine.Random.Range(-cluster.RadiusY / 2, cluster.RadiusY / 2 + 1);
+                int ox = UnityEngine.Random.Range(-cluster.RadiusX + 1, cluster.RadiusX);
+                int oy = UnityEngine.Random.Range(-cluster.RadiusY + 1, cluster.RadiusY);
                 int cx = Mathf.Clamp(cluster.Center.x + ox, 4, w - 5);
                 int cy = Mathf.Clamp(cluster.Center.y + oy, 4, h - 5);
 
                 if (grid[cx, cy] != CellType.WalkableGround) continue;
 
-                int radius = UnityEngine.Random.Range(mapConfig.MudPatchMinRadius, mapConfig.MudPatchMaxRadius + 1);
-                if (Vector2Int.Distance(new Vector2Int(cx, cy), startCell) < radius + 4f ||
-                    Vector2Int.Distance(new Vector2Int(cx, cy), extractionCell) < radius + 4f)
+                int minR = Mathf.Max(1, mapConfig.MudPatchMinRadius);
+                int maxR = Mathf.Max(minR, mapConfig.MudPatchMaxRadius);
+                int radius = attempt < mapConfig.MudPatchCount * 15
+                    ? UnityEngine.Random.Range(minR, maxR + 1)
+                    : (attempt < mapConfig.MudPatchCount * 24 ? minR : 1);
+
+                if (!CanPlaceMudPatchAt(cx, cy, radius, w, h, startCell, extractionCell))
                 {
                     continue;
                 }
-                float worldRadX = radius * mapConfig.CellSize;
-                float worldRadZ = radius * mapConfig.CellSize;
 
-                Vector3 centerPos = CellToWorld(cx, cy);
+                SpawnMudPatchAt(mudGroup.transform, placed, cx, cy, radius, w, h);
+                placed++;
+                TotalMudPatchesSpawned++;
+            }
 
-                GameObject patchObj = new GameObject($"MudPatch_{placed}");
-                patchObj.transform.SetParent(mudGroup.transform, false);
-                patchObj.transform.position = centerPos;
-
-                var mf = patchObj.AddComponent<MeshFilter>();
-                mf.sharedMesh = ProceduralGeometry.CreateMudPatchMesh(worldRadX, worldRadZ);
-                var mr = patchObj.AddComponent<MeshRenderer>();
-                mr.sharedMaterial = mudMaterial;
-
-                var patchCollider = patchObj.AddComponent<BoxCollider>();
-                patchCollider.isTrigger = true;
-                patchCollider.size = new Vector3(worldRadX * 2f, 1.2f, worldRadZ * 2f);
-                patchCollider.center = new Vector3(0f, 0.5f, 0f);
-
-                patchObj.AddComponent<MuddyPatch>();
-
-                for (int gx = cx - radius; gx <= cx + radius; gx++)
+            // Deterministic fallback if clusters were tightly packed with cabins
+            if (placed < 2)
+            {
+                for (int rCandidate = Mathf.Min(2, Mathf.Max(1, mapConfig.MudPatchMinRadius)); rCandidate >= 1 && placed < 2; rCandidate--)
                 {
-                    for (int gy = cy - radius; gy <= cy + radius; gy++)
+                    for (int gx = mapConfig.BoundaryTreeThickness + 1; gx < w - mapConfig.BoundaryTreeThickness - 1 && placed < 2; gx += 2)
                     {
-                        if (gx >= 0 && gx < w && gy >= 0 && gy < h)
+                        for (int gy = mapConfig.BoundaryTreeThickness + 1; gy < h - mapConfig.BoundaryTreeThickness - 1 && placed < 2; gy += 2)
                         {
-                            if (grid[gx, gy] == CellType.WalkableGround)
+                            if (grid[gx, gy] != CellType.WalkableGround) continue;
+                            if (!CanPlaceMudPatchAt(gx, gy, rCandidate, w, h, startCell, extractionCell)) continue;
+                            SpawnMudPatchAt(mudGroup.transform, placed, gx, gy, rCandidate, w, h);
+                            placed++;
+                            TotalMudPatchesSpawned++;
+                        }
+                    }
+                }
+            }
+        }
+
+        private bool CanPlaceMudPatchAt(int cx, int cy, int radius, int w, int h, Vector2Int startCell, Vector2Int extractionCell)
+        {
+            if (Vector2Int.Distance(new Vector2Int(cx, cy), startCell) < radius + 3.5f ||
+                Vector2Int.Distance(new Vector2Int(cx, cy), extractionCell) < radius + 4.0f)
+            {
+                return false;
+            }
+
+            float clearRadius = radius + 1.45f;
+            int bound = radius + 2;
+            for (int gx = cx - bound; gx <= cx + bound; gx++)
+            {
+                for (int gy = cy - bound; gy <= cy + bound; gy++)
+                {
+                    if (gx < 0 || gx >= w || gy < 0 || gy >= h) continue;
+                    if (Vector2.Distance(new Vector2(gx, gy), new Vector2(cx, cy)) > clearRadius) continue;
+
+                    CellType c = grid[gx, gy];
+                    if (c == CellType.StructureWall ||
+                        c == CellType.StructureFloor ||
+                        c == CellType.StructureDoorway ||
+                        c == CellType.SuppliesCrate ||
+                        c == CellType.MudPatch)
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        private void SpawnMudPatchAt(Transform mudGroupParent, int patchIndex, int cx, int cy, int radius, int w, int h)
+        {
+            float worldRadX = radius * mapConfig.CellSize;
+            float worldRadZ = radius * mapConfig.CellSize;
+            Vector3 centerPos = CellToWorld(cx, cy);
+
+            GameObject patchObj = new GameObject($"MudPatch_{patchIndex}");
+            patchObj.transform.SetParent(mudGroupParent, false);
+            patchObj.transform.position = centerPos;
+
+            var mf = patchObj.AddComponent<MeshFilter>();
+            mf.sharedMesh = ProceduralGeometry.CreateMudPatchMesh(worldRadX, worldRadZ);
+            var mr = patchObj.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = mudMaterial;
+
+            var patchCollider = patchObj.AddComponent<SphereCollider>();
+            patchCollider.isTrigger = true;
+            patchCollider.radius = worldRadX * 0.95f;
+            patchCollider.center = new Vector3(0f, 0.5f, 0f);
+
+            patchObj.AddComponent<MuddyPatch>();
+
+            for (int gx = cx - radius; gx <= cx + radius; gx++)
+            {
+                for (int gy = cy - radius; gy <= cy + radius; gy++)
+                {
+                    if (gx >= 0 && gx < w && gy >= 0 && gy < h)
+                    {
+                        if (grid[gx, gy] == CellType.WalkableGround)
+                        {
+                            if (Vector2.Distance(new Vector2(gx, gy), new Vector2(cx, cy)) <= radius)
                             {
-                                if (Vector2.Distance(new Vector2(gx, gy), new Vector2(cx, cy)) <= radius)
-                                {
-                                    grid[gx, gy] = CellType.MudPatch;
-                                }
+                                grid[gx, gy] = CellType.MudPatch;
                             }
                         }
                     }
                 }
-
-                placed++;
-                TotalMudPatchesSpawned++;
             }
         }
 
@@ -806,6 +867,7 @@ namespace DeadDepths.PCG
                         if (cell == CellType.TreeBoundary ||
                             cell == CellType.PlayerStart ||
                             cell == CellType.ExtractionZone ||
+                            cell == CellType.MudPatch ||
                             cell == CellType.StructureWall ||
                             cell == CellType.StructureFloor ||
                             cell == CellType.StructureDoorway)
@@ -887,11 +949,20 @@ namespace DeadDepths.PCG
                     }
                 }
 
+                Vector2Int doorEntryFloor = doorSide switch
+                {
+                    0 => new Vector2Int(doorPos, sy + 1),
+                    1 => new Vector2Int(doorPos, sy + sh - 1),
+                    2 => new Vector2Int(sx + 1, doorPos),
+                    _ => new Vector2Int(sx + sw - 1, doorPos)
+                };
+
                 int placed = 0;
                 for (int cx = sx + 1; cx < sx + sw && placed < mapConfig.CratesPerStructure; cx++)
                 {
                     for (int cy = sy + 1; cy < sy + sh && placed < mapConfig.CratesPerStructure; cy++)
                     {
+                        if (cx == doorEntryFloor.x && cy == doorEntryFloor.y) continue;
                         if (grid[cx, cy] == CellType.StructureFloor)
                         {
                             grid[cx, cy] = CellType.SuppliesCrate;
@@ -1113,14 +1184,13 @@ namespace DeadDepths.PCG
 
                 if (UnityEngine.Random.value < ddaProfile.LootQualityFactor)
                 {
-                    loot.Add(new CrateLootItem("Rifle Ammo", UnityEngine.Random.Range(15, 30)));
+                    loot.Add(new CrateLootItem("Adrenaline", 1));
                 }
                 else
                 {
-                    loot.Add(new CrateLootItem("Pistol Ammo", UnityEngine.Random.Range(8, 16)));
+                    loot.Add(new CrateLootItem("Bandage", 1, true));
                 }
 
-                loot.Add(new CrateLootItem("Scrap Metal", UnityEngine.Random.Range(2, 6)));
                 crateComp.ConfigureLoot(loot);
                 TotalCratesSpawned++;
             }

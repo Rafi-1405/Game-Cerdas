@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &391057503
+--- !u!1 &459237998
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,740 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 391057505}
-  - component: {fileID: 391057504}
+  - component: {fileID: 459238000}
+  - component: {fileID: 459237999}
+  m_Layer: 0
+  m_Name: Global Volume
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &459237999
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 459237998}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.Volume
+  m_IsGlobal: 1
+  priority: 1
+  blendDistance: 0
+  weight: 1
+  sharedProfile: {fileID: 11400000, guid: 5608a215ecf4c4f4baadfb2e79b4e354, type: 2}
+--- !u!4 &459238000
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 459237998}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &804816958
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 804816964}
+  - component: {fileID: 804816963}
+  - component: {fileID: 804816962}
+  - component: {fileID: 804816961}
+  - component: {fileID: 804816960}
+  - component: {fileID: 804816959}
+  m_Layer: 0
+  m_Name: Main Camera
+  m_TagString: MainCamera
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &804816959
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 804816958}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a6c16a9827c2254d9a24a1c638905eb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Player.ObstructionFadeController
+  fadeConfig:
+    FadedAlpha: 0.25
+    TreeFadedAlpha: 0.14
+    FadeSpeed: 8
+    SphereCastRadius: 0.6
+    TreeCanopyPadding: 0.55
+    ObstructionLayers:
+      serializedVersion: 2
+      m_Bits: 4294967295
+  playerTarget: {fileID: 0}
+  transparentVariantTemplate: {fileID: 2100000, guid: dd13442cda361af49a541f547298d196, type: 2}
+--- !u!114 &804816960
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 804816958}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f70c206820962aa40b0ff2ddee96eaef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Player.IsometricCameraController
+  camConfig:
+    PitchAngle: 52
+    YawAngle: 45
+    Distance: 16
+    TargetOffset: {x: 0, y: 1.2, z: 0}
+    FollowDamping: 10
+    EnableAimLookAhead: 1
+    LookAheadDeadzone: 0.1
+    MaxLookAheadDistance: 3.2
+    LookAheadDamping: 6
+  target: {fileID: 0}
+--- !u!114 &804816961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 804816958}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
+  m_RenderShadows: 1
+  m_RequiresDepthTextureOption: 2
+  m_RequiresOpaqueTextureOption: 2
+  m_CameraType: 0
+  m_Cameras: []
+  m_RendererIndex: -1
+  m_VolumeLayerMask:
+    serializedVersion: 2
+    m_Bits: 1
+  m_VolumeTrigger: {fileID: 0}
+  m_VolumeFrameworkUpdateModeOption: 2
+  m_RenderPostProcessing: 1
+  m_Antialiasing: 2
+  m_AntialiasingQuality: 2
+  m_StopNaN: 0
+  m_Dithering: 0
+  m_ClearDepth: 1
+  m_AllowXRRendering: 1
+  m_AllowHDROutput: 1
+  m_UseScreenCoordOverride: 0
+  m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
+  m_RequiresDepthTexture: 0
+  m_RequiresColorTexture: 0
+  m_TaaSettings:
+    m_Quality: 3
+    m_FrameInfluence: 0.1
+    m_JitterScale: 1
+    m_MipBias: 0
+    m_VarianceClampScale: 0.9
+    m_ContrastAdaptiveSharpening: 0
+  m_Version: 2
+--- !u!81 &804816962
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 804816958}
+  m_Enabled: 1
+--- !u!20 &804816963
+Camera:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 804816958}
+  m_Enabled: 1
+  serializedVersion: 2
+  m_ClearFlags: 1
+  m_BackGroundColor: {r: 0.04, g: 0.06, b: 0.1, a: 1}
+  m_projectionMatrixMode: 1
+  m_GateFitMode: 2
+  m_FOVAxisMode: 0
+  m_Iso: 200
+  m_ShutterSpeed: 0.005
+  m_Aperture: 16
+  m_FocusDistance: 10
+  m_FocalLength: 50
+  m_BladeCount: 5
+  m_Curvature: {x: 2, y: 11}
+  m_BarrelClipping: 0.25
+  m_Anamorphism: 0
+  m_SensorSize: {x: 36, y: 24}
+  m_LensShift: {x: 0, y: 0}
+  m_NormalizedViewPortRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
+  near clip plane: 0.3
+  far clip plane: 500
+  field of view: 50
+  orthographic: 0
+  orthographic size: 5
+  m_Depth: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingPath: -1
+  m_TargetTexture: {fileID: 0}
+  m_TargetDisplay: 0
+  m_TargetEye: 3
+  m_HDR: 1
+  m_AllowMSAA: 1
+  m_AllowDynamicResolution: 0
+  m_ForceIntoRT: 0
+  m_OcclusionCulling: 1
+  m_StereoConvergence: 10
+  m_StereoSeparation: 0.022
+--- !u!4 &804816964
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 804816958}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.40500215, y: 0.3439536, z: -0.1677574, w: 0.8303774}
+  m_LocalPosition: {x: 0, y: 22, z: -22}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &931802094
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 931802097}
+  - component: {fileID: 931802096}
+  - component: {fileID: 931802095}
+  m_Layer: 0
+  m_Name: EventSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &931802095
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 931802094}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01614664b831546d2ae94a42149d80ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.UI.InputSystemUIInputModule
+  m_SendPointerHoverToParent: 1
+  m_MoveRepeatDelay: 0.5
+  m_MoveRepeatRate: 0.1
+  m_XRTrackingOrigin: {fileID: 0}
+  m_ActionsAsset: {fileID: -944628639613478452, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_PointAction: {fileID: -1654692200621890270, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_MoveAction: {fileID: -8784545083839296357, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_SubmitAction: {fileID: 392368643174621059, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_CancelAction: {fileID: 7727032971491509709, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_LeftClickAction: {fileID: 3001919216989983466, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_MiddleClickAction: {fileID: -2185481485913320682, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_RightClickAction: {fileID: -4090225696740746782, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_ScrollWheelAction: {fileID: 6240969308177333660, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_TrackedDevicePositionAction: {fileID: 6564999863303420839, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_TrackedDeviceOrientationAction: {fileID: 7970375526676320489, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
+  m_DeselectOnBackgroundClick: 1
+  m_PointerBehavior: 0
+  m_CursorLockBehavior: 0
+  m_ScrollDeltaPerTick: 6
+--- !u!114 &931802096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 931802094}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 76c392e42b5098c458856cdf6ecaaaa1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.EventSystem
+  m_FirstSelected: {fileID: 0}
+  m_sendNavigationEvents: 1
+  m_DragThreshold: 10
+--- !u!4 &931802097
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 931802094}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1030827099
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1030827106}
+  - component: {fileID: 1030827105}
+  - component: {fileID: 1030827104}
+  - component: {fileID: 1030827103}
+  - component: {fileID: 1030827102}
+  - component: {fileID: 1030827101}
+  - component: {fileID: 1030827100}
+  m_Layer: 0
+  m_Name: UIManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1030827100
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1030827099}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b45bcf0e55c23ae4399628d4ebdb0aba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.DeadDepthsUIRoot
+--- !u!114 &1030827101
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1030827099}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0ef7c5dbe381eb49ad11df84e77f194, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.DeadDepthsDebugMode
+  isDebugVisible: 0
+  showAiWorldOverlay: 1
+  showMapResourcePanel: 1
+  showAiPanel: 1
+--- !u!114 &1030827102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1030827099}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 04244902a30cd264a88c770ecefaa331, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.CompletionScreenUI
+  screenConfig:
+    DimBackdropColor: {r: 0.04, g: 0.05, b: 0.08, a: 0.9}
+    PanelColor: {r: 0.09, g: 0.11, b: 0.16, a: 0.96}
+    PanelBorderColor: {r: 0.24, g: 0.72, b: 0.44, a: 0.95}
+    TextColor: {r: 0.92, g: 0.96, b: 1, a: 1}
+    AccentColor: {r: 0.35, g: 0.92, b: 0.55, a: 1}
+    ButtonColor: {r: 0.18, g: 0.65, b: 0.35, a: 1}
+    ButtonHoverColor: {r: 0.24, g: 0.82, b: 0.44, a: 1}
+    SecondaryButtonColor: {r: 0.28, g: 0.32, b: 0.4, a: 1}
+    SecondaryButtonHoverColor: {r: 0.38, g: 0.44, b: 0.54, a: 1}
+    TitleFontSize: 24
+    ButtonFontSize: 16
+    ButtonWidth: 210
+    ButtonHeight: 44
+--- !u!114 &1030827103
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1030827099}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fee4a4de02a227e459c8c2dfe40025d2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.ItemNotificationManager
+  notifyConfig:
+    BaseOverheadOffset: {x: 0, y: 2.5, z: 0}
+    RowHeight: 24
+    BoxWidth: 160
+    MaxVisibleNotifications: 3
+    DisplayDuration: 3.5
+    FadeDuration: 0.5
+    BackgroundColor: {r: 0.06, g: 0.08, b: 0.12, a: 0.82}
+    BorderColor: {r: 0.2, g: 0.75, b: 0.4, a: 0.9}
+    TextColor: {r: 0.95, g: 0.98, b: 1, a: 1}
+--- !u!114 &1030827104
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1030827099}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eef3ce9bd6379574eb772d2bd5dfb4ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.CrateProgressBarUI
+  barConfig:
+    OverheadOffset: {x: 0, y: 2.2, z: 0}
+    Width: 140
+    Height: 12
+    BackgroundColor: {r: 0.08, g: 0.08, b: 0.12, a: 0.65}
+    FillColor: {r: 1, g: 1, b: 1, a: 1}
+    BorderColor: {r: 0.25, g: 0.25, b: 0.35, a: 0.85}
+--- !u!114 &1030827105
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1030827099}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: acc77a272420b7349ae09d47a3118783, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.DeadDepthsHUD
+  hudConfig:
+    HudOffset: {x: 25, y: 25}
+    BarWidth: 220
+    BarHeight: 18
+    BarSpacing: 6
+    HealthFillColor: {r: 0.85, g: 0.22, b: 0.22, a: 1}
+    StaminaFillColor: {r: 0.24, g: 0.65, b: 0.95, a: 1}
+    TrackColor: {r: 0.08, g: 0.1, b: 0.14, a: 0.85}
+    BorderColor: {r: 0.22, g: 0.25, b: 0.32, a: 0.95}
+    TextColor: {r: 0.92, g: 0.95, b: 1, a: 1}
+    PromptColor: {r: 1, g: 0.88, b: 0.35, a: 1}
+--- !u!4 &1030827106
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1030827099}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1229655970
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1229655972}
+  - component: {fileID: 1229655971}
+  m_Layer: 0
+  m_Name: AudioManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1229655971
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1229655970}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 618c83ad93b3b3b4a8169bcb83df44e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Audio.AudioManager
+  audioConfig:
+    MasterVolume: 0.9
+    SfxVolume: 0.85
+    AmbientVolume: 0.65
+    VoicePoolSize: 24
+    EnableProceduralToneFallback: 1
+    OcclusionCutoffHz: 1800
+    OcclusionVolumeScale: 0.42
+  soundLibrary: {fileID: 11400000, guid: 39c39e6647c92e14db21df4fbda423d2, type: 2}
+--- !u!4 &1229655972
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1229655970}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1727164659
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1727164666}
+  - component: {fileID: 1727164665}
+  - component: {fileID: 1727164664}
+  - component: {fileID: 1727164663}
+  - component: {fileID: 1727164662}
+  - component: {fileID: 1727164661}
+  - component: {fileID: 1727164660}
+  m_Layer: 0
+  m_Name: GameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1727164660
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1727164659}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 954b6e29fd0b28548b9b6472e4381c44, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Core.CombatVfxManager
+  bundledParticleShader: {fileID: 4800000, guid: 0406db5a14f94604a8c57ccfbc9f3b46, type: 3}
+  bundledFallbackShader: {fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}
+  particleTransparentTemplate: {fileID: 2100000, guid: 6cd758bd0011c684d9ffbc04dea57e87, type: 2}
+--- !u!114 &1727164661
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1727164659}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f6cad3c431906743b54be58908a5df7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.PCG.NavMeshRuntimeBaker
+--- !u!114 &1727164662
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1727164659}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 275590c295953f54bab31992bfbd6165, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.PCG.WorldGenerator
+  mapConfig:
+    GridWidth: 64
+    GridHeight: 64
+    CellSize: 2
+    Seed: 1337
+    UseRandomSeed: 1
+    MinClusters: 4
+    MaxClusters: 6
+    ClusterMinRadius: 6
+    ClusterMaxRadius: 9
+    CorridorHalfWidth: 1
+    ExtraLoopCorridors: 1
+    BoundaryTreeThickness: 3
+    MudPatchCount: 6
+    MudPatchMinRadius: 2
+    MudPatchMaxRadius: 4
+    AbandonedStructureCount: 4
+    StructureMinWidth: 5
+    StructureMaxWidth: 7
+    StructureMinHeight: 5
+    StructureMaxHeight: 7
+    CratesPerStructure: 2
+    SafeZoneRadius: 7
+  groundMaterial: {fileID: 2100000, guid: da86e0e9da248f44685781dc53d77c8f, type: 2}
+  mudMaterial: {fileID: 2100000, guid: 8e490bc35d4fa2540b249fd6d8476937, type: 2}
+  barkMaterial: {fileID: 2100000, guid: 2ae122b477971bb44a80b92678821ab3, type: 2}
+  leafMaterial: {fileID: 2100000, guid: a218c3187ae0e0f45b6088da8f953f1d, type: 2}
+  wallMaterial: {fileID: 2100000, guid: 260c7592c895c13499593548ebe64da2, type: 2}
+  cabinFloorMaterial: {fileID: 2100000, guid: cec18937275396644ba2b23007843317, type: 2}
+  crateMaterial: {fileID: 2100000, guid: cec18937275396644ba2b23007843317, type: 2}
+  helicopterMaterial: {fileID: 2100000, guid: ce1f3929b8cf27c468b992838f548303, type: 2}
+  helipadMaterial: {fileID: 2100000, guid: 9e6ef86f9f7a9a0438b8e5184b7a7534, type: 2}
+  blockerMaterial: {fileID: 2100000, guid: 228e71671d996fe4fa740a276a4e3fc1, type: 2}
+  unbreakableBlockerMaterial: {fileID: 2100000, guid: 2c51cd3781700484e9cfd75be2882b43, type: 2}
+  zombiePrefab: {fileID: 3286201853158874056, guid: 0991f0026dc6fe64a91899d06d6b92f7, type: 3}
+  playerPrefab: {fileID: 5082783380368665309, guid: 7856c36666a65e7479adef3bf514645d, type: 3}
+  medkitItemPrefab: {fileID: 9001375370185777033, guid: adca588cc3b28b84ab332fd8296d2d8a, type: 3}
+  bandageItemPrefab: {fileID: 6477215030818312104, guid: 9bd7dd1b29a3b8d48ac50a55dbabf03d, type: 3}
+  firstAidItemPrefab: {fileID: 2503337321424647876, guid: d61fe36550426dd4b87e8b2c08ce7e03, type: 3}
+  bundledLitShader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
+  bundledParticleUnlitShader: {fileID: 4800000, guid: 0406db5a14f94604a8c57ccfbc9f3b46, type: 3}
+  bundledUnlitShader: {fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}
+  emissionVariantTemplate: {fileID: 2100000, guid: 312a17df1dc18b74c96a84b395685f69, type: 2}
+  particleTransparentTemplate: {fileID: 2100000, guid: 6cd758bd0011c684d9ffbc04dea57e87, type: 2}
+--- !u!114 &1727164663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1727164659}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dc1ea028e386f0498a1610743400d2c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Core.PlayerPerformanceTracker
+  trackerConfig:
+    TargetCompletionTime: 180
+    DamageThreshold: 100
+    ResourceBudget: 5
+--- !u!114 &1727164664
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1727164659}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe8e6028f4893dd4ea8206422fb257f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Core.DifficultyController
+  ddaConfig:
+    BaseSectorOneZombies: 4
+    ZombiesPerSectorIncrement: 1
+    MaxZombiesCap: 26
+    Struggling:
+      TotalZombies: 3
+      WalkerProportion: 0.8
+      SpitterProportion: 0.12
+      ChargerProportion: 0.08
+      LootQualityFactor: 0.75
+      HealingSuppliesCount: 7
+      BlockingObjectsCount: 16
+    Balanced:
+      TotalZombies: 4
+      WalkerProportion: 0.65
+      SpitterProportion: 0.2
+      ChargerProportion: 0.15
+      LootQualityFactor: 0.5
+      HealingSuppliesCount: 5
+      BlockingObjectsCount: 24
+    PerformingWell:
+      TotalZombies: 4
+      WalkerProportion: 0.45
+      SpitterProportion: 0.3
+      ChargerProportion: 0.25
+      LootQualityFactor: 0.3
+      HealingSuppliesCount: 3
+      BlockingObjectsCount: 32
+--- !u!114 &1727164665
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1727164659}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c4ce8dedf9017c48adc3d36224e0171, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Core.GameManager
+  managerConfig:
+    StartingLevel: 1
+    AutoGenerateOnStart: 1
+    RequiredSupplyIntel: 3
+    BandageHeal: 20
+    MedkitHeal: 50
+    AdrenalineStamina: 40
+    AdrenalineDuration: 6
+    BaseInitialBandages: 1
+    BaseInitialMedkits: 0
+    BaseInitialAdrenaline: 0
+    BandagesPerSectorPassed: 1
+    MedkitsPerSectorPassed: 1
+    AdrenalineSectorInterval: 2
+    StrugglingBonusBandages: 1
+    StrugglingBonusMedkits: 1
+    StrugglingBonusAdrenaline: 1
+    MaxBeltStack: 9
+    WalkerKillScore: 100
+    SpitterKillScore: 150
+    ChargerKillScore: 250
+    CrateOpenScore: 150
+    LevelClearBaseBonus: 500
+--- !u!4 &1727164666
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1727164659}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1851778078
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1851778080}
+  - component: {fileID: 1851778079}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -136,13 +868,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &391057504
+--- !u!108 &1851778079
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 391057503}
+  m_GameObject: {fileID: 1851778078}
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
@@ -201,729 +933,16 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &391057505
+--- !u!4 &1851778080
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 391057503}
+  m_GameObject: {fileID: 1851778078}
   serializedVersion: 2
   m_LocalRotation: {x: 0.418082, y: -0.27027258, z: 0.13182074, w: 0.85719514}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &714121795
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 714121797}
-  - component: {fileID: 714121796}
-  m_Layer: 0
-  m_Name: Global Volume
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &714121796
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 714121795}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.Volume
-  m_IsGlobal: 1
-  priority: 1
-  blendDistance: 0
-  weight: 1
-  sharedProfile: {fileID: 11400000, guid: 5608a215ecf4c4f4baadfb2e79b4e354, type: 2}
---- !u!4 &714121797
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 714121795}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1199094668
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1199094670}
-  - component: {fileID: 1199094669}
-  m_Layer: 0
-  m_Name: AudioManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1199094669
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1199094668}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 618c83ad93b3b3b4a8169bcb83df44e6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Audio.AudioManager
-  audioConfig:
-    MasterVolume: 0.9
-    SfxVolume: 0.85
-    AmbientVolume: 0.65
-    VoicePoolSize: 24
-    EnableProceduralToneFallback: 1
-    OcclusionCutoffHz: 1800
-    OcclusionVolumeScale: 0.42
-  soundLibrary: {fileID: 11400000, guid: 39c39e6647c92e14db21df4fbda423d2, type: 2}
---- !u!4 &1199094670
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1199094668}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1215196969
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1215196972}
-  - component: {fileID: 1215196971}
-  - component: {fileID: 1215196970}
-  m_Layer: 0
-  m_Name: EventSystem
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1215196970
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1215196969}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 01614664b831546d2ae94a42149d80ac, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.InputSystem::UnityEngine.InputSystem.UI.InputSystemUIInputModule
-  m_SendPointerHoverToParent: 1
-  m_MoveRepeatDelay: 0.5
-  m_MoveRepeatRate: 0.1
-  m_XRTrackingOrigin: {fileID: 0}
-  m_ActionsAsset: {fileID: -944628639613478452, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_PointAction: {fileID: -1654692200621890270, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_MoveAction: {fileID: -8784545083839296357, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_SubmitAction: {fileID: 392368643174621059, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_CancelAction: {fileID: 7727032971491509709, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_LeftClickAction: {fileID: 3001919216989983466, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_MiddleClickAction: {fileID: -2185481485913320682, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_RightClickAction: {fileID: -4090225696740746782, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_ScrollWheelAction: {fileID: 6240969308177333660, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_TrackedDevicePositionAction: {fileID: 6564999863303420839, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_TrackedDeviceOrientationAction: {fileID: 7970375526676320489, guid: ca9f5fa95ffab41fb9a615ab714db018, type: 3}
-  m_DeselectOnBackgroundClick: 1
-  m_PointerBehavior: 0
-  m_CursorLockBehavior: 0
-  m_ScrollDeltaPerTick: 6
---- !u!114 &1215196971
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1215196969}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 76c392e42b5098c458856cdf6ecaaaa1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.EventSystems.EventSystem
-  m_FirstSelected: {fileID: 0}
-  m_sendNavigationEvents: 1
-  m_DragThreshold: 10
---- !u!4 &1215196972
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1215196969}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1292766619
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1292766626}
-  - component: {fileID: 1292766625}
-  - component: {fileID: 1292766624}
-  - component: {fileID: 1292766623}
-  - component: {fileID: 1292766622}
-  - component: {fileID: 1292766621}
-  - component: {fileID: 1292766620}
-  m_Layer: 0
-  m_Name: GameManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1292766620
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1292766619}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 954b6e29fd0b28548b9b6472e4381c44, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Core.CombatVfxManager
-  bundledParticleShader: {fileID: 4800000, guid: 0406db5a14f94604a8c57ccfbc9f3b46, type: 3}
-  bundledFallbackShader: {fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}
---- !u!114 &1292766621
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1292766619}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9f6cad3c431906743b54be58908a5df7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.PCG.NavMeshRuntimeBaker
---- !u!114 &1292766622
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1292766619}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 275590c295953f54bab31992bfbd6165, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.PCG.WorldGenerator
-  mapConfig:
-    GridWidth: 64
-    GridHeight: 64
-    CellSize: 2
-    Seed: 1337
-    UseRandomSeed: 1
-    MinClusters: 4
-    MaxClusters: 6
-    ClusterMinRadius: 6
-    ClusterMaxRadius: 9
-    CorridorHalfWidth: 1
-    ExtraLoopCorridors: 1
-    BoundaryTreeThickness: 3
-    MudPatchCount: 6
-    MudPatchMinRadius: 2
-    MudPatchMaxRadius: 4
-    AbandonedStructureCount: 4
-    StructureMinWidth: 5
-    StructureMaxWidth: 7
-    StructureMinHeight: 5
-    StructureMaxHeight: 7
-    CratesPerStructure: 2
-    SafeZoneRadius: 7
-  groundMaterial: {fileID: 2100000, guid: da86e0e9da248f44685781dc53d77c8f, type: 2}
-  mudMaterial: {fileID: 2100000, guid: 8e490bc35d4fa2540b249fd6d8476937, type: 2}
-  barkMaterial: {fileID: 2100000, guid: 2ae122b477971bb44a80b92678821ab3, type: 2}
-  leafMaterial: {fileID: 2100000, guid: a218c3187ae0e0f45b6088da8f953f1d, type: 2}
-  wallMaterial: {fileID: 2100000, guid: 260c7592c895c13499593548ebe64da2, type: 2}
-  cabinFloorMaterial: {fileID: 2100000, guid: cec18937275396644ba2b23007843317, type: 2}
-  crateMaterial: {fileID: 2100000, guid: cec18937275396644ba2b23007843317, type: 2}
-  helicopterMaterial: {fileID: 2100000, guid: ce1f3929b8cf27c468b992838f548303, type: 2}
-  helipadMaterial: {fileID: 2100000, guid: 9e6ef86f9f7a9a0438b8e5184b7a7534, type: 2}
-  blockerMaterial: {fileID: 2100000, guid: 228e71671d996fe4fa740a276a4e3fc1, type: 2}
-  unbreakableBlockerMaterial: {fileID: 2100000, guid: 2c51cd3781700484e9cfd75be2882b43, type: 2}
-  zombiePrefab: {fileID: 3286201853158874056, guid: 0991f0026dc6fe64a91899d06d6b92f7, type: 3}
-  playerPrefab: {fileID: 5082783380368665309, guid: 7856c36666a65e7479adef3bf514645d, type: 3}
-  medkitItemPrefab: {fileID: 9001375370185777033, guid: adca588cc3b28b84ab332fd8296d2d8a, type: 3}
-  bandageItemPrefab: {fileID: 6477215030818312104, guid: 9bd7dd1b29a3b8d48ac50a55dbabf03d, type: 3}
-  firstAidItemPrefab: {fileID: 2503337321424647876, guid: d61fe36550426dd4b87e8b2c08ce7e03, type: 3}
-  bundledLitShader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
-  bundledParticleUnlitShader: {fileID: 4800000, guid: 0406db5a14f94604a8c57ccfbc9f3b46, type: 3}
-  bundledUnlitShader: {fileID: 4800000, guid: 650dd9526735d5b46b79224bc6e94025, type: 3}
---- !u!114 &1292766623
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1292766619}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2dc1ea028e386f0498a1610743400d2c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Core.PlayerPerformanceTracker
-  trackerConfig:
-    TargetCompletionTime: 180
-    DamageThreshold: 100
-    ResourceBudget: 5
---- !u!114 &1292766624
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1292766619}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fe8e6028f4893dd4ea8206422fb257f5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Core.DifficultyController
-  ddaConfig:
-    Struggling:
-      TotalZombies: 12
-      WalkerProportion: 0.8
-      SpitterProportion: 0.12
-      ChargerProportion: 0.08
-      LootQualityFactor: 0.75
-      HealingSuppliesCount: 7
-      BlockingObjectsCount: 16
-    Balanced:
-      TotalZombies: 18
-      WalkerProportion: 0.65
-      SpitterProportion: 0.2
-      ChargerProportion: 0.15
-      LootQualityFactor: 0.5
-      HealingSuppliesCount: 5
-      BlockingObjectsCount: 24
-    PerformingWell:
-      TotalZombies: 26
-      WalkerProportion: 0.45
-      SpitterProportion: 0.3
-      ChargerProportion: 0.25
-      LootQualityFactor: 0.3
-      HealingSuppliesCount: 3
-      BlockingObjectsCount: 32
---- !u!114 &1292766625
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1292766619}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4c4ce8dedf9017c48adc3d36224e0171, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Core.GameManager
-  managerConfig:
-    StartingLevel: 1
-    AutoGenerateOnStart: 1
-    RequiredSupplyIntel: 3
-    BandageHeal: 20
-    MedkitHeal: 50
-    AdrenalineStamina: 40
-    AdrenalineDuration: 6
-    WalkerKillScore: 100
-    SpitterKillScore: 150
-    ChargerKillScore: 250
-    CrateOpenScore: 150
-    LevelClearBaseBonus: 500
---- !u!4 &1292766626
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1292766619}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1643576472
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1643576479}
-  - component: {fileID: 1643576478}
-  - component: {fileID: 1643576477}
-  - component: {fileID: 1643576476}
-  - component: {fileID: 1643576475}
-  - component: {fileID: 1643576474}
-  - component: {fileID: 1643576473}
-  m_Layer: 0
-  m_Name: UIManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1643576473
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1643576472}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b45bcf0e55c23ae4399628d4ebdb0aba, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.DeadDepthsUIRoot
---- !u!114 &1643576474
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1643576472}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c0ef7c5dbe381eb49ad11df84e77f194, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.DeadDepthsDebugMode
-  isDebugVisible: 0
-  showAiWorldOverlay: 1
-  showMapResourcePanel: 1
-  showAiPanel: 1
---- !u!114 &1643576475
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1643576472}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 04244902a30cd264a88c770ecefaa331, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.CompletionScreenUI
-  screenConfig:
-    DimBackdropColor: {r: 0.04, g: 0.05, b: 0.08, a: 0.9}
-    PanelColor: {r: 0.09, g: 0.11, b: 0.16, a: 0.96}
-    PanelBorderColor: {r: 0.24, g: 0.72, b: 0.44, a: 0.95}
-    TextColor: {r: 0.92, g: 0.96, b: 1, a: 1}
-    AccentColor: {r: 0.35, g: 0.92, b: 0.55, a: 1}
-    ButtonColor: {r: 0.18, g: 0.65, b: 0.35, a: 1}
-    ButtonHoverColor: {r: 0.24, g: 0.82, b: 0.44, a: 1}
-    SecondaryButtonColor: {r: 0.28, g: 0.32, b: 0.4, a: 1}
-    SecondaryButtonHoverColor: {r: 0.38, g: 0.44, b: 0.54, a: 1}
-    TitleFontSize: 24
-    ButtonFontSize: 16
-    ButtonWidth: 210
-    ButtonHeight: 44
---- !u!114 &1643576476
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1643576472}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fee4a4de02a227e459c8c2dfe40025d2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.ItemNotificationManager
-  notifyConfig:
-    BaseOverheadOffset: {x: 0, y: 2.5, z: 0}
-    RowHeight: 24
-    BoxWidth: 160
-    MaxVisibleNotifications: 3
-    DisplayDuration: 3.5
-    FadeDuration: 0.5
-    BackgroundColor: {r: 0.06, g: 0.08, b: 0.12, a: 0.82}
-    BorderColor: {r: 0.2, g: 0.75, b: 0.4, a: 0.9}
-    TextColor: {r: 0.95, g: 0.98, b: 1, a: 1}
---- !u!114 &1643576477
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1643576472}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eef3ce9bd6379574eb772d2bd5dfb4ef, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.CrateProgressBarUI
-  barConfig:
-    OverheadOffset: {x: 0, y: 2.2, z: 0}
-    Width: 140
-    Height: 12
-    BackgroundColor: {r: 0.08, g: 0.08, b: 0.12, a: 0.65}
-    FillColor: {r: 1, g: 1, b: 1, a: 1}
-    BorderColor: {r: 0.25, g: 0.25, b: 0.35, a: 0.85}
---- !u!114 &1643576478
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1643576472}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: acc77a272420b7349ae09d47a3118783, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.UI.DeadDepthsHUD
-  hudConfig:
-    HudOffset: {x: 25, y: 25}
-    BarWidth: 220
-    BarHeight: 18
-    BarSpacing: 6
-    HealthFillColor: {r: 0.85, g: 0.22, b: 0.22, a: 1}
-    StaminaFillColor: {r: 0.24, g: 0.65, b: 0.95, a: 1}
-    TrackColor: {r: 0.08, g: 0.1, b: 0.14, a: 0.85}
-    BorderColor: {r: 0.22, g: 0.25, b: 0.32, a: 0.95}
-    TextColor: {r: 0.92, g: 0.95, b: 1, a: 1}
-    PromptColor: {r: 1, g: 0.88, b: 0.35, a: 1}
---- !u!4 &1643576479
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1643576472}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2085917549
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2085917555}
-  - component: {fileID: 2085917554}
-  - component: {fileID: 2085917553}
-  - component: {fileID: 2085917552}
-  - component: {fileID: 2085917551}
-  - component: {fileID: 2085917550}
-  m_Layer: 0
-  m_Name: Main Camera
-  m_TagString: MainCamera
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &2085917550
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2085917549}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8a6c16a9827c2254d9a24a1c638905eb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Player.ObstructionFadeController
-  fadeConfig:
-    FadedAlpha: 0.25
-    FadeSpeed: 8
-    SphereCastRadius: 0.6
-    ObstructionLayers:
-      serializedVersion: 2
-      m_Bits: 4294967295
-  playerTarget: {fileID: 0}
---- !u!114 &2085917551
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2085917549}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f70c206820962aa40b0ff2ddee96eaef, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DeadDepths.Player.IsometricCameraController
-  camConfig:
-    PitchAngle: 52
-    YawAngle: 45
-    Distance: 16
-    TargetOffset: {x: 0, y: 1.2, z: 0}
-    FollowDamping: 10
-    EnableAimLookAhead: 1
-    LookAheadDeadzone: 0.1
-    MaxLookAheadDistance: 3.2
-    LookAheadDamping: 6
-  target: {fileID: 0}
---- !u!114 &2085917552
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2085917549}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
-  m_RenderShadows: 1
-  m_RequiresDepthTextureOption: 2
-  m_RequiresOpaqueTextureOption: 2
-  m_CameraType: 0
-  m_Cameras: []
-  m_RendererIndex: -1
-  m_VolumeLayerMask:
-    serializedVersion: 2
-    m_Bits: 1
-  m_VolumeTrigger: {fileID: 0}
-  m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 1
-  m_Antialiasing: 2
-  m_AntialiasingQuality: 2
-  m_StopNaN: 0
-  m_Dithering: 0
-  m_ClearDepth: 1
-  m_AllowXRRendering: 1
-  m_AllowHDROutput: 1
-  m_UseScreenCoordOverride: 0
-  m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
-  m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
-  m_RequiresDepthTexture: 0
-  m_RequiresColorTexture: 0
-  m_TaaSettings:
-    m_Quality: 3
-    m_FrameInfluence: 0.1
-    m_JitterScale: 1
-    m_MipBias: 0
-    m_VarianceClampScale: 0.9
-    m_ContrastAdaptiveSharpening: 0
-  m_Version: 2
---- !u!81 &2085917553
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2085917549}
-  m_Enabled: 1
---- !u!20 &2085917554
-Camera:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2085917549}
-  m_Enabled: 1
-  serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.04, g: 0.06, b: 0.1, a: 1}
-  m_projectionMatrixMode: 1
-  m_GateFitMode: 2
-  m_FOVAxisMode: 0
-  m_Iso: 200
-  m_ShutterSpeed: 0.005
-  m_Aperture: 16
-  m_FocusDistance: 10
-  m_FocalLength: 50
-  m_BladeCount: 5
-  m_Curvature: {x: 2, y: 11}
-  m_BarrelClipping: 0.25
-  m_Anamorphism: 0
-  m_SensorSize: {x: 36, y: 24}
-  m_LensShift: {x: 0, y: 0}
-  m_NormalizedViewPortRect:
-    serializedVersion: 2
-    x: 0
-    y: 0
-    width: 1
-    height: 1
-  near clip plane: 0.3
-  far clip plane: 500
-  field of view: 50
-  orthographic: 0
-  orthographic size: 5
-  m_Depth: 0
-  m_CullingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_RenderingPath: -1
-  m_TargetTexture: {fileID: 0}
-  m_TargetDisplay: 0
-  m_TargetEye: 3
-  m_HDR: 1
-  m_AllowMSAA: 1
-  m_AllowDynamicResolution: 0
-  m_ForceIntoRT: 0
-  m_OcclusionCulling: 1
-  m_StereoConvergence: 10
-  m_StereoSeparation: 0.022
---- !u!4 &2085917555
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2085917549}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0.40500215, y: 0.3439536, z: -0.1677574, w: 0.8303774}
-  m_LocalPosition: {x: 0, y: 22, z: -22}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -933,10 +952,10 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 391057505}
-  - {fileID: 714121797}
-  - {fileID: 2085917555}
-  - {fileID: 1199094670}
-  - {fileID: 1292766626}
-  - {fileID: 1643576479}
-  - {fileID: 1215196972}
+  - {fileID: 1851778080}
+  - {fileID: 459238000}
+  - {fileID: 804816964}
+  - {fileID: 1229655972}
+  - {fileID: 1727164666}
+  - {fileID: 1030827106}
+  - {fileID: 931802097}

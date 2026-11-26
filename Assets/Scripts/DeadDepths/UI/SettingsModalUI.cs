@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using DeadDepths.Audio;
 using DeadDepths.Player;
@@ -192,6 +193,7 @@ namespace DeadDepths.UI
                 DeadDepthsUIArtFactory.CircleSolidSprite, new Color(0.95f, 0.97f, 1f, 1f), true);
 
             var slider = sliderGo.AddComponent<Slider>();
+            slider.navigation = new Navigation { mode = Navigation.Mode.None };
             slider.targetGraphic = handleImg;
             slider.fillRect = fillImg.rectTransform;
             slider.handleRect = handleImg.rectTransform;
@@ -225,10 +227,18 @@ namespace DeadDepths.UI
                 DeadDepthsUIArtFactory.BarFillSprite, new Color(0.28f, 0.88f, 0.50f, 1f), false);
 
             var toggle = toggleGo.AddComponent<Toggle>();
+            toggle.navigation = new Navigation { mode = Navigation.Mode.None };
             toggle.targetGraphic = bg;
             toggle.graphic = check;
             toggle.isOn = defaultVal;
-            toggle.onValueChanged.AddListener(onChanged);
+            toggle.onValueChanged.AddListener(val =>
+            {
+                if (EventSystem.current != null)
+                {
+                    EventSystem.current.SetSelectedGameObject(null);
+                }
+                onChanged?.Invoke(val);
+            });
 
             y -= 44f;
             return toggle;
@@ -248,7 +258,11 @@ namespace DeadDepths.UI
             if (names != null && names.Length > 0)
             {
                 currentQualityIdx = Mathf.Clamp(idx, 0, names.Length - 1);
-                if (Application.isPlaying) QualitySettings.SetQualityLevel(currentQualityIdx, true);
+                if (Application.isPlaying)
+                {
+                    QualitySettings.SetQualityLevel(currentQualityIdx, true);
+                    QualitySettings.vSyncCount = PlayerPrefs.GetInt(PrefVSync, 1) == 1 ? 1 : 0;
+                }
                 if (qualityBtnLabel != null)
                     qualityBtnLabel.text = names[currentQualityIdx].ToUpperInvariant();
             }
@@ -287,8 +301,8 @@ namespace DeadDepths.UI
             if (vsyncToggle != null) vsyncToggle.SetIsOnWithoutNotify(vsync);
 
             AudioManager.Instance?.SetVolumes(m, s, a, false);
-            if (Application.isPlaying) QualitySettings.vSyncCount = vsync ? 1 : 0;
             ApplyQualityIndex(qual, false);
+            if (Application.isPlaying) QualitySettings.vSyncCount = vsync ? 1 : 0;
         }
 
         public void Open()
@@ -301,6 +315,10 @@ namespace DeadDepths.UI
         public void Close()
         {
             IsOpen = false;
+            if (EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+            }
             if (modalRoot != null) modalRoot.SetActive(false);
         }
     }

@@ -126,12 +126,21 @@ namespace DeadDepths.UI
         private void Start()
         {
             ItemNotificationManager.OnNotificationPosted += OnItemNotificationPosted;
-            GameManager.Instance?.AddBeltItem(BeltItemType.Bandage, 0);
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.OnLevelStarted -= OnLevelStartedClearToasts;
+                GameManager.Instance.OnLevelStarted += OnLevelStartedClearToasts;
+                GameManager.Instance.AddBeltItem(BeltItemType.Bandage, 0);
+            }
         }
 
         private void OnDestroy()
         {
             ItemNotificationManager.OnNotificationPosted -= OnItemNotificationPosted;
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.OnLevelStarted -= OnLevelStartedClearToasts;
+            }
             if (boundPlayer != null) boundPlayer.OnHealthChanged -= OnPlayerHealthChanged;
             if (minimapTex != null)
             {
@@ -475,10 +484,28 @@ namespace DeadDepths.UI
             if (minimapBody != null) minimapBody.SetActive(minimapVisible);
         }
 
+        private void OnLevelStartedClearToasts(int _)
+        {
+            ClearToasts();
+        }
+
+        public void ClearToasts()
+        {
+            for (int i = 0; i < toastPool.Count; i++)
+            {
+                var t = toastPool[i];
+                t.Remaining = 0f;
+                if (t.Root != null && t.Root.activeSelf) t.Root.SetActive(false);
+                toastPool[i] = t;
+            }
+        }
+
         private void ToggleMinimap()
         {
             minimapVisible = !minimapVisible;
             if (minimapBody != null) minimapBody.SetActive(minimapVisible);
+            PlayerPrefs.SetInt(SettingsModalUI.PrefShowMinimap, minimapVisible ? 1 : 0);
+            PlayerPrefs.Save();
             AudioManager.Instance?.PlayCue(SfxCue.UI);
         }
 
@@ -488,18 +515,30 @@ namespace DeadDepths.UI
             bool inMenu = gm != null && gm.IsInMainMenu;
             bool compVisible = CompletionScreenUI.Instance != null && CompletionScreenUI.Instance.IsVisible;
 
+            if (inMenu)
+            {
+                ClearToasts();
+            }
+
             if (hudRoot != null) hudRoot.SetActive(!inMenu && !compVisible);
             if (inMenu || compVisible) return;
 
+            bool toggleMapPressed = false;
 #if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null &&
-                Keyboard.current.mKey.wasPressedThisFrame &&
-                (gm == null || !gm.IsPaused) &&
-                (boundPlayer == null || !boundPlayer.IsDead))
+            if (Keyboard.current != null && Keyboard.current.mKey.wasPressedThisFrame)
+            {
+                toggleMapPressed = true;
+            }
+#else
+            if (Input.GetKeyDown(KeyCode.M))
+            {
+                toggleMapPressed = true;
+            }
+#endif
+            if (toggleMapPressed && (gm == null || !gm.IsPaused) && (boundPlayer == null || !boundPlayer.IsDead))
             {
                 ToggleMinimap();
             }
-#endif
 
             BindPlayerIfNeeded();
             UpdateToasts();
@@ -823,10 +862,14 @@ namespace DeadDepths.UI
                 if (offscreen)
                 {
                     if (vp.z < 0f) { vp.x = 1f - vp.x; vp.y = 1f - vp.y; }
-                    Vector2 dir = new Vector2(vp.x - 0.5f, vp.y - 0.5f).normalized;
+                    Vector2 dir = new Vector2(vp.x - 0.5f, vp.y - 0.5f);
+                    if (dir.sqrMagnitude > 0.0001f) dir.Normalize();
+                    RectTransform parentRt = evacCompassArrow.parent as RectTransform;
+                    float halfW = (parentRt != null && parentRt.rect.width > 0f) ? Mathf.Max(60f, parentRt.rect.width * 0.5f - 60f) : 820f;
+                    float halfH = (parentRt != null && parentRt.rect.height > 0f) ? Mathf.Max(60f, parentRt.rect.height * 0.5f - 60f) : 420f;
                     evacCompassArrow.anchoredPosition = new Vector2(
-                        Mathf.Clamp(dir.x * 820f, -820f, 820f),
-                        Mathf.Clamp(dir.y * 420f, -330f, 430f));
+                        Mathf.Clamp(dir.x * halfW, -halfW, halfW),
+                        Mathf.Clamp(dir.y * halfH, -halfH, halfH));
                 }
             }
         }

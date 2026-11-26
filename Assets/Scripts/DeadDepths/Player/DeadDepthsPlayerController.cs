@@ -97,7 +97,7 @@ namespace DeadDepths.Player
         public bool IsAiming { get; private set; }
         public bool IsDodging { get; private set; }
         public bool IsGodMode { get; private set; }
-        public bool IsInvulnerable => IsGodMode || Time.unscaledTime < iframeEndTime;
+        public bool IsInvulnerable => IsGodMode || iframeRemaining > 0f;
         public float CurrentSpeed { get; private set; }
         public float TerrainMultiplier => terrainMultiplier;
         public float CurrentAnimSpeedMult { get; private set; } = 1.0f;
@@ -121,7 +121,7 @@ namespace DeadDepths.Player
         private bool hasAnimSpeedMultParam = false;
         private bool animParamChecked = false;
         private Camera cachedMainCamera;
-        private readonly Collider[] crateOverlapBuffer = new Collider[16];
+        private readonly Collider[] crateOverlapBuffer = new Collider[32];
         private DeadDepthsFlashlight flashlight;
         private float verticalVelocity = 0f;
         private float terrainMultiplier = 1.0f;
@@ -143,7 +143,7 @@ namespace DeadDepths.Player
         private float dodgeBufferedUntil = -1f;
         private float nextDodgeTime = -10f;
         private float dodgeTimer = 0f;
-        private float iframeEndTime = -10f;
+        private float iframeRemaining = 0f;
         private Vector3 dodgeDirection = Vector3.forward;
         private bool dodgeIsBackstep = false;
 
@@ -307,6 +307,11 @@ namespace DeadDepths.Player
             {
                 ResetTransientInputStates();
                 return;
+            }
+
+            if (iframeRemaining > 0f)
+            {
+                iframeRemaining = Mathf.Max(0f, iframeRemaining - Time.deltaTime);
             }
 
             HandleInput();
@@ -513,6 +518,17 @@ namespace DeadDepths.Player
             if (Time.unscaledTime < nextDodgeTime) return false;
             if (!IsGodMode && CurrentStamina < playerConfig.DodgeStaminaCost) return false;
 
+            // Cancel pending punch hit check if player dodges
+            if (activePunchRoutine != null)
+            {
+                StopCoroutine(activePunchRoutine);
+                activePunchRoutine = null;
+            }
+            if (animator != null)
+            {
+                animator.ResetTrigger(HashPunch);
+            }
+
             // Cancel crate interaction smoothly if player dodges away
             if (isInteractingWithCrate)
             {
@@ -562,7 +578,7 @@ namespace DeadDepths.Player
             dodgeTimer = 0f;
             dodgeBufferedUntil = -1f;
             nextDodgeTime = Time.unscaledTime + playerConfig.DodgeCooldown;
-            iframeEndTime = Time.unscaledTime + playerConfig.DodgeIframeDuration;
+            iframeRemaining = playerConfig.DodgeIframeDuration;
 
             if (!dodgeIsBackstep && dodgeDirection.sqrMagnitude > 0.001f)
             {
@@ -695,7 +711,12 @@ namespace DeadDepths.Player
             {
                 StopCoroutine(activeHitstopRoutine);
                 activeHitstopRoutine = null;
+                Time.timeScale = 1f;
             }
+
+            var gm = GameManager.Instance;
+            var perf = PlayerPerformanceTracker.Instance ?? FindAnyObjectByType<PlayerPerformanceTracker>();
+            perf?.SetTimePaused(gm != null && gm.IsInMainMenu);
 
             CurrentHealth = playerConfig.MaxHealth;
             CurrentStamina = playerConfig.MaxStamina;
@@ -711,7 +732,7 @@ namespace DeadDepths.Player
             shiftHoldDuration = 0f;
             dodgeBufferedUntil = -1f;
             nextDodgeTime = -10f;
-            iframeEndTime = -10f;
+            iframeRemaining = 0f;
             comboStep = 0;
             lastPunchTriggerTime = -10f;
             pendingDamageMultiplier = 1.0f;
@@ -1198,7 +1219,7 @@ namespace DeadDepths.Player
 
         private void HandleCrateInteraction()
         {
-            int hitCount = Physics.OverlapSphereNonAlloc(transform.position, playerConfig.InteractionScanRadius, crateOverlapBuffer);
+            int hitCount = Physics.OverlapSphereNonAlloc(transform.position, playerConfig.InteractionScanRadius, crateOverlapBuffer, ~0, QueryTriggerInteraction.Ignore);
             SuppliesCrate nearestCrate = null;
             float nearestDist = float.MaxValue;
 
@@ -1227,7 +1248,8 @@ namespace DeadDepths.Player
             activeTargetCrate = nearestCrate;
 
             bool isHoldingInteract = GetKey(Key.E);
-            if (isHoldingInteract && activeTargetCrate != null && !IsDodging)
+            bool hasMoveInput = GetMovementInput().sqrMagnitude > 0.01f;
+            if (isHoldingInteract && activeTargetCrate != null && !IsDodging && !hasMoveInput)
             {
                 if (!isInteractingWithCrate)
                 {
@@ -1335,9 +1357,12 @@ namespace DeadDepths.Player
             IsAiming = false;
             IsDodging = false;
             IsSprinting = false;
+            iframeRemaining = 0f;
             aimInputHeld = false;
             testAimOverrideActive = false;
             CancelCrateInteraction();
+            var perf = PlayerPerformanceTracker.Instance ?? FindAnyObjectByType<PlayerPerformanceTracker>();
+            perf?.SetTimePaused(true);
 
             if (animator != null)
             {

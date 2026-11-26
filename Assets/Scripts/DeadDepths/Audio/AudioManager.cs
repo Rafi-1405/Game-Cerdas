@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using DeadDepths.AI;
 using DeadDepths.Core;
+using DeadDepths.Interactive;
 using DeadDepths.Player;
 using UTS.Audio;
 
@@ -65,7 +66,7 @@ namespace DeadDepths.Audio
         private float tensionCrossfadeTimer = 0f;
         private float tensionClipDuration = 0f;
         private bool isCrossfadingTension = false;
-        private readonly RaycastHit[] occlusionHits = new RaycastHit[16];
+        private readonly RaycastHit[] occlusionHits = new RaycastHit[32];
         private readonly List<ZombieController> cachedZombies = new List<ZombieController>();
         private float nextZombieCacheRefresh = 0f;
 
@@ -403,7 +404,13 @@ namespace DeadDepths.Audio
                         Vector3 playPos = position ?? Vector3.zero;
                         bool spatial = position.HasValue && cueSet.spatial;
 
-                        Transform listener = Camera.main != null ? Camera.main.transform : null;
+                        var playerCtrl = DeadDepthsPlayerController.Instance;
+                        Transform listener = playerCtrl != null
+                            ? playerCtrl.transform
+                            : (Camera.main != null ? Camera.main.transform : null);
+                        Vector3 listenerPos = playerCtrl != null
+                            ? playerCtrl.transform.position + Vector3.up * 1.0f
+                            : (listener != null ? listener.position : Vector3.zero);
                         if (spatial && listener != null && Vector3.Distance(listener.position, playPos) > 32f)
                         {
                             return;
@@ -434,7 +441,7 @@ namespace DeadDepths.Audio
 
                         if (spatial && listener != null)
                         {
-                            if (IsOccludedByWall(playPos + Vector3.up * 0.9f, listener.position))
+                            if (IsOccludedByWall(playPos + Vector3.up * 0.9f, listenerPos))
                             {
                                 vol *= audioConfig.OcclusionVolumeScale;
                                 cutoff = audioConfig.OcclusionCutoffHz;
@@ -517,14 +524,25 @@ namespace DeadDepths.Audio
             float dist = delta.magnitude;
             if (dist <= 0.5f) return false;
 
-            int count = Physics.RaycastNonAlloc(sourcePos, delta / dist, occlusionHits, dist, ~0, QueryTriggerInteraction.Ignore);
+            Vector3 dir = delta / dist;
+            int count = Physics.RaycastNonAlloc(sourcePos, dir, occlusionHits, dist, ~0, QueryTriggerInteraction.Ignore);
+            RaycastHit[] hits = occlusionHits;
+            if (count >= occlusionHits.Length)
+            {
+                hits = Physics.RaycastAll(sourcePos, dir, dist, ~0, QueryTriggerInteraction.Ignore);
+                count = hits != null ? hits.Length : 0;
+            }
             for (int i = 0; i < count; i++)
             {
-                var col = occlusionHits[i].collider;
+                var col = hits[i].collider;
                 if (col == null) continue;
                 if (col.gameObject.name == "PlayableGround") continue;
+                if (col.gameObject.name.StartsWith("BoundaryTree_", StringComparison.Ordinal)) continue;
                 if (col.GetComponentInParent<DeadDepthsPlayerController>() != null) continue;
                 if (col.GetComponentInParent<ZombieController>() != null) continue;
+                if (col.GetComponentInParent<SuppliesCrate>() != null) continue;
+                if (col.GetComponentInParent<BlockingObject>() != null) continue;
+                if (col.GetComponentInParent<ExtractionHelicopter>() != null) continue;
                 return true;
             }
             return false;

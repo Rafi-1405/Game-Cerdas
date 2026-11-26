@@ -173,10 +173,6 @@ namespace DeadDepths.Core
         {
             int total = GetZombieCountForLevel(levelNumber);
             ActiveLevelZombieCount = total;
-            if (profile != null)
-            {
-                profile.TotalZombies = total;
-            }
             CalculateEnemyCountsInternal(profile, total, out walkers, out spitters, out chargers);
         }
 

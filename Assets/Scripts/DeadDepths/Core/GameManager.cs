@@ -153,13 +153,15 @@ namespace DeadDepths.Core
             if (managerConfig.MedkitHeal <= 0f) managerConfig.MedkitHeal = 50f;
             if (managerConfig.AdrenalineStamina <= 0f) managerConfig.AdrenalineStamina = 40f;
             if (managerConfig.AdrenalineDuration <= 0f) managerConfig.AdrenalineDuration = 6.0f;
-            if (managerConfig.BaseInitialBandages <= 0) managerConfig.BaseInitialBandages = 1;
-            if (managerConfig.BandagesPerSectorPassed <= 0) managerConfig.BandagesPerSectorPassed = 1;
-            if (managerConfig.MedkitsPerSectorPassed <= 0) managerConfig.MedkitsPerSectorPassed = 1;
+            if (managerConfig.BaseInitialBandages < 0) managerConfig.BaseInitialBandages = 1;
+            if (managerConfig.BaseInitialMedkits < 0) managerConfig.BaseInitialMedkits = 0;
+            if (managerConfig.BaseInitialAdrenaline < 0) managerConfig.BaseInitialAdrenaline = 0;
+            if (managerConfig.BandagesPerSectorPassed < 0) managerConfig.BandagesPerSectorPassed = 1;
+            if (managerConfig.MedkitsPerSectorPassed < 0) managerConfig.MedkitsPerSectorPassed = 1;
             if (managerConfig.AdrenalineSectorInterval <= 0) managerConfig.AdrenalineSectorInterval = 2;
-            if (managerConfig.StrugglingBonusBandages <= 0) managerConfig.StrugglingBonusBandages = 1;
-            if (managerConfig.StrugglingBonusMedkits <= 0) managerConfig.StrugglingBonusMedkits = 1;
-            if (managerConfig.StrugglingBonusAdrenaline <= 0) managerConfig.StrugglingBonusAdrenaline = 1;
+            if (managerConfig.StrugglingBonusBandages < 0) managerConfig.StrugglingBonusBandages = 1;
+            if (managerConfig.StrugglingBonusMedkits < 0) managerConfig.StrugglingBonusMedkits = 1;
+            if (managerConfig.StrugglingBonusAdrenaline < 0) managerConfig.StrugglingBonusAdrenaline = 1;
             if (managerConfig.MaxBeltStack <= 0) managerConfig.MaxBeltStack = 9;
         }
 
@@ -525,11 +527,12 @@ namespace DeadDepths.Core
         public void AddBeltItem(BeltItemType itemType, int quantity = 1)
         {
             if (quantity <= 0) return;
+            int cap = Mathf.Max(1, managerConfig != null ? managerConfig.MaxBeltStack : 9);
             switch (itemType)
             {
-                case BeltItemType.Bandage: BandageCount = Mathf.Min(9, BandageCount + quantity); break;
-                case BeltItemType.Medkit: MedkitCount = Mathf.Min(9, MedkitCount + quantity); break;
-                case BeltItemType.Adrenaline: AdrenalineCount = Mathf.Min(9, AdrenalineCount + quantity); break;
+                case BeltItemType.Bandage: BandageCount = Mathf.Min(cap, BandageCount + quantity); break;
+                case BeltItemType.Medkit: MedkitCount = Mathf.Min(cap, MedkitCount + quantity); break;
+                case BeltItemType.Adrenaline: AdrenalineCount = Mathf.Min(cap, AdrenalineCount + quantity); break;
             }
             OnBeltUpdated?.Invoke();
         }

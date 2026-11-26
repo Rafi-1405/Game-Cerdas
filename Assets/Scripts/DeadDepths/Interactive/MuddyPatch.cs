@@ -33,11 +33,21 @@ namespace DeadDepths.Interactive
             new Dictionary<IMudSlowable, HashSet<MuddyPatch>>();
 
         private readonly HashSet<IMudSlowable> actorsInsideThisPatch = new HashSet<IMudSlowable>();
+        private static readonly List<IMudSlowable> staleActorsBuffer = new List<IMudSlowable>(8);
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
             activePatchesByActor.Clear();
+            staleActorsBuffer.Clear();
+        }
+
+        private static bool IsActorValid(IMudSlowable actor)
+        {
+            if (actor == null) return false;
+            if (actor is UnityEngine.Object unityObj && unityObj == null) return false;
+            if (actor is DeadDepths.AI.ZombieController z && z.IsDead) return false;
+            return true;
         }
 
         private void Awake()
@@ -54,15 +64,51 @@ namespace DeadDepths.Interactive
 
         public static bool IsActorInMud(IMudSlowable slowable)
         {
-            return slowable != null &&
-                   activePatchesByActor.TryGetValue(slowable, out var set) &&
-                   set.Count > 0;
+            if (!IsActorValid(slowable))
+            {
+                if (slowable != null) activePatchesByActor.Remove(slowable);
+                return false;
+            }
+            if (!activePatchesByActor.TryGetValue(slowable, out var set)) return false;
+            set.RemoveWhere(p => p == null);
+            if (set.Count == 0)
+            {
+                activePatchesByActor.Remove(slowable);
+                return false;
+            }
+            return true;
+        }
+
+        private void Update()
+        {
+            if (actorsInsideThisPatch.Count > 0)
+            {
+                PruneStaleActors();
+            }
+        }
+
+        private void PruneStaleActors()
+        {
+            if (actorsInsideThisPatch.Count == 0) return;
+            staleActorsBuffer.Clear();
+            foreach (var actor in actorsInsideThisPatch)
+            {
+                if (!IsActorValid(actor))
+                {
+                    staleActorsBuffer.Add(actor);
+                }
+            }
+            for (int i = 0; i < staleActorsBuffer.Count; i++)
+            {
+                UnregisterActorExit(staleActorsBuffer[i]);
+            }
+            staleActorsBuffer.Clear();
         }
 
         private void OnTriggerEnter(Collider other)
         {
             var slowable = other.GetComponentInParent<IMudSlowable>();
-            if (slowable != null)
+            if (IsActorValid(slowable))
             {
                 RegisterActorEnter(slowable);
             }
@@ -79,7 +125,8 @@ namespace DeadDepths.Interactive
 
         public void RegisterActorEnter(IMudSlowable slowable)
         {
-            if (slowable == null) return;
+            if (!IsActorValid(slowable)) return;
+            PruneStaleActors();
             if (!activePatchesByActor.TryGetValue(slowable, out var set))
             {
                 set = new HashSet<MuddyPatch>();
@@ -92,19 +139,22 @@ namespace DeadDepths.Interactive
 
         public void UnregisterActorExit(IMudSlowable slowable)
         {
-            if (slowable == null) return;
+            if (ReferenceEquals(slowable, null)) return;
             actorsInsideThisPatch.Remove(slowable);
+
+            bool aliveUnityObj = !(slowable is UnityEngine.Object unityObj && unityObj == null);
 
             if (activePatchesByActor.TryGetValue(slowable, out var set))
             {
                 set.Remove(this);
+                set.RemoveWhere(p => p == null);
                 if (set.Count == 0)
                 {
                     activePatchesByActor.Remove(slowable);
-                    slowable.SetTerrainSpeedMultiplier(1.0f);
+                    if (aliveUnityObj) slowable.SetTerrainSpeedMultiplier(1.0f);
                 }
             }
-            else
+            else if (aliveUnityObj)
             {
                 slowable.SetTerrainSpeedMultiplier(1.0f);
             }

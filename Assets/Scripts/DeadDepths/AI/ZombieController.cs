@@ -108,7 +108,7 @@ namespace DeadDepths.AI
         private static readonly List<ZombieController> activeZombies = new List<ZombieController>(32);
         public static IReadOnlyList<ZombieController> ActiveZombies => activeZombies;
 
-        private static readonly RaycastHit[] losHitBuffer = new RaycastHit[16];
+        private static readonly RaycastHit[] losHitBuffer = new RaycastHit[32];
         private static readonly int HashSpeed = Animator.StringToHash("Speed");
         private static readonly int HashAttack = Animator.StringToHash("Attack");
         private static readonly int HashDead = Animator.StringToHash("Dead");
@@ -579,21 +579,30 @@ namespace DeadDepths.AI
             float dist = delta.magnitude;
             if (dist <= 0.01f) return true;
 
-            int hitCount = Physics.RaycastNonAlloc(fromPos, delta / dist, losHitBuffer, dist, ~0, QueryTriggerInteraction.Ignore);
+            Vector3 dir = delta / dist;
+            int hitCount = Physics.RaycastNonAlloc(fromPos, dir, losHitBuffer, dist, ~0, QueryTriggerInteraction.Ignore);
             if (hitCount == 0) return true;
+
+            RaycastHit[] hitsToScan = losHitBuffer;
+            if (hitCount >= losHitBuffer.Length)
+            {
+                hitsToScan = Physics.RaycastAll(fromPos, dir, dist, ~0, QueryTriggerInteraction.Ignore);
+                hitCount = hitsToScan != null ? hitsToScan.Length : 0;
+                if (hitCount == 0) return true;
+            }
 
             float closestBlockingDist = float.MaxValue;
             float closestPlayerDist = float.MaxValue;
 
             for (int i = 0; i < hitCount; i++)
             {
-                Collider col = losHitBuffer[i].collider;
+                Collider col = hitsToScan[i].collider;
                 if (col == null) continue;
                 Transform colTr = col.transform;
                 if (colTr == transform || colTr.IsChildOf(transform)) continue;
                 if (col.GetComponentInParent<ZombieController>() != null) continue;
 
-                float hitDist = losHitBuffer[i].distance;
+                float hitDist = hitsToScan[i].distance;
                 if (colTr == playerTarget || colTr.IsChildOf(playerTarget))
                 {
                     if (hitDist < closestPlayerDist) closestPlayerDist = hitDist;
@@ -604,6 +613,10 @@ namespace DeadDepths.AI
                 }
             }
 
+            if (closestPlayerDist == float.MaxValue)
+            {
+                return closestBlockingDist == float.MaxValue;
+            }
             return closestBlockingDist >= closestPlayerDist;
         }
 
@@ -680,9 +693,7 @@ namespace DeadDepths.AI
             }
 
             bool hasDirectLOS = HasUnobstructedLineOfSightToPlayer(transform.position + Vector3.up * 1.1f, playerTarget.position + Vector3.up * 1.0f);
-            bool canEngage = archetype == ZombieArchetype.Walker
-                ? (distToPlayer <= aiConfig.AttackRange && hasDirectLOS)
-                : (distToPlayer <= aiConfig.AttackRange && HasLineOfSightToPlayer);
+            bool canEngage = distToPlayer <= aiConfig.AttackRange && hasDirectLOS;
 
             if (canEngage)
             {
@@ -1017,9 +1028,13 @@ namespace DeadDepths.AI
                             var player = hit.collider.GetComponentInParent<DeadDepthsPlayerController>();
                             if (player != null)
                             {
-                                player.TakeDamage(aiConfig.ChargerImpactDamage);
-                                StartChargerStun();
-                                return;
+                                if (!player.IsInvulnerable)
+                                {
+                                    player.TakeDamage(aiConfig.ChargerImpactDamage);
+                                    StartChargerStun();
+                                    return;
+                                }
+                                continue;
                             }
 
                             if (hit.distance <= 0.001f)
@@ -1113,9 +1128,27 @@ namespace DeadDepths.AI
         {
             if (CurrentState == newState) return;
             ZombieState prevState = CurrentState;
-            if (prevState == ZombieState.Attack && chargerTelegraph != null)
+            if (prevState == ZombieState.Attack && newState != ZombieState.Attack)
             {
-                chargerTelegraph.HideTelegraph();
+                if (chargerTelegraph != null)
+                {
+                    chargerTelegraph.HideTelegraph();
+                }
+                chargerPhase = ChargerPhase.None;
+                spitterPhase = SpitterPhase.None;
+                spitterAnimTriggered = false;
+                if (agent != null && !IsDead)
+                {
+                    if (!agent.enabled)
+                    {
+                        agent.enabled = true;
+                        if (NavMesh.SamplePosition(transform.position, out NavMeshHit navHit, 8.0f, NavMesh.AllAreas))
+                        {
+                            agent.Warp(navHit.position);
+                        }
+                    }
+                    if (agent.isOnNavMesh) agent.isStopped = false;
+                }
             }
             CurrentState = newState;
             stateTimer = 0f;
@@ -1166,14 +1199,46 @@ namespace DeadDepths.AI
                 kbDir.y = 0f;
                 if (kbDir.sqrMagnitude > 0.001f)
                 {
-                    Vector3 targetPos = transform.position + kbDir.normalized * 0.35f;
+                    Vector3 kbNorm = kbDir.normalized;
+                    float kbDist = 0.35f;
                     if (agent != null && agent.enabled && agent.isOnNavMesh)
                     {
-                        agent.Move(kbDir.normalized * 0.35f);
+                        agent.Move(kbNorm * kbDist);
                     }
                     else
                     {
-                        transform.position = targetPos;
+                        RaycastHit[] kbHits = Physics.SphereCastAll(transform.position + Vector3.up * 0.9f, 0.35f, kbNorm, kbDist, ~0, QueryTriggerInteraction.Ignore);
+                        float allowedDist = kbDist;
+                        if (kbHits != null)
+                        {
+                            Vector3 centerPos = transform.position + Vector3.up * 0.9f;
+                            for (int i = 0; i < kbHits.Length; i++)
+                            {
+                                var c = kbHits[i].collider;
+                                if (c == null) continue;
+                                if (c.transform == transform || c.transform.IsChildOf(transform)) continue;
+                                if (c.gameObject.name == "PlayableGround") continue;
+                                if (c.GetComponentInParent<DeadDepthsPlayerController>() != null) continue;
+                                if (c.GetComponentInParent<ZombieController>() != null) continue;
+
+                                if (kbHits[i].distance <= 0.001f)
+                                {
+                                    Vector3 closest = c.ClosestPoint(centerPos);
+                                    Vector3 toHit = closest - centerPos;
+                                    toHit.y = 0f;
+                                    if (toHit.sqrMagnitude > 0.0001f && Vector3.Dot(toHit.normalized, kbNorm) < 0.2f)
+                                    {
+                                        continue;
+                                    }
+                                    if (toHit.sqrMagnitude <= 0.0001f && Vector3.Dot(kbHits[i].normal, kbNorm) > 0.1f)
+                                    {
+                                        continue;
+                                    }
+                                }
+                                allowedDist = Mathf.Min(allowedDist, Mathf.Max(0f, kbHits[i].distance - 0.05f));
+                            }
+                        }
+                        transform.position += kbNorm * allowedDist;
                     }
                 }
             }
@@ -1211,6 +1276,7 @@ namespace DeadDepths.AI
                 StopCoroutine(hitFlashRoutine);
                 hitFlashRoutine = null;
             }
+            ApplyRendererColor(baseTintColor);
             if (chargerTelegraph != null)
             {
                 chargerTelegraph.HideTelegraph();

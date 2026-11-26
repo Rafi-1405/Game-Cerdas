@@ -12,6 +12,7 @@ namespace DeadDepths.Core
 
         [SerializeField] private Shader bundledParticleShader;
         [SerializeField] private Shader bundledFallbackShader;
+        [SerializeField] private Material particleTransparentTemplate;
 
         private const int PoolSize = 16;
         private ParticleSystem[] burstPool;

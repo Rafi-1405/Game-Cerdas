@@ -41,10 +41,11 @@ namespace DeadDepths.PCG
                         if (!visited[nx, ny])
                         {
                             CellType type = grid[nx, ny];
-                            // Impassable cell types (BlockingObject has solid colliders in NavMesh)
+                            // Impassable cell types (BlockingObject and SuppliesCrate have solid colliders)
                             if (type != CellType.TreeBoundary &&
                                 type != CellType.StructureWall &&
-                                type != CellType.BlockingObject)
+                                type != CellType.BlockingObject &&
+                                type != CellType.SuppliesCrate)
                             {
                                 visited[nx, ny] = true;
                                 queue.Enqueue(new Vector2Int(nx, ny));
@@ -65,7 +66,44 @@ namespace DeadDepths.PCG
             {
                 foreach (var pt in criticalPoints)
                 {
-                    if (pt.x >= 0 && pt.x < width && pt.y >= 0 && pt.y < height)
+                    if (pt.x < 0 || pt.x >= width || pt.y < 0 || pt.y >= height)
+                        continue;
+
+                    CellType ptType = grid[pt.x, pt.y];
+                    if (ptType == CellType.SuppliesCrate)
+                    {
+                        bool hasWalkableNeighbor = false;
+                        for (int i = 0; i < 4; i++)
+                        {
+                            int nx = pt.x + dx[i];
+                            int ny = pt.y + dy[i];
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height && visited[nx, ny])
+                            {
+                                hasWalkableNeighbor = true;
+                                break;
+                            }
+                        }
+                        if (!hasWalkableNeighbor) return false;
+                    }
+                    else if (ptType == CellType.StructureDoorway)
+                    {
+                        if (!visited[pt.x, pt.y]) return false;
+                        bool hasVisitedFloorNeighbor = false;
+                        for (int i = 0; i < 4; i++)
+                        {
+                            int nx = pt.x + dx[i];
+                            int ny = pt.y + dy[i];
+                            if (nx >= 0 && nx < width && ny >= 0 && ny < height &&
+                                visited[nx, ny] &&
+                                grid[nx, ny] == CellType.StructureFloor)
+                            {
+                                hasVisitedFloorNeighbor = true;
+                                break;
+                            }
+                        }
+                        if (!hasVisitedFloorNeighbor) return false;
+                    }
+                    else
                     {
                         if (!visited[pt.x, pt.y]) return false;
                     }

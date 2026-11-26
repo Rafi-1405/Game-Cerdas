@@ -147,6 +147,12 @@ namespace DeadDepths.UI
 
         private void Update()
         {
+            if (GameManager.Instance != null && GameManager.Instance.IsInMainMenu)
+            {
+                if (isDebugVisible) isDebugVisible = false;
+                return;
+            }
+
             if (WasF1Pressed())
             {
                 ToggleDebugMode();
@@ -164,6 +170,11 @@ namespace DeadDepths.UI
 
         public void ToggleDebugMode()
         {
+            if (GameManager.Instance != null && GameManager.Instance.IsInMainMenu)
+            {
+                isDebugVisible = false;
+                return;
+            }
             isDebugVisible = !isDebugVisible;
             if (isDebugVisible)
             {
@@ -174,6 +185,11 @@ namespace DeadDepths.UI
 
         public void SetDebugVisible(bool visible)
         {
+            if (GameManager.Instance != null && GameManager.Instance.IsInMainMenu && visible)
+            {
+                isDebugVisible = false;
+                return;
+            }
             isDebugVisible = visible;
             if (isDebugVisible)
             {

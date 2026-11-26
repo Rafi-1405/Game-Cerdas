@@ -80,7 +80,7 @@ namespace DeadDepths.Editor
             camData.antialiasingQuality = AntialiasingQuality.High;
 
             camGo.AddComponent<IsometricCameraController>();
-            camGo.AddComponent<ObstructionFadeController>();
+            var fadeCtrl = camGo.AddComponent<ObstructionFadeController>();
             camGo.transform.position = new Vector3(0f, 22f, -22f);
             camGo.transform.rotation = Quaternion.Euler(52f, 45f, 0f);
 
@@ -113,6 +113,59 @@ namespace DeadDepths.Editor
             var particleUnlitShaderAsset = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Particles/Standard Unlit");
             var unlitShaderAsset = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default");
 
+            var urpLitTransTemplate = CreateOrUpdateTemplateMaterial(
+                "Assets/Settings/DeadDepths_URPLit_TransparentTemplate.mat",
+                litShaderAsset,
+                mat =>
+                {
+                    if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
+                    if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+                    if (mat.HasProperty("_BlendModePreserveSpecular")) mat.SetFloat("_BlendModePreserveSpecular", 0f);
+                    if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                    if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+                    if (mat.HasProperty("_SrcBlendAlpha")) mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+                    if (mat.HasProperty("_DstBlendAlpha")) mat.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+                    if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+                    if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 0f);
+                    mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                    mat.DisableKeyword("_ALPHATEST_ON");
+                    mat.SetOverrideTag("RenderType", "Transparent");
+                    mat.renderQueue = (int)RenderQueue.Transparent;
+                });
+
+            var urpLitEmissionTemplate = CreateOrUpdateTemplateMaterial(
+                "Assets/Settings/DeadDepths_URPLit_EmissionTemplate.mat",
+                litShaderAsset,
+                mat =>
+                {
+                    mat.EnableKeyword("_EMISSION");
+                    if (mat.HasProperty("_EmissionColor")) mat.SetColor("_EmissionColor", new Color(0.2f, 1.0f, 0.3f) * 1.4f);
+                });
+
+            var particleTransTemplate = CreateOrUpdateTemplateMaterial(
+                "Assets/Settings/DeadDepths_ParticlesUnlit_TransparentTemplate.mat",
+                particleUnlitShaderAsset,
+                mat =>
+                {
+                    if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);
+                    if (mat.HasProperty("_Blend")) mat.SetFloat("_Blend", 0f);
+                    if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                    if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+                    if (mat.HasProperty("_ZWrite")) mat.SetFloat("_ZWrite", 0f);
+                    mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    mat.SetOverrideTag("RenderType", "Transparent");
+                    mat.renderQueue = (int)RenderQueue.Transparent;
+                });
+
+            if (fadeCtrl != null && urpLitTransTemplate != null)
+            {
+                var fadeSo = new SerializedObject(fadeCtrl);
+                var tmplProp = fadeSo.FindProperty("transparentVariantTemplate");
+                if (tmplProp != null) tmplProp.objectReferenceValue = urpLitTransTemplate;
+                fadeSo.ApplyModifiedProperties();
+            }
+
             if (vfxMgr != null)
             {
                 var vfxSo = new SerializedObject(vfxMgr);
@@ -120,6 +173,8 @@ namespace DeadDepths.Editor
                 if (pProp != null) pProp.objectReferenceValue = particleUnlitShaderAsset;
                 var fProp = vfxSo.FindProperty("bundledFallbackShader");
                 if (fProp != null) fProp.objectReferenceValue = unlitShaderAsset;
+                var ptProp = vfxSo.FindProperty("particleTransparentTemplate");
+                if (ptProp != null) ptProp.objectReferenceValue = particleTransTemplate;
                 vfxSo.ApplyModifiedProperties();
             }
 
@@ -133,6 +188,10 @@ namespace DeadDepths.Editor
             if (genPartProp != null) genPartProp.objectReferenceValue = particleUnlitShaderAsset;
             var genUnlitProp = genSo.FindProperty("bundledUnlitShader");
             if (genUnlitProp != null) genUnlitProp.objectReferenceValue = unlitShaderAsset;
+            var genEmissProp = genSo.FindProperty("emissionVariantTemplate");
+            if (genEmissProp != null) genEmissProp.objectReferenceValue = urpLitEmissionTemplate;
+            var genPartTmplProp = genSo.FindProperty("particleTransparentTemplate");
+            if (genPartTmplProp != null) genPartTmplProp.objectReferenceValue = particleTransTemplate;
 
             AssignMaterialProperty(genSo, "groundMaterial", "Assets/YughuesFreeGroundMaterials/Materials/M_YFGM_Ground01.mat");
             AssignMaterialProperty(genSo, "wallMaterial", "Assets/YughuesFreeArchitecturalMaterials/Materials/M_YFAM_BricksWeathered.mat");
@@ -175,6 +234,28 @@ namespace DeadDepths.Editor
             EditorBuildSettings.scenes = newScenes;
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+        }
+
+        private static Material CreateOrUpdateTemplateMaterial(string assetPath, Shader shader, System.Action<Material> configure)
+        {
+            if (shader == null) return null;
+            string dir = Path.GetDirectoryName(assetPath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(assetPath);
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                configure?.Invoke(mat);
+                AssetDatabase.CreateAsset(mat, assetPath);
+            }
+            else
+            {
+                mat.shader = shader;
+                configure?.Invoke(mat);
+                EditorUtility.SetDirty(mat);
+            }
+            return mat;
         }
 
         private static void AssignMaterialProperty(SerializedObject so, string propName, string assetPath)

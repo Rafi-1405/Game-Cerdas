@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using DeadDepths.Audio;
 using DeadDepths.Core;
+using DeadDepths.PCG;
 using DeadDepths.Player;
 using DeadDepths.UI;
 using UTS.Audio;
@@ -243,53 +244,55 @@ namespace DeadDepths.Interactive
             // Grant items to player: immediate heal when injured (preserves Test #6), plus Quick-Belt items
             if (lootContents != null && lootContents.Count > 0)
             {
+                bool playerInjured = playerCtrl != null && playerCtrl.CurrentHealth < playerCtrl.MaxHealth - 0.1f;
                 float totalHeal = 0f;
-                bool hasMedkit = false;
 
                 foreach (var item in lootContents)
                 {
+                    int qty = Mathf.Max(1, item.Quantity);
                     if (notificationMgr != null)
                     {
-                        notificationMgr.PostNotification(item.ItemName, item.Quantity);
+                        notificationMgr.PostNotification(item.ItemName, qty);
                     }
 
                     if (item.IsHealing)
                     {
                         bool isMedkit = item.ItemName.IndexOf("Medkit", StringComparison.OrdinalIgnoreCase) >= 0;
-                        if (isMedkit) hasMedkit = true;
-
-                        float perUnit = isMedkit
-                            ? crateConfig.MedkitHealAmount
-                            : crateConfig.BandageHealAmount;
-                        totalHeal += perUnit * Mathf.Max(1, item.Quantity);
+                        if (playerInjured)
+                        {
+                            float perUnit = isMedkit
+                                ? crateConfig.MedkitHealAmount
+                                : crateConfig.BandageHealAmount;
+                            totalHeal += perUnit * qty;
+                        }
+                        else if (gm != null)
+                        {
+                            gm.AddBeltItem(isMedkit ? BeltItemType.Medkit : BeltItemType.Bandage, qty);
+                        }
                     }
                     else if (gm != null && item.ItemName.IndexOf("Adrenaline", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        gm.AddBeltItem(BeltItemType.Adrenaline, Mathf.Max(1, item.Quantity));
+                        gm.AddBeltItem(BeltItemType.Adrenaline, qty);
                     }
                 }
 
-                if (totalHeal > 0f)
+                if (totalHeal > 0f && playerInjured)
                 {
-                    bool playerInjured = playerCtrl != null && playerCtrl.CurrentHealth < playerCtrl.MaxHealth - 0.1f;
-                    if (playerInjured)
+                    playerCtrl.Heal(totalHeal);
+                    CombatVfxManager.Instance?.PlayHealBurst(playerCtrl.transform.position);
+                    DamagePopupManager.Instance?.ShowHeal(playerCtrl.transform.position + Vector3.up * 1.9f, Mathf.RoundToInt(totalHeal));
+                    if (PlayerPerformanceTracker.Instance != null)
                     {
-                        playerCtrl.Heal(totalHeal);
-                        CombatVfxManager.Instance?.PlayHealBurst(playerCtrl.transform.position);
-                        DamagePopupManager.Instance?.ShowHeal(playerCtrl.transform.position + Vector3.up * 1.9f, Mathf.RoundToInt(totalHeal));
-                        if (PlayerPerformanceTracker.Instance != null)
-                        {
-                            PlayerPerformanceTracker.Instance.RecordResourceConsumed(1f);
-                        }
-                        // Also grant a spare belt bandage/adrenaline so players feel rewarded
-                        if (gm != null)
-                        {
-                            gm.AddBeltItem(BeltItemType.Bandage, 1);
-                        }
+                        PlayerPerformanceTracker.Instance.RecordResourceConsumed(1f);
                     }
-                    else if (gm != null)
+                    // Also grant a spare belt bandage so injured players still receive a belt item
+                    if (gm != null)
                     {
-                        gm.AddBeltItem(hasMedkit ? BeltItemType.Medkit : BeltItemType.Bandage, 1);
+                        gm.AddBeltItem(BeltItemType.Bandage, 1);
+                        if (notificationMgr != null)
+                        {
+                            notificationMgr.PostNotification("Bandage", 1);
+                        }
                     }
                 }
 
@@ -342,12 +345,30 @@ namespace DeadDepths.Interactive
 
             GameObject popup = Instantiate(prefab, transform.position + Vector3.up * 0.85f, Quaternion.identity);
             popup.name = "CrateLootPopup";
-            foreach (var c in popup.GetComponentsInChildren<Collider>())
+            if (WorldGenerator.Instance != null && WorldGenerator.Instance.WorldRoot != null)
+            {
+                popup.transform.SetParent(WorldGenerator.Instance.WorldRoot, true);
+            }
+            foreach (var pickup in popup.GetComponentsInChildren<UTS.Inventory.ScavengeItemPickup>(true))
+            {
+                DestroyImmediate(pickup);
+            }
+            foreach (var c in popup.GetComponentsInChildren<Collider>(true))
             {
                 Destroy(c);
             }
             lootPopupTransform = popup.transform;
             lootPopupTimer = 0f;
+        }
+
+        private void OnDestroy()
+        {
+            if (lootPopupTransform != null)
+            {
+                if (Application.isPlaying) Destroy(lootPopupTransform.gameObject);
+                else DestroyImmediate(lootPopupTransform.gameObject);
+                lootPopupTransform = null;
+            }
         }
     }
 }

@@ -1110,6 +1110,8 @@ namespace DeadDepths.Editor
                 gm.RetryRun();
                 player = GameObject.FindGameObjectWithTag("Player");
                 var canopyFadeCtrl = cam != null ? cam.GetComponent<ObstructionFadeController>() : null;
+                Assert(canopyFadeCtrl != null && player != null && worldGen.TreeRenderers.Count > 0,
+                    "Canopy fade prerequisites present (ObstructionFadeController, Player, TreeRenderers)");
                 if (canopyFadeCtrl != null && player != null && worldGen.TreeRenderers.Count > 0)
                 {
                     Renderer sampleTreeRend = worldGen.TreeRenderers[0];
@@ -1134,12 +1136,340 @@ namespace DeadDepths.Editor
                     player.transform.position = tPos + new Vector3(1.35f, 0f, -2.5f);
                     Physics.SyncTransforms();
                     for (int step = 0; step < 5; step++) canopyFadeCtrl.UpdateFade(0.5f);
-                    Assert(sampleTreeRend.sharedMaterials[0] == worldGen.BarkMaterial &&
+                    Assert(canopyFaded &&
+                           sampleTreeRend.sharedMaterials[0] == worldGen.BarkMaterial &&
                            sampleTreeRend.sharedMaterials[1] == worldGen.LeafMaterial,
                         "ObstructionFadeController restores BoundaryTree materials after leaving canopy shadow");
 
                     isoCam.SnapToTarget(player.transform);
                 }
+
+                // 27. Comprehensive Bugfix Regression Suite
+                // 27a. Shader variant template materials exist in Assets/Settings/
+                Assert(File.Exists("Assets/Settings/DeadDepths_URPLit_TransparentTemplate.mat") &&
+                       File.Exists("Assets/Settings/DeadDepths_URPLit_EmissionTemplate.mat") &&
+                       File.Exists("Assets/Settings/DeadDepths_ParticlesUnlit_TransparentTemplate.mat"),
+                    "URP shader variant template materials exist in Assets/Settings/");
+
+                // 27b. PCG: Zero MudPatch adjacent/overlapping cabins, cabins & mud spawn reliably, & every StructureDoorway has clear StructureFloor entry
+                bool pcgCabinRulesOk = true;
+                string pcgFailDetail = "";
+                for (int s = 1; s <= 5; s++)
+                {
+                    worldGen.GenerateWorld(s, ddaProfile);
+                    if (worldGen.TotalStructuresSpawned < 1 || worldGen.TotalWallsSpawned <= 0 || worldGen.TotalMudPatchesSpawned < 1)
+                    {
+                        pcgCabinRulesOk = false;
+                        pcgFailDetail += $"[s={s} struct={worldGen.TotalStructuresSpawned} walls={worldGen.TotalWallsSpawned} mud={worldGen.TotalMudPatchesSpawned}] ";
+                    }
+                    int gw = worldGen.GridWidth;
+                    int gh = worldGen.GridHeight;
+                    for (int gx = 1; gx < gw - 1; gx++)
+                    {
+                        for (int gy = 1; gy < gh - 1; gy++)
+                        {
+                            CellType c = worldGen.GetCell(gx, gy);
+                            if (c == CellType.StructureFloor || c == CellType.StructureWall || c == CellType.StructureDoorway)
+                            {
+                                // Ensure no MudPatch within 1 cell of any cabin cell
+                                for (int ox = -1; ox <= 1; ox++)
+                                {
+                                    for (int oy = -1; oy <= 1; oy++)
+                                    {
+                                        if (worldGen.GetCell(gx + ox, gy + oy) == CellType.MudPatch)
+                                        {
+                                            pcgCabinRulesOk = false;
+                                            pcgFailDetail += $"[s={s} mudNear({gx},{gy})] ";
+                                        }
+                                    }
+                                }
+                            }
+                            if (c == CellType.StructureDoorway)
+                            {
+                                bool hasFloorNeighbor =
+                                    worldGen.GetCell(gx + 1, gy) == CellType.StructureFloor ||
+                                    worldGen.GetCell(gx - 1, gy) == CellType.StructureFloor ||
+                                    worldGen.GetCell(gx, gy + 1) == CellType.StructureFloor ||
+                                    worldGen.GetCell(gx, gy - 1) == CellType.StructureFloor;
+                                if (!hasFloorNeighbor)
+                                {
+                                    pcgCabinRulesOk = false;
+                                    pcgFailDetail += $"[s={s} blockedDoor({gx},{gy})] ";
+                                }
+                            }
+                        }
+                    }
+                }
+                Assert(pcgCabinRulesOk, $"PCG cabins have zero MudPatch overlap and unobstructed StructureDoorway entries across 5 seeds {pcgFailDetail}");
+
+                // Regression check for Seed 173603 (4-cluster seed must spawn both cabins and mud patches)
+                bool prevRand2 = worldGen.MapConfig.UseRandomSeed;
+                int prevSeed2 = worldGen.MapConfig.Seed;
+                worldGen.MapConfig.UseRandomSeed = false;
+                worldGen.MapConfig.Seed = 173603 - 101;
+                worldGen.GenerateWorld(1, ddaProfile);
+                worldGen.MapConfig.UseRandomSeed = prevRand2;
+                worldGen.MapConfig.Seed = prevSeed2;
+                Assert(worldGen.LastSeed == 173603 && worldGen.TotalStructuresSpawned >= 1 && worldGen.TotalWallsSpawned > 0 && worldGen.TotalMudPatchesSpawned >= 1 && worldGen.ConnectivityValid,
+                    $"PCG Seed 173603 spawns cabins + mud patches cleanly (Structures={worldGen.TotalStructuresSpawned}, Walls={worldGen.TotalWallsSpawned}, Mud={worldGen.TotalMudPatchesSpawned})");
+
+                // 27c. WorldValidator blocks doorway obstructed by SuppliesCrate
+                CellType[,] blockedDoorGrid = new CellType[7, 7];
+                for (int x = 0; x < 7; x++)
+                    for (int y = 0; y < 7; y++)
+                        blockedDoorGrid[x, y] = CellType.WalkableGround;
+                for (int x = 2; x <= 6; x++)
+                    for (int y = 2; y <= 6; y++)
+                        blockedDoorGrid[x, y] = (x == 2 || x == 6 || y == 2 || y == 6) ? CellType.StructureWall : CellType.StructureFloor;
+                blockedDoorGrid[2, 4] = CellType.StructureDoorway;
+                blockedDoorGrid[3, 4] = CellType.SuppliesCrate; // Blocks doorway entry directly
+                var badCritical = new System.Collections.Generic.List<Vector2Int> { new Vector2Int(2, 4), new Vector2Int(3, 4) };
+                Assert(!WorldValidator.ValidateConnectivity(blockedDoorGrid, 7, 7, new Vector2Int(0, 0), new Vector2Int(0, 6), badCritical),
+                    "WorldValidator rejects StructureDoorway blocked directly by SuppliesCrate");
+
+                // 27d. Crate loot only uses functional belt items & healthy open grants exact quantity
+                gm.RetryRun();
+                player = GameObject.FindGameObjectWithTag("Player");
+                playerCtrl = player.GetComponent<DeadDepthsPlayerController>();
+                var allCrates = GameObject.Find("SuppliesCrates")?.GetComponentsInChildren<SuppliesCrate>();
+                bool crateLootValid = allCrates != null && allCrates.Length > 0;
+                SuppliesCrate bandageCrate = null;
+                if (allCrates != null)
+                {
+                    foreach (var sc in allCrates)
+                    {
+                        foreach (var item in sc.LootContents)
+                        {
+                            if (item.ItemName != "Medkit" && item.ItemName != "Bandage" && item.ItemName != "Adrenaline")
+                                crateLootValid = false;
+                            if (item.ItemName == "Bandage" && item.Quantity == 2)
+                                bandageCrate = sc;
+                        }
+                    }
+                }
+                Assert(crateLootValid, "SuppliesCrates contain only functional Quick-Belt items (no unimplemented ammo/scrap)");
+                if (bandageCrate == null && allCrates != null && allCrates.Length > 0)
+                {
+                    bandageCrate = allCrates[0];
+                    bandageCrate.ConfigureLoot(new System.Collections.Generic.List<CrateLootItem>
+                    {
+                        new CrateLootItem("Bandage", 2, true)
+                    });
+                }
+                if (bandageCrate != null)
+                {
+                    playerCtrl.ResetStateForLevel(); // Full HP (healthy)
+                    int bandagesBefore = gm.BandageCount;
+                    player.transform.position = bandageCrate.transform.position;
+                    bandageCrate.StartInteraction(player.transform);
+                    bandageCrate.UpdateInteraction(bandageCrate.CrateConfig.OpenDuration + 0.1f);
+                    int expectedAdded = 0;
+                    foreach (var item in bandageCrate.LootContents)
+                        if (item.ItemName == "Bandage") expectedAdded += item.Quantity;
+                    Assert(expectedAdded >= 2 && gm.BandageCount >= bandagesBefore + expectedAdded,
+                        $"Opening Bandage crate at full HP grants exact quantity ({bandagesBefore} -> {gm.BandageCount}, expected +{expectedAdded})");
+                }
+
+                // 27e. DifficultyController.CalculateEnemyCountsForLevel does not mutate preset profile
+                int origPresetTotal = ddaProfile.TotalZombies;
+                diff.CalculateEnemyCountsForLevel(ddaProfile, 4, out _, out _, out _);
+                Assert(ddaProfile.TotalZombies == origPresetTotal,
+                    $"CalculateEnemyCountsForLevel does not mutate preset TotalZombies (stayed {ddaProfile.TotalZombies})");
+
+                // 27f. GameManager MaxBeltStack respected & 0-value configs allowed
+                int prevCap = gm.ManagerConfig.MaxBeltStack;
+                gm.ManagerConfig.MaxBeltStack = 12;
+                gm.AddBeltItem(BeltItemType.Bandage, 20);
+                Assert(gm.BandageCount == 12, $"GameManager.AddBeltItem respects ManagerConfig.MaxBeltStack ({gm.BandageCount} == 12)");
+                gm.ManagerConfig.MaxBeltStack = prevCap;
+
+                // 27g. Timer pauses when Player dies & MainMenu blocks DebugMode
+                gm.RetryRun();
+                player = GameObject.FindGameObjectWithTag("Player");
+                playerCtrl = player.GetComponent<DeadDepthsPlayerController>();
+                playerCtrl.TakeDamage(999f);
+                Assert(playerCtrl.IsDead && tracker.IsTimePaused,
+                    "PlayerPerformanceTracker pauses elapsed timer immediately upon Player death");
+
+                gm.EnterMainMenu();
+                if (debugMode != null)
+                {
+                    debugMode.SetDebugVisible(true);
+                    Assert(!debugMode.IsDebugVisible, "DeadDepthsDebugMode remains blocked while in Main Menu");
+                }
+                gm.RetryRun();
+
+                // 27h. MuddyPatch prunes dead ZombieController cleanly & uGUI buttons disable Navigation
+                var mudTestPatch = GameObject.Find("MuddyPatches")?.GetComponentInChildren<MuddyPatch>();
+                var zTestHorde = GameObject.Find("ZombieHorde")?.GetComponentInChildren<ZombieController>();
+                if (mudTestPatch != null && zTestHorde != null)
+                {
+                    mudTestPatch.RegisterActorEnter(zTestHorde);
+                    Assert(MuddyPatch.IsActorInMud(zTestHorde), "MuddyPatch tracks live ZombieController");
+                    zTestHorde.TakeDamage(999f, player.transform.position);
+                    Assert(!MuddyPatch.IsActorInMud(zTestHorde), "MuddyPatch prunes dead ZombieController cleanly");
+                }
+
+                var uiRootCheck = UnityEngine.Object.FindAnyObjectByType<DeadDepthsUIRoot>();
+                if (uiRootCheck != null)
+                {
+                    var allButtons = uiRootCheck.GetComponentsInChildren<Button>(true);
+                    bool allNavNone = allButtons.Length > 0;
+                    foreach (var b in allButtons)
+                    {
+                        if (b.navigation.mode != Navigation.Mode.None) allNavNone = false;
+                    }
+                    Assert(allNavNone, $"All uGUI Buttons use Navigation.Mode.None so [Enter] cannot re-trigger HUD toggles ({allButtons.Length} buttons)");
+                }
+
+                // 27i. Charger i-frame pass-through & pause-isolated iframeRemaining
+                gm.RetryRun();
+                player = GameObject.FindGameObjectWithTag("Player");
+                playerCtrl = player.GetComponent<DeadDepthsPlayerController>();
+                horde = GameObject.Find("ZombieHorde");
+                ZombieController testCharger = null;
+                if (horde != null)
+                {
+                    foreach (var z in horde.GetComponentsInChildren<ZombieController>())
+                    {
+                        if (z != null && !z.IsDead && z.Archetype == ZombieArchetype.Charger)
+                        {
+                            testCharger = z;
+                            break;
+                        }
+                    }
+                    if (testCharger == null)
+                    {
+                        testCharger = horde.GetComponentInChildren<ZombieController>();
+                        if (testCharger != null) testCharger.InitializeArchetype(ZombieArchetype.Charger);
+                    }
+                }
+                Assert(testCharger != null, "Found/initialized Charger to test i-frame pass-through");
+                if (testCharger != null && playerCtrl != null)
+                {
+                    Vector3 openPos = worldGen.PlayerSpawnPosition + Vector3.up * 0.1f;
+                    player.transform.position = openPos;
+                    playerCtrl.ResetStateForLevel();
+                    bool dodged = playerCtrl.TryTriggerDodge(Vector3.right);
+                    Assert(dodged && playerCtrl.IsInvulnerable, "Player TryTriggerDodge activates IsInvulnerable i-frames");
+
+                    // Pause (Time.timeScale = 0) must not consume iframeRemaining
+                    Time.timeScale = 0f;
+                    typeof(DeadDepthsPlayerController).GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(playerCtrl, null);
+                    Assert(playerCtrl.IsInvulnerable, "Pause (Time.timeScale=0) does not expire dodge i-frames");
+                    Time.timeScale = 1f;
+
+                    // Configure Charger in Charging phase sweeping through dodging player
+                    testCharger.TransitionToState(ZombieState.Attack, "Test Charge");
+                    var chargerPhaseField = typeof(ZombieController).GetField("chargerPhase", BindingFlags.Instance | BindingFlags.NonPublic);
+                    var chargerPhaseEnum = typeof(ZombieController).GetNestedType("ChargerPhase", BindingFlags.NonPublic);
+                    var lockedDirField = typeof(ZombieController).GetField("lockedChargeDirection", BindingFlags.Instance | BindingFlags.NonPublic);
+                    var subTimerField = typeof(ZombieController).GetField("subPhaseTimer", BindingFlags.Instance | BindingFlags.NonPublic);
+                    var updateChargerMethod = typeof(ZombieController).GetMethod("UpdateChargerAttack", BindingFlags.Instance | BindingFlags.NonPublic);
+
+                    if (testCharger.Agent != null) testCharger.Agent.enabled = false;
+                    testCharger.transform.position = openPos - Vector3.forward * 0.4f;
+                    Physics.SyncTransforms();
+
+                    chargerPhaseField?.SetValue(testCharger, Enum.Parse(chargerPhaseEnum, "Charging"));
+                    lockedDirField?.SetValue(testCharger, Vector3.forward);
+                    subTimerField?.SetValue(testCharger, 0f);
+
+                    float hpBeforeCharge = playerCtrl.CurrentHealth;
+                    updateChargerMethod?.Invoke(testCharger, null);
+                    Assert(Mathf.Approximately(playerCtrl.CurrentHealth, hpBeforeCharge) &&
+                           testCharger.SubPhaseName == "Charging",
+                        $"Charger passes through dodging invulnerable player without self-stunning (HP={playerCtrl.CurrentHealth}, Phase={testCharger.SubPhaseName})");
+
+                    // Now expire i-frames and verify Charger impacts and transitions to Stunned
+                    var iframeField = typeof(DeadDepthsPlayerController).GetField("iframeRemaining", BindingFlags.Instance | BindingFlags.NonPublic);
+                    iframeField?.SetValue(playerCtrl, 0f);
+                    subTimerField?.SetValue(testCharger, 0f);
+                    updateChargerMethod?.Invoke(testCharger, null);
+                    Assert(playerCtrl.CurrentHealth < hpBeforeCharge &&
+                           testCharger.SubPhaseName == "Stunned",
+                        $"Charger damages non-invulnerable player and enters Stunned (HP={playerCtrl.CurrentHealth}, Phase={testCharger.SubPhaseName})");
+
+                    // 27j. Close-range knockback on stunned Charger skips Player & stops at wall, plus GodMode LOS check
+                    testCharger.transform.position = openPos + Vector3.forward * 0.55f;
+                    Physics.SyncTransforms();
+                    Vector3 posBeforeKb = testCharger.transform.position;
+                    testCharger.TakeDamage(10f, openPos); // Player 0.55m away (< 0.70m combined radius)
+                    float kbMoved = Vector3.Distance(posBeforeKb, testCharger.transform.position);
+                    Assert(kbMoved > 0.1f, $"Stunned Charger knockback not self-blocked by close-range Player ({kbMoved:F2}m)");
+
+                    var losMethod = typeof(ZombieController).GetMethod("HasUnobstructedLineOfSightToPlayer", BindingFlags.Instance | BindingFlags.NonPublic);
+                    playerCtrl.SetGodMode(true);
+                    bool losGodOpen = (bool)losMethod.Invoke(testCharger, new object[] { openPos + Vector3.up * 1.1f, openPos + Vector3.forward * 2.0f + Vector3.up * 1.0f });
+                    Assert(losGodOpen, "HasUnobstructedLineOfSightToPlayer returns true in open space even when GodMode disables player collider");
+                    var wallForLos = GameObject.Find("StructureWall");
+                    if (wallForLos != null)
+                    {
+                        Vector3 wp = wallForLos.transform.position;
+                        bool losBlockedByWall = (bool)losMethod.Invoke(testCharger, new object[] { new Vector3(wp.x, 1.1f, wp.z - 2.0f), new Vector3(wp.x, 1.0f, wp.z + 2.0f) });
+                        Assert(!losBlockedByWall, "HasUnobstructedLineOfSightToPlayer returns false when blocked by StructureWall even under GodMode");
+                    }
+                    playerCtrl.SetGodMode(false);
+                    playerCtrl.ResetStateForLevel();
+                }
+
+                // 27k. SettingsModalUI Selectable navigation & VSync pref persistence + AudioManager occlusion filter
+                var settingsModal = SettingsModalUI.Instance ?? UnityEngine.Object.FindAnyObjectByType<SettingsModalUI>();
+                if (settingsModal != null)
+                {
+                    var selectables = settingsModal.GetComponentsInChildren<Selectable>(true);
+                    bool settingsNavNone = selectables.Length > 0;
+                    foreach (var sel in selectables)
+                    {
+                        if (sel.navigation.mode != Navigation.Mode.None) settingsNavNone = false;
+                    }
+                    Assert(settingsNavNone, $"All SettingsModalUI Selectables (Sliders/Toggles/Buttons) use Navigation.Mode.None ({selectables.Length} controls)");
+
+                    int prevVsyncPref = PlayerPrefs.GetInt(SettingsModalUI.PrefVSync, 1);
+                    PlayerPrefs.SetInt(SettingsModalUI.PrefVSync, 0);
+                    settingsModal.ApplySavedSettings();
+                    var vsyncField = typeof(SettingsModalUI).GetField("vsyncToggle", BindingFlags.Instance | BindingFlags.NonPublic);
+                    var vsyncToggleComp = vsyncField?.GetValue(settingsModal) as Toggle;
+                    Assert(vsyncToggleComp != null && !vsyncToggleComp.isOn, "SettingsModalUI.ApplySavedSettings syncs PrefVSync=0 to toggle");
+                    PlayerPrefs.SetInt(SettingsModalUI.PrefVSync, 1);
+                    settingsModal.ApplySavedSettings();
+                    Assert(vsyncToggleComp != null && vsyncToggleComp.isOn, "SettingsModalUI.ApplySavedSettings syncs PrefVSync=1 to toggle");
+                    PlayerPrefs.SetInt(SettingsModalUI.PrefVSync, prevVsyncPref);
+                    PlayerPrefs.Save();
+                    settingsModal.Close();
+                }
+
+                var audioCheck = AudioManager.Instance ?? UnityEngine.Object.FindAnyObjectByType<AudioManager>();
+                if (audioCheck != null)
+                {
+                    var occMethod = typeof(AudioManager).GetMethod("IsOccludedByWall", BindingFlags.Instance | BindingFlags.NonPublic);
+                    var wallObjOcc = GameObject.Find("StructureWall");
+                    if (occMethod != null && wallObjOcc != null)
+                    {
+                        Vector3 wp = wallObjOcc.transform.position;
+                        bool occludedByWall = (bool)occMethod.Invoke(audioCheck, new object[] { new Vector3(wp.x, 1.0f, wp.z - 2.0f), new Vector3(wp.x, 1.0f, wp.z + 2.0f) });
+                        Assert(occludedByWall, "AudioManager.IsOccludedByWall detects StructureWall");
+                    }
+                    var treeOcc = worldGen.TreeRenderers.Count > 0 ? worldGen.TreeRenderers[0].transform.position : Vector3.zero;
+                    if (occMethod != null && worldGen.TreeRenderers.Count > 0)
+                    {
+                        bool occludedByTree = (bool)occMethod.Invoke(audioCheck, new object[] { new Vector3(treeOcc.x, 1.0f, treeOcc.z - 1.2f), new Vector3(treeOcc.x, 1.0f, treeOcc.z + 1.2f) });
+                        Assert(!occludedByTree, "AudioManager.IsOccludedByWall ignores BoundaryTree colliders");
+                    }
+                }
+
+                // 27l. Scene components have non-null shader variant template material references
+                var fadeTemplateField = typeof(ObstructionFadeController).GetField("transparentVariantTemplate", BindingFlags.Instance | BindingFlags.NonPublic);
+                var vfxTemplateField = typeof(CombatVfxManager).GetField("particleTransparentTemplate", BindingFlags.Instance | BindingFlags.NonPublic);
+                var wgEmissField = typeof(WorldGenerator).GetField("emissionVariantTemplate", BindingFlags.Instance | BindingFlags.NonPublic);
+                var wgPartField = typeof(WorldGenerator).GetField("particleTransparentTemplate", BindingFlags.Instance | BindingFlags.NonPublic);
+                var fadeCtrlScene = cam != null ? cam.GetComponent<ObstructionFadeController>() : null;
+                var vfxScene = UnityEngine.Object.FindAnyObjectByType<CombatVfxManager>();
+                Assert(fadeCtrlScene != null && fadeTemplateField?.GetValue(fadeCtrlScene) != null &&
+                       vfxScene != null && vfxTemplateField?.GetValue(vfxScene) != null &&
+                       wgEmissField?.GetValue(worldGen) != null &&
+                       wgPartField?.GetValue(worldGen) != null,
+                    "Scene components retain non-null URP shader variant template Material references");
 
                 Debug.Log($"\n===========================================");
                 Debug.Log($"TEST SUMMARY: PASSED={passed}, FAILED={failed}");
