@@ -148,10 +148,6 @@ namespace DeadDepths.UI
                 new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(72f, y), new Vector2(360f, 48f),
                 new Color(0.28f, 0.12f, 0.14f, 0.96f), new Color(0.46f, 0.18f, 0.22f, 1f), QuitApp);
 
-            uiRoot.CreateText(rootRt, "VersionFooter", "UNITY 6 URP  |  PROJECT ZOMBOID COMBAT STANCE  |  5-METRIC DDA", 13f, FontStyles.Normal,
-                new Color(0.45f, 0.52f, 0.60f), TextAlignmentOptions.Left,
-                new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(72f, 34f), new Vector2(560f, 24f));
-
             // Collapsible Field Manual overlay on right side
             var manCard = uiRoot.CreatePanel(rootRt, "FieldManualCard",
                 new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-72f, 0f), new Vector2(560f, 520f),
